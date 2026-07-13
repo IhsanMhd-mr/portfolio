@@ -1,0 +1,109 @@
+"use client";
+
+import AdminSidebar from "@/components/admin/AdminSidebar";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Eye, ExternalLink, Globe } from "lucide-react";
+
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const pathname = usePathname();
+
+  // Simple breadcrumb generator
+  const pathParts = pathname.split("/").filter(Boolean);
+  const breadcrumbs = pathParts.map((part, index) => {
+    const href = "/" + pathParts.slice(0, index + 1).join("/");
+    const label = part.charAt(0).toUpperCase() + part.slice(1);
+    return { label, href };
+  });
+
+  return (
+    <div
+      data-admin="true"
+      className="min-h-screen flex transition-colors duration-300"
+      style={{
+        backgroundColor: "var(--a-bg)",
+        fontFamily: "var(--a-font-body)",
+      }}
+    >
+      {/* 1. Left Sidebar Navigation */}
+      <AdminSidebar />
+
+      {/* 2. Right Workbench Content Shell */}
+      <div className="flex-1 flex flex-col pl-[248px]">
+        {/* Top bar (60px height) */}
+        <header
+          className="h-[60px] border-b border-solid border-[var(--a-line)] bg-[var(--a-surface)] px-8 flex items-center justify-between fixed top-0 right-0 z-[190]"
+          style={{ width: "calc(100% - 248px)" }}
+        >
+          {/* Breadcrumbs */}
+          <div className="flex items-center gap-2 text-sm">
+            <Link
+              href="/admin"
+              className="text-[var(--a-soft)] hover:text-[var(--a-ink)] transition-colors"
+            >
+              Admin
+            </Link>
+            {breadcrumbs.slice(1).map((crumb) => (
+              <span key={crumb.href} className="flex items-center gap-2">
+                <span className="text-[var(--a-faint)]">/</span>
+                <Link
+                  href={crumb.href}
+                  className="font-medium text-[var(--a-ink)] hover:text-[var(--a-primary)] transition-colors"
+                >
+                  {crumb.label}
+                </Link>
+              </span>
+            ))}
+          </div>
+
+          {/* Right Area Actions */}
+          <div className="flex items-center gap-4">
+            {/* Draft status chip */}
+            <div className="flex items-center gap-2 text-xs text-[var(--a-soft)]">
+              <span className="h-2.5 w-2.5 rounded-full bg-amber-500 animate-pulse" />
+              <span>Draft changes saved</span>
+            </div>
+
+            {/* Actions list */}
+            <div className="flex items-center gap-2">
+              <Link
+                href="/admin/preview"
+                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-[var(--a-soft)] hover:text-[var(--a-ink)] hover:border-[var(--a-ink)] transition-colors bg-[var(--a-surface)]"
+              >
+                <Eye size={14} />
+                Preview Draft
+              </Link>
+              <Link
+                href="/"
+                target="_blank"
+                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-[var(--a-soft)] hover:text-[var(--a-ink)] hover:border-[var(--a-ink)] transition-colors bg-[var(--a-surface)]"
+              >
+                <ExternalLink size={14} />
+                View Live Site
+              </Link>
+              <button
+                className="flex items-center gap-1.5 text-xs font-semibold px-4 py-1.5 bg-[var(--a-primary)] hover:bg-[var(--a-primary-hover)] text-white rounded-[var(--a-r-sm)] transition-colors border-none"
+              >
+                Publish...
+              </button>
+            </div>
+
+            {/* Profile Avatar indicator */}
+            <div
+              className="h-8 w-8 rounded-full bg-slate-200 border border-solid border-[var(--a-line)] flex items-center justify-center text-xs font-bold text-[var(--a-soft)]"
+            >
+              JD
+            </div>
+          </div>
+        </header>
+
+        {/* Inner Content Area */}
+        <main className="flex-1 p-8 pt-[88px]">{children}</main>
+      </div>
+    </div>
+  );
+}

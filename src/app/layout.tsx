@@ -1,0 +1,130 @@
+import type { Metadata } from "next";
+import {
+  Newsreader,
+  Figtree,
+  IBM_Plex_Mono,
+  Space_Grotesk,
+  DM_Sans,
+  JetBrains_Mono,
+  Syne,
+  Manrope,
+  Space_Mono,
+} from "next/font/google";
+import "./globals.css";
+
+/* ==========================================================================
+   Google Font Loaders
+   See: frontend_design_spec.md §1.8
+   Only the active template's fonts are actually rendered (CSS variable swap),
+   but we load all upfront for instant template switching in the admin.
+   ========================================================================== */
+
+// --- Template 1: Professional Minimal ---
+const newsreader = Newsreader({
+  variable: "--font-newsreader",
+  subsets: ["latin"],
+  display: "swap",
+  weight: ["400", "500"],
+  style: ["normal", "italic"],
+});
+
+const figtree = Figtree({
+  variable: "--font-figtree",
+  subsets: ["latin"],
+  display: "swap",
+  weight: ["400", "500", "600"],
+});
+
+const ibmPlexMono = IBM_Plex_Mono({
+  variable: "--font-ibm-plex-mono",
+  subsets: ["latin"],
+  display: "swap",
+  weight: ["400", "500"],
+});
+
+// --- Template 2: Modern Glass ---
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
+  subsets: ["latin"],
+  display: "swap",
+  weight: ["500", "700"],
+});
+
+const dmSans = DM_Sans({
+  variable: "--font-dm-sans",
+  subsets: ["latin"],
+  display: "swap",
+  weight: ["400", "500", "700"],
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
+  subsets: ["latin"],
+  display: "swap",
+  weight: ["400", "600"],
+});
+
+// --- Template 3: Interactive 3D ---
+const syne = Syne({
+  variable: "--font-syne",
+  subsets: ["latin"],
+  display: "swap",
+  weight: ["700", "800"],
+});
+
+const manrope = Manrope({
+  variable: "--font-manrope",
+  subsets: ["latin"],
+  display: "swap",
+  weight: ["400", "500", "700"],
+});
+
+const spaceMono = Space_Mono({
+  variable: "--font-space-mono",
+  subsets: ["latin"],
+  display: "swap",
+  weight: ["400", "700"],
+});
+
+/* Combine all font CSS variable classes */
+const fontVariables = [
+  newsreader.variable,
+  figtree.variable,
+  ibmPlexMono.variable,
+  spaceGrotesk.variable,
+  dmSans.variable,
+  jetbrainsMono.variable,
+  syne.variable,
+  manrope.variable,
+  spaceMono.variable,
+].join(" ");
+
+/* ==========================================================================
+   Metadata
+   ========================================================================== */
+
+export const metadata: Metadata = {
+  title: "Developer Portfolio",
+  description:
+    "Full-stack developer portfolio with admin CMS, visual page builder, and three selectable templates.",
+};
+
+/* ==========================================================================
+   Root Layout
+   ========================================================================== */
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html
+      lang="en"
+      data-template="glass"
+      className={`${fontVariables} h-full antialiased`}
+    >
+      <body className="min-h-full flex flex-col">{children}</body>
+    </html>
+  );
+}

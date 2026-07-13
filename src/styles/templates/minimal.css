@@ -1,0 +1,67 @@
+/* ==========================================================================
+   Template 1 — Professional Minimal
+   Scoped under [data-template="minimal"]
+   See: frontend_design_spec.md §2
+   ========================================================================== */
+
+[data-template="minimal"] {
+  /* --- Palette --- */
+  --bg:            #FAFAF6;  /* warm paper */
+  --bg-raised:     #FFFFFF;  /* cards */
+  --bg-inset:      #F1F1EA;  /* code blocks, inset wells */
+  --ink:           #1B1F23;  /* primary text */
+  --ink-soft:      #4A5158;  /* secondary text */
+  --ink-faint:     #8A9199;  /* meta text */
+  --line:          #E3E3DA;  /* hairline borders */
+  --accent:        #0E6B5A;  /* deep viridian */
+  --accent-hover:  #0A5647;
+  --accent-tint:   #E3F0EC;  /* accent backgrounds */
+  --warn:          #B4540A;
+  --danger:        #B3261E;
+  --success:       #0E6B5A;
+
+  /* --- Font family aliases --- */
+  --font-display:  var(--font-newsreader);
+  --font-body:     var(--font-figtree);
+  --font-mono:     var(--font-ibm-plex-mono);
+
+  /* --- Radii (crisper for minimal) --- */
+  --r-xs:    6px;
+  --r-sm:    10px;
+  --r-md:    12px;   /* override: cards are 12px, not 16px */
+  --r-lg:    24px;
+  --r-full:  9999px;
+
+  /* --- Section gap --- */
+  --section-gap: 80px;
+
+  /* --- Elevation --- */
+  --shadow-card:       0 1px 2px rgb(27 31 35 / 0.04);
+  --shadow-card-hover: 0 8px 24px rgb(27 31 35 / 0.08);
+
+  /* --- Motion --- */
+  --ease-default: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-default: 450ms;
+  --stagger-default: 60ms;
+}
+
+/* Dark mode variant */
+[data-template="minimal"].dark,
+[data-template="minimal"] [data-theme="dark"] {
+  --bg:         #14171A;
+  --bg-raised:  #1C2126;
+  --bg-inset:   #1C2126;
+  --ink:        #ECEDE8;
+  --ink-soft:   #9AA6BD;
+  --ink-faint:  #5E6A82;
+  --line:       #2A3036;
+  --accent:     #2FA48D;
+  --accent-hover: #0E6B5A;
+  --accent-tint: rgba(47, 164, 141, 0.15);
+}
+
+@media (min-width: 1024px) {
+  [data-template="minimal"] {
+    --section-gap: 120px;
+  }
+}
