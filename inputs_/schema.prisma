@@ -1,0 +1,705 @@
+// ============================================================================
+//  PORTFOLIO CMS — Prisma Schema
+//  PostgreSQL · Next.js App Router
+//  Covers: User, Project, Technology, ProjectTechnology, Page, PageSection,
+//          PageVersion, Template, TimelineEntry, Education, Experience,
+//          MediaAsset, ContactMessage, GameSettings, AuditLog
+//
+//  Design principles baked in:
+//   - Draft vs. published is explicit; public site reads only published data.
+//   - Soft-delete (deletedAt) everywhere content can be "archived + restored".
+//   - Media is a reusable asset referenced by other models (never duplicated).
+//   - Page layout/order/animation is DATA (PageSection), snapshotted per publish.
+//   - Every important mutation is recorded in AuditLog.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+//  ENUMS
+// ============================================================================
+
+enum Role {
+  OWNER // full control, cannot be deleted
+  ADMIN // authorized administrator
+}
+
+enum AuthProvider {
+  CREDENTIALS
+  GITHUB
+  GOOGLE
+}
+
+enum PublishState {
+  DRAFT
+  PUBLISHED
+}
+
+enum ProjectStatus {
+  COMPLETED
+  IN_PROGRESS
+  PLANNED
+}
+
+enum ProjectCategory {
+  WEB
+  FULL_STACK
+  MACHINE_LEARNING
+  JAVA
+  ACADEMIC
+  OTHER
+}
+
+enum TechCategory {
+  FRONTEND
+  BACKEND
+  DATABASE
+  AI_ML
+  MOBILE
+  TOOLS
+  DEVOPS
+  OTHER
+}
+
+enum ExperienceLabel {
+  STRONG
+  COMFORTABLE
+  WORKING_KNOWLEDGE
+  LEARNING
+}
+
+enum WorkType {
+  FULL_TIME
+  PART_TIME
+  INTERNSHIP
+  FREELANCE
+  VOLUNTEER
+}
+
+enum TimelineEntryType {
+  PROJECT
+  ACADEMIC
+  MILESTONE
+  PERSONAL
+}
+
+enum SectionType {
+  HERO
+  ABOUT
+  TECH_STACK
+  FEATURED_PROJECTS
+  PROJECT_GRID
+  PROJECT_TIMELINE
+  EDUCATION
+  EXPERIENCE
+  CUSTOM_CONTENT
+  STACK_GAME
+  CONTACT
+  CALL_TO_ACTION
+  FOOTER_SPACER
+}
+
+enum TemplateKey {
+  PROFESSIONAL_MINIMAL
+  MODERN_GLASS
+  INTERACTIVE_3D
+}
+
+enum MessageStatus {
+  NEW
+  READ
+  REPLIED
+  ARCHIVED
+}
+
+enum MessageCategory {
+  GENERAL
+  OPPORTUNITY
+  COLLABORATION
+  OTHER
+}
+
+enum MediaKind {
+  IMAGE
+  DOCUMENT // e.g. CV pdf
+  LOGO
+}
+
+enum GameMode {
+  ROTATING_SPHERE
+  FLOATING_BALLS
+  FALLING_GAME
+  STATIC_FALLBACK
+}
+
+enum AuditAction {
+  LOGIN
+  LOGOUT
+  CREATE
+  UPDATE
+  DELETE
+  ARCHIVE
+  RESTORE
+  DUPLICATE
+  PUBLISH
+  ROLLBACK
+  RESTORE_VERSION
+  TEMPLATE_CHANGE
+  MEDIA_UPLOAD
+  MEDIA_DELETE
+}
+
+// ============================================================================
+//  USER  (owner / admin accounts; supports credentials + OAuth)
+// ============================================================================
+
+model User {
+  id            String       @id @default(cuid())
+  email         String       @unique
+  name          String?
+  passwordHash  String? // null when the account is OAuth-only
+  role          Role         @default(ADMIN)
+  provider      AuthProvider @default(CREDENTIALS)
+  providerId    String? // subject id from GitHub/Google
+  avatarUrl     String?
+  isActive      Boolean      @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  // relations (who performed which admin actions / published versions)
+  auditLogs      AuditLog[]
+  publishedVersions PageVersion[] @relation("VersionPublisher")
+  uploadedMedia  MediaAsset[]  @relation("MediaUploader")
+
+  @@unique([provider, providerId])
+  @@index([role])
+}
+
+// ============================================================================
+//  MEDIA ASSET  (reusable images / docs / logos referenced everywhere)
+// ============================================================================
+
+model MediaAsset {
+  id         String    @id @default(cuid())
+  url        String // storage URL (Supabase / Cloudinary)
+  kind       MediaKind @default(IMAGE)
+  filename   String
+  altText    String?
+  mimeType   String?
+  sizeBytes  Int?
+  width      Int?
+  height     Int?
+  deletedAt  DateTime? // soft delete
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  uploadedById String?
+  uploadedBy   User?   @relation("MediaUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  // reverse references so we can compute "used in" and block deletion
+  projectThumbnails    Project[]       @relation("ProjectThumbnail")
+  projectCovers        Project[]       @relation("ProjectCover")
+  projectArchitectures Project[]       @relation("ProjectArchitecture")
+  galleryItems         ProjectImage[]
+  technologies         Technology[]
+  timelineImages       TimelineEntry[]
+  educationLogos       Education[]
+  experienceLogos      Experience[]
+  socialIcons          SocialLink[]
+
+  // single-record profile media
+  profileImage SiteProfile[] @relation("ProfileImage")
+  logoImage    SiteProfile[] @relation("LogoImage")
+  faviconImage SiteProfile[] @relation("FaviconImage")
+  cvFile       SiteProfile[] @relation("CvFile")
+
+  @@index([kind])
+  @@index([deletedAt])
+}
+
+// ============================================================================
+//  SITE PROFILE  (single row: identity + global settings)
+// ============================================================================
+
+model SiteProfile {
+  id                  String  @id @default(cuid())
+  fullName            String
+  logoText            String
+  title               String
+  tagline             String?
+  heroIntro           String? @db.Text
+  aboutBio            String  @db.Text
+  aboutSummary        String? @db.Text
+  technicalInterests  String? @db.Text
+  developmentApproach String? @db.Text
+  currentGoals        String? @db.Text
+  availabilityStatus  String?
+  locationText        String?
+  contactEmail        String
+
+  defaultSeoTitle       String?
+  defaultSeoDescription String?
+  footerText            String?
+  cvVersionLabel        String?
+  cvUpdatedAt           DateTime?
+  maintenanceMode       Boolean @default(false)
+
+  // media refs
+  profileImageId String?
+  profileImage   MediaAsset? @relation("ProfileImage", fields: [profileImageId], references: [id], onDelete: SetNull)
+  logoImageId    String?
+  logoImage      MediaAsset? @relation("LogoImage", fields: [logoImageId], references: [id], onDelete: SetNull)
+  faviconId      String?
+  favicon        MediaAsset? @relation("FaviconImage", fields: [faviconId], references: [id], onDelete: SetNull)
+  cvFileId       String?
+  cvFile         MediaAsset? @relation("CvFile", fields: [cvFileId], references: [id], onDelete: SetNull)
+
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================================
+//  SOCIAL LINK  (reorderable list; header/footer placement)
+// ============================================================================
+
+model SocialLink {
+  id           String   @id @default(cuid())
+  platform     String // GitHub / LinkedIn / Google / Twitter / Email / Website / Other
+  label        String?
+  url          String
+  iconKey      String? // lucide key
+  iconMediaId  String?
+  iconMedia    MediaAsset? @relation(fields: [iconMediaId], references: [id], onDelete: SetNull)
+  showInHeader Boolean  @default(true)
+  showInFooter Boolean  @default(true)
+  visible      Boolean  @default(true)
+  order        Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([order])
+}
+
+// ============================================================================
+//  PROJECT
+// ============================================================================
+
+model Project {
+  id              String          @id @default(cuid())
+  title           String
+  slug            String          @unique
+  summary         String
+  fullDescription String?         @db.Text
+  category        ProjectCategory @default(OTHER)
+  startDate       DateTime?
+  endDate         DateTime?
+  status          ProjectStatus   @default(COMPLETED)
+
+  // long-form detail fields (all optional, hidden if empty)
+  problem            String? @db.Text
+  solution           String? @db.Text
+  myRole             String? @db.Text
+  mainFeatures       String? @db.Text
+  systemArchitecture String? @db.Text
+  developmentProcess String? @db.Text
+  challenges         String? @db.Text
+  solutionsDetail    String? @db.Text
+  testing            String? @db.Text
+  results            String? @db.Text
+  lessonsLearned     String? @db.Text
+  metrics            Json? // [{ label, value }]
+
+  // external links (hidden when null)
+  liveDemoUrl      String?
+  githubUrl        String?
+  reportUrl        String?
+  documentationUrl String?
+  videoUrl         String?
+  presentationUrl  String?
+
+  // display flags
+  featured       Boolean @default(false)
+  showOnHomepage Boolean @default(false)
+  showOnTimeline Boolean @default(false)
+  showOnResume   Boolean @default(false)
+  manualOrder    Int     @default(0)
+  visible        Boolean @default(true)
+
+  // SEO
+  seoTitle       String?
+  seoDescription String?
+
+  // lifecycle
+  publishState PublishState @default(DRAFT)
+  archivedAt   DateTime?
+  deletedAt    DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  // media
+  thumbnailId    String?
+  thumbnail      MediaAsset? @relation("ProjectThumbnail", fields: [thumbnailId], references: [id], onDelete: SetNull)
+  coverImageId   String?
+  coverImage     MediaAsset? @relation("ProjectCover", fields: [coverImageId], references: [id], onDelete: SetNull)
+  architectureImageId String?
+  architectureImage   MediaAsset? @relation("ProjectArchitecture", fields: [architectureImageId], references: [id], onDelete: SetNull)
+  gallery        ProjectImage[]
+
+  // many-to-many with Technology (explicit join)
+  technologies   ProjectTechnology[]
+
+  // reverse links
+  timelineEntries TimelineEntry[]
+
+  @@index([publishState])
+  @@index([featured])
+  @@index([category])
+  @@index([manualOrder])
+  @@index([deletedAt])
+}
+
+// ordered gallery images for a project
+model ProjectImage {
+  id        String     @id @default(cuid())
+  projectId String
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  mediaId   String
+  media     MediaAsset @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  caption   String?
+  order     Int        @default(0)
+
+  @@index([projectId, order])
+}
+
+// ============================================================================
+//  TECHNOLOGY  +  PROJECT-TECHNOLOGY join
+// ============================================================================
+
+model Technology {
+  id              String          @id @default(cuid())
+  name            String          @unique
+  slug            String          @unique
+  category        TechCategory    @default(OTHER)
+  description     String?
+  experienceLabel ExperienceLabel @default(WORKING_KNOWLEDGE)
+  showInStack     Boolean         @default(true)
+  showInGame      Boolean         @default(false)
+  showOnResume    Boolean         @default(false)
+  visible         Boolean         @default(true)
+  order           Int             @default(0)
+  deletedAt       DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  logoId String?
+  logo   MediaAsset? @relation(fields: [logoId], references: [id], onDelete: SetNull)
+
+  projects       ProjectTechnology[]
+  experienceTech ExperienceTechnology[]
+  timelineTech   TimelineTechnology[]
+
+  @@index([category])
+  @@index([order])
+  @@index([deletedAt])
+}
+
+model ProjectTechnology {
+  projectId    String
+  project      Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  technologyId String
+  technology   Technology @relation(fields: [technologyId], references: [id], onDelete: Cascade)
+  order        Int        @default(0)
+
+  @@id([projectId, technologyId])
+  @@index([technologyId])
+}
+
+// ============================================================================
+//  TIMELINE ENTRY
+// ============================================================================
+
+model TimelineEntry {
+  id          String            @id @default(cuid())
+  title       String
+  entryType   TimelineEntryType @default(PROJECT)
+  startDate   DateTime
+  endDate     DateTime?
+  description String?           @db.Text
+  status      ProjectStatus?
+  externalLinks Json? // [{ label, url }]
+  visible     Boolean           @default(true)
+  order       Int               @default(0)
+  deletedAt   DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  imageId String?
+  image   MediaAsset? @relation(fields: [imageId], references: [id], onDelete: SetNull)
+
+  linkedProjectId String?
+  linkedProject   Project? @relation(fields: [linkedProjectId], references: [id], onDelete: SetNull)
+
+  technologies TimelineTechnology[]
+
+  @@index([startDate])
+  @@index([order])
+  @@index([deletedAt])
+}
+
+model TimelineTechnology {
+  timelineEntryId String
+  timelineEntry   TimelineEntry @relation(fields: [timelineEntryId], references: [id], onDelete: Cascade)
+  technologyId    String
+  technology      Technology    @relation(fields: [technologyId], references: [id], onDelete: Cascade)
+
+  @@id([timelineEntryId, technologyId])
+  @@index([technologyId])
+}
+
+// ============================================================================
+//  EDUCATION
+// ============================================================================
+
+model Education {
+  id            String    @id @default(cuid())
+  institution   String
+  qualification String
+  startDate     DateTime
+  endDate       DateTime?
+  isCurrent     Boolean   @default(false)
+  grade         String?
+  description   String?   @db.Text
+  modules       String? // comma/tag list
+  showOnResume  Boolean   @default(true)
+  visible       Boolean   @default(true)
+  order         Int       @default(0)
+  deletedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  logoId String?
+  logo   MediaAsset? @relation(fields: [logoId], references: [id], onDelete: SetNull)
+
+  @@index([order])
+  @@index([deletedAt])
+}
+
+// ============================================================================
+//  EXPERIENCE  (+ technology join)
+// ============================================================================
+
+model Experience {
+  id               String    @id @default(cuid())
+  organization     String
+  role             String
+  startDate        DateTime
+  endDate          DateTime?
+  isCurrent        Boolean   @default(false)
+  description      String?   @db.Text
+  responsibilities Json? // string[]
+  locationText     String?
+  workType         WorkType?
+  showOnResume     Boolean   @default(true)
+  visible          Boolean   @default(true)
+  order            Int       @default(0)
+  deletedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  logoId String?
+  logo   MediaAsset? @relation(fields: [logoId], references: [id], onDelete: SetNull)
+
+  technologies ExperienceTechnology[]
+
+  @@index([order])
+  @@index([deletedAt])
+}
+
+model ExperienceTechnology {
+  experienceId String
+  experience   Experience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+  technologyId String
+  technology   Technology @relation(fields: [technologyId], references: [id], onDelete: Cascade)
+
+  @@id([experienceId, technologyId])
+  @@index([technologyId])
+}
+
+// ============================================================================
+//  TEMPLATE  (the three selectable public skins)
+// ============================================================================
+
+model Template {
+  id           String      @id @default(cuid())
+  key          TemplateKey @unique
+  name         String
+  description  String?
+  previewImageUrl String?
+  isActiveLive Boolean     @default(false) // exactly one true at a time (enforced in service layer)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  pages Page[]
+}
+
+// ============================================================================
+//  PAGE  +  PAGE SECTION  +  PAGE VERSION  (the page-builder core)
+//
+//  Model:
+//   - Page = a logical page (currently "home"); holds the DRAFT working state.
+//   - PageSection = ordered, configurable sections in the DRAFT of a Page.
+//   - PageVersion = an immutable published SNAPSHOT of the page's sections +
+//     template, created on every publish. The live site reads the active one.
+// ============================================================================
+
+model Page {
+  id        String   @id @default(cuid())
+  key       String   @unique // "home"
+  title     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // draft template selection (published state lives in PageVersion.templateKey)
+  draftTemplateId String?
+  draftTemplate   Template? @relation(fields: [draftTemplateId], references: [id], onDelete: SetNull)
+
+  hasUnpublishedChanges Boolean @default(false)
+
+  sections PageSection[]
+  versions PageVersion[]
+}
+
+model PageSection {
+  id           String      @id @default(cuid())
+  pageId       String
+  page         Page        @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  type         SectionType
+  internalLabel String
+  order        Int         @default(0)
+  visible      Boolean     @default(true)
+
+  // arbitrary, VALIDATED-per-type settings (heading, layout, background,
+  // selected record ids, display count, etc.). Never executable code.
+  settings     Json        @default("{}")
+
+  // animation assignment (preset by slug; overrides clamped in service layer)
+  animationPresetSlug String? // null = template default
+  animationDelay      Float?  @default(0)
+  animationStagger    Float?  @default(0.08)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([pageId, order])
+}
+
+model PageVersion {
+  id          String   @id @default(cuid())
+  pageId      String
+  page        Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  versionNumber Int
+
+  templateKey TemplateKey
+
+  // immutable snapshot of the full section list + settings at publish time
+  snapshot    Json
+
+  // human-readable diff summary shown in Version History
+  changeSummary Json? // [{ type: added|removed|moved|edited, label }]
+
+  isActive    Boolean  @default(false) // the currently-live version
+
+  // one-hour quick-rollback window
+  rollbackUntil DateTime?
+
+  publishedById String?
+  publishedBy   User?    @relation("VersionPublisher", fields: [publishedById], references: [id], onDelete: SetNull)
+  createdAt     DateTime @default(now())
+
+  @@unique([pageId, versionNumber])
+  @@index([pageId, isActive])
+}
+
+// ============================================================================
+//  GAME SETTINGS  (single row config for the 3D section)
+// ============================================================================
+
+model GameSettings {
+  id             String   @id @default(cuid())
+  enabled        Boolean  @default(false)
+  mode           GameMode @default(ROTATING_SPHERE)
+  selectedTechIds Json? // string[] of Technology ids; null = all showInGame
+  ballCount      Int      @default(12)
+  ballSize       Float    @default(1)
+  fallingSpeed   Float    @default(1)
+  difficulty     Int      @default(1)
+  soundEnabled   Boolean  @default(false)
+  showScore      Boolean  @default(true)
+  instructions   String?
+  backgroundStyle String?
+  physicsEnabled Boolean  @default(false)
+  saveScores     Boolean  @default(false)
+  leaderboard    Boolean  @default(false)
+  mobileFallback Boolean  @default(true)
+  updatedAt      DateTime @updatedAt
+}
+
+// optional: persisted game scores (only if saveScores/leaderboard on)
+model GameScore {
+  id         String   @id @default(cuid())
+  playerName String
+  score      Int
+  createdAt  DateTime @default(now())
+
+  @@index([score])
+}
+
+// ============================================================================
+//  CONTACT MESSAGE  (guest-created; admin reads/updates status)
+// ============================================================================
+
+model ContactMessage {
+  id        String          @id @default(cuid())
+  name      String
+  email     String
+  subject   String
+  message   String          @db.Text
+  category  MessageCategory @default(GENERAL)
+  status    MessageStatus   @default(NEW)
+  ipHash    String? // for rate-limiting / spam, not shown to admin
+  deletedAt DateTime?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ============================================================================
+//  AUDIT LOG  (read-only trail of important actions)
+// ============================================================================
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  action     AuditAction
+  entityType String // "Project", "PageVersion", "Template", ...
+  entityId   String?
+  summary    String? // one-line human description
+  before     Json?
+  after      Json?
+  createdAt  DateTime    @default(now())
+
+  actorId String?
+  actor   User?   @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([action])
+  @@index([entityType])
+  @@index([createdAt])
+}

@@ -1,0 +1,42 @@
+/* ==========================================================================
+   Admin Panel Design Tokens
+   Template-independent — always the same stable workbench
+   See: frontend_design_spec.md §10
+   ========================================================================== */
+
+[data-admin="true"] {
+  /* --- Palette --- */
+  --a-bg:            #F6F7F9;
+  --a-surface:       #FFFFFF;
+  --a-line:          #E5E8EC;
+  --a-ink:           #171A1F;
+  --a-soft:          #5B6472;
+  --a-faint:         #94A0AE;
+  --a-primary:       #2E5BFF;
+  --a-primary-hover: #1F47D6;
+  --a-primary-tint:  #EAF0FF;
+  --a-success:       #17825B;
+  --a-warn:          #B45309;
+  --a-danger:        #C2362B;
+  --a-sidebar:       #101623;
+  --a-sidebar-text:  #C6CEDD;
+  --a-sidebar-active: #2E5BFF;
+
+  /* --- Admin font (always Figtree + IBM Plex Mono) --- */
+  --a-font-body: var(--font-figtree);
+  --a-font-mono: var(--font-ibm-plex-mono);
+
+  /* --- Radii --- */
+  --a-r-sm: 8px;
+  --a-r-md: 12px;
+  --a-r-lg: 16px;
+
+  /* --- Elevation --- */
+  --a-shadow: 0 1px 3px rgb(16 22 35 / 0.06);
+  --a-shadow-lg: 0 8px 24px rgb(16 22 35 / 0.10);
+
+  /* --- Sidebar dimensions --- */
+  --a-sidebar-width: 248px;
+  --a-sidebar-collapsed: 64px;
+  --a-topbar-height: 60px;
+}

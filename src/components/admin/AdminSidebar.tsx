@@ -1,0 +1,124 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  Briefcase,
+  Clock,
+  Columns3,
+  Cpu,
+  Gamepad2,
+  GraduationCap,
+  History,
+  Image,
+  Inbox,
+  LayoutDashboard,
+  LogOut,
+  Milestone,
+  Palette,
+  ScrollText,
+  Sliders,
+} from "lucide-react";
+
+export default function AdminSidebar() {
+  const pathname = usePathname();
+
+  const navGroups = [
+    {
+      group: "Content",
+      items: [
+        { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
+        { label: "Projects", href: "/admin/projects", icon: Briefcase },
+        { label: "Technologies", href: "/admin/technologies", icon: Cpu },
+        { label: "Timeline", href: "/admin/timeline", icon: Milestone },
+        { label: "Education", href: "/admin/education", icon: GraduationCap },
+        { label: "Experience", href: "/admin/experience", icon: History },
+      ],
+    },
+    {
+      group: "Layout",
+      items: [
+        { label: "Page Builder", href: "/admin/page-builder", icon: Columns3 },
+        { label: "Templates", href: "/admin/templates", icon: Palette },
+        { label: "Media Library", href: "/admin/media", icon: Image },
+      ],
+    },
+    {
+      group: "System",
+      items: [
+        { label: "Messages", href: "/admin/messages", icon: Inbox },
+        { label: "3D Game", href: "/admin/game", icon: Gamepad2 },
+        { label: "Site Settings", href: "/admin/settings", icon: Sliders },
+        { label: "Version History", href: "/admin/versions", icon: Clock },
+        { label: "Audit Log", href: "/admin/audit", icon: ScrollText },
+      ],
+    },
+  ];
+
+  return (
+    <aside
+      className="fixed left-0 top-0 bottom-0 z-[200] flex flex-col justify-between select-none"
+      style={{
+        width: "var(--a-sidebar-width)",
+        backgroundColor: "var(--a-sidebar)",
+        color: "var(--a-sidebar-text)",
+        fontFamily: "var(--a-font-body)",
+      }}
+    >
+      {/* Brand Logo Header */}
+      <div className="h-[60px] border-b border-solid border-slate-800 flex items-center px-6">
+        <Link href="/admin" className="text-white font-bold tracking-tight text-lg">
+          Workbench <span className="text-[var(--a-primary)]">CMS</span>
+        </Link>
+      </div>
+
+      {/* Nav Menu */}
+      <div className="flex-1 overflow-y-auto py-6 px-4 space-y-6">
+        {navGroups.map((group) => (
+          <div key={group.group} className="space-y-2">
+            <span
+              className="text-[10px] tracking-wider uppercase opacity-40 font-bold block px-2"
+              style={{ fontFamily: "var(--a-font-mono)" }}
+            >
+              {group.group}
+            </span>
+            <nav className="space-y-1">
+              {group.items.map((item) => {
+                const isActive = pathname === item.href;
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="flex items-center gap-3 px-3 py-2 text-sm rounded-[var(--a-r-sm)] font-medium transition-all group relative"
+                    style={{
+                      backgroundColor: isActive ? "rgba(46,91,255,0.15)" : "transparent",
+                      color: isActive ? "var(--a-sidebar-active)" : "inherit",
+                    }}
+                  >
+                    {isActive && (
+                      <span className="absolute left-0 top-1 bottom-1 w-[3px] bg-[var(--a-sidebar-active)] rounded-r-md" />
+                    )}
+                    <Icon
+                      size={18}
+                      className="opacity-70 group-hover:opacity-100 transition-opacity"
+                    />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+        ))}
+      </div>
+
+      {/* Footer / Logout */}
+      <div className="p-4 border-t border-solid border-slate-800">
+        <button className="flex items-center gap-3 px-3 py-2 w-full text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-[var(--a-r-sm)] transition-colors">
+          <LogOut size={18} />
+          <span>Logout</span>
+        </button>
+      </div>
+    </aside>
+  );
+}
