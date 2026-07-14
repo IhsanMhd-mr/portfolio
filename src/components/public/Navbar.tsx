@@ -5,7 +5,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowDownToLine, Menu, X } from "lucide-react";
 
-export default function Navbar() {
+export default function Navbar({
+  logoText = "Jane Doe",
+  cvUrl = "/resume",
+  isLoggedIn = false,
+}: {
+  logoText?: string;
+  cvUrl?: string;
+  isLoggedIn?: boolean;
+}) {
   const pathname = usePathname();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -45,7 +53,7 @@ export default function Navbar() {
           className="text-lg font-bold tracking-tight text-[var(--accent)]"
           style={{ fontFamily: "var(--font-display)" }}
         >
-          Jane Doe
+          {logoText}
         </Link>
 
         {/* Desktop Navigation */}
@@ -72,22 +80,25 @@ export default function Navbar() {
 
         {/* Action Buttons */}
         <div className="hidden md:flex items-center gap-4">
-          <Link
-            href="/resume"
+          <a
+            href={cvUrl}
+            target="_blank"
+            rel="noopener noreferrer"
             className="flex items-center gap-2 text-xs font-semibold px-4 py-2 border border-solid border-[var(--line)] rounded-[var(--radius-sm)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
             style={{ color: "var(--ink)" }}
           >
             <ArrowDownToLine size={14} />
             CV
-          </Link>
-          <button
-            className="text-xs font-semibold px-4 py-2 bg-[var(--accent)] rounded-[var(--radius-sm)] transition-colors hover:bg-[var(--accent-hover)]"
+          </a>
+          <Link
+            href={isLoggedIn ? "/admin/dashboard" : "/admin/login"}
+            className="text-xs font-semibold px-4 py-2 bg-[var(--accent)] rounded-[var(--radius-sm)] transition-colors hover:bg-[var(--accent-hover)] text-center block"
             style={{
-              color: "var(--bg)", // light text on dark or vice versa depending on active theme bg
+              color: "var(--bg)",
             }}
           >
-            Log in
-          </button>
+            {isLoggedIn ? "Dashboard" : "Log in"}
+          </Link>
         </div>
 
         {/* Mobile Menu Toggle */}
@@ -123,23 +134,27 @@ export default function Navbar() {
           </nav>
 
           <div className="mt-auto flex flex-col gap-4">
-            <Link
-              href="/resume"
+            <a
+              href={cvUrl}
+              target="_blank"
+              rel="noopener noreferrer"
               onClick={() => setIsMobileMenuOpen(false)}
               className="flex items-center justify-center gap-2 w-full py-3 border border-solid border-[var(--line)] rounded-[var(--radius-sm)] text-center font-semibold text-[var(--ink)]"
             >
               <ArrowDownToLine size={16} />
               Download CV
-            </Link>
-            <button
+            </a>
+            <Link
+              href={isLoggedIn ? "/admin/dashboard" : "/admin/login"}
               onClick={() => setIsMobileMenuOpen(false)}
-              className="w-full py-3 bg-[var(--accent)] text-[var(--bg)] font-semibold rounded-[var(--radius-sm)]"
+              className="w-full py-3 bg-[var(--accent)] text-[var(--bg)] font-semibold rounded-[var(--radius-sm)] text-center"
             >
-              Log in
-            </button>
+              {isLoggedIn ? "Dashboard" : "Log in"}
+            </Link>
           </div>
         </div>
       )}
+
     </>
   );
 }

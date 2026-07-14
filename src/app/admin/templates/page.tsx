@@ -33,13 +33,64 @@ const templates: {
   },
 ];
 
+import { useEffect } from "react";
+
 export default function AdminTemplatesPage() {
   const [activeTemplate, setActiveTemplate] = useState<TemplateId>("glass");
 
-  function switchTemplate(id: TemplateId) {
-    setActiveTemplate(id);
-    document.documentElement.setAttribute("data-template", id);
+  useEffect(() => {
+    async function loadActiveTemplate() {
+      try {
+        const res = await fetch("/api/publish");
+        if (res.ok) {
+          const data = await res.json();
+          const keyMap: Record<string, TemplateId> = {
+            PROFESSIONAL_MINIMAL: "minimal",
+            MODERN_GLASS: "glass",
+            INTERACTIVE_3D: "threed",
+          };
+          const mappedId = keyMap[data.draftTemplateKey];
+          if (mappedId) {
+            setActiveTemplate(mappedId);
+            document.documentElement.setAttribute("data-template", mappedId);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load active template:", err);
+      }
+    }
+    loadActiveTemplate();
+  }, []);
+
+  async function switchTemplate(id: TemplateId) {
+    try {
+      setActiveTemplate(id);
+      document.documentElement.setAttribute("data-template", id);
+
+      // Fetch all templates to get the matching database ID
+      const templatesRes = await fetch("/api/templates");
+      if (templatesRes.ok) {
+        const templatesList = await templatesRes.json();
+        const keyMap: Record<TemplateId, string> = {
+          minimal: "PROFESSIONAL_MINIMAL",
+          glass: "MODERN_GLASS",
+          threed: "INTERACTIVE_3D",
+        };
+        const dbKey = keyMap[id];
+        const matched = templatesList.find((t: any) => t.key === dbKey);
+        if (matched) {
+          await fetch("/api/templates", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ templateId: matched.id }),
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to switch template:", err);
+    }
   }
+
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: "var(--bg)", color: "var(--ink)" }}>

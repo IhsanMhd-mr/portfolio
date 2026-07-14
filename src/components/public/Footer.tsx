@@ -46,7 +46,13 @@ function Linkedin({ size = 24, ...props }: React.SVGProps<SVGSVGElement> & { siz
 }
 
 
-export default function Footer() {
+export default function Footer({
+  logoText = "Jane Doe",
+  contactEmail = "admin@portfolio.com",
+}: {
+  logoText?: string;
+  contactEmail?: string;
+}) {
   const [showScrollTop, setShowScrollTop] = useState(false);
 
   useEffect(() => {
@@ -76,7 +82,7 @@ export default function Footer() {
             className="text-lg font-bold text-[var(--accent)] mb-3"
             style={{ fontFamily: "var(--font-display)" }}
           >
-            Jane Doe
+            {logoText}
           </h3>
           <p className="text-small text-[var(--ink-soft)] max-w-xs">
             Designing and engineering production-grade software with precision, clean layers, and intent.
@@ -123,7 +129,7 @@ export default function Footer() {
               <Linkedin size={18} />
             </a>
             <a
-              href="mailto:admin@portfolio.com"
+              href={`mailto:${contactEmail}`}
               className="p-2 border border-solid border-[var(--line)] rounded-[var(--radius-sm)] text-[var(--ink-soft)] hover:text-[var(--accent)] hover:border-[var(--accent)] transition-colors"
             >
               <Mail size={18} />
@@ -134,9 +140,10 @@ export default function Footer() {
 
       {/* Bottom bar */}
       <div className="max-w-[var(--w-content)] mx-auto pt-8 border-t border-solid border-[var(--line)] flex flex-col sm:flex-row justify-between items-center gap-4 text-mono-label text-[var(--ink-faint)]">
-        <span>© {currentYear} JANE DOE</span>
+        <span>© {currentYear} {logoText.toUpperCase()}</span>
         <span>BUILT WITH NEXT.JS • PRISMA • POSTGRESQL</span>
       </div>
+
 
       {/* Back to top button */}
       {showScrollTop && (

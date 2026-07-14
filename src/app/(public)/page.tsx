@@ -1,196 +1,190 @@
-import Link from "next/link";
+import db from "@/lib/database";
+import { headers } from "next/headers";
+import { sectionRegistry, dbEnumToRegistryKey } from "@/components/sections/registry";
 
-export default function Home() {
+interface SectionData {
+  id: string;
+  type: string;
+  internalLabel: string;
+  settings: any;
+  visible: boolean;
+  order: number;
+}
+
+export default async function HomePage() {
+  const headersList = await headers();
+  const isPreview = headersList.get("x-preview") === "true";
+
+  // 1. Fetch site profile, technologies, projects, timeline, education, experience, gameSettings
+  const [
+    profile,
+    technologies,
+    projects,
+    timelineEntries,
+    education,
+    experience,
+    gameSettings,
+  ] = await Promise.all([
+    db.siteProfile.findFirst({
+      include: {
+        profileImage: true,
+        cvFile: true,
+      },
+    }),
+    db.technology.findMany({
+      where: { visible: true, deletedAt: null },
+      orderBy: { order: "asc" },
+    }),
+    db.project.findMany({
+      where: { visible: true, deletedAt: null },
+      include: {
+        technologies: {
+          include: { technology: true },
+          orderBy: { order: "asc" },
+        },
+        thumbnail: true,
+      },
+      orderBy: { manualOrder: "asc" },
+    }),
+    db.timelineEntry.findMany({
+      where: { visible: true, deletedAt: null },
+      include: { linkedProject: true },
+      orderBy: { order: "asc" },
+    }),
+    db.education.findMany({
+      where: { visible: true, deletedAt: null },
+      orderBy: { order: "asc" },
+    }),
+    db.experience.findMany({
+      where: { visible: true, deletedAt: null },
+      orderBy: { order: "asc" },
+    }),
+    db.gameSettings.findFirst(),
+  ]);
+
+  // 2. Fetch layout sections (draft vs published)
+  let sections: SectionData[] = [];
+
+  try {
+    if (isPreview) {
+      // Load draft sections
+      const page = await db.page.findUnique({
+        where: { key: "home" },
+        include: {
+          sections: {
+            orderBy: { order: "asc" },
+          },
+        },
+      });
+      sections = (page?.sections || []).map((s) => ({
+        id: s.id,
+        type: s.type,
+        internalLabel: s.internalLabel,
+        settings: typeof s.settings === "string" ? JSON.parse(s.settings) : s.settings || {},
+        visible: s.visible,
+        order: s.order,
+      }));
+    } else {
+      // Load published sections
+      const page = await db.page.findUnique({
+        where: { key: "home" },
+        include: {
+          versions: {
+            where: { isActive: true },
+            take: 1,
+          },
+        },
+      });
+      const activeVersion = page?.versions?.[0];
+      if (activeVersion && activeVersion.snapshot) {
+        const snapshot = typeof activeVersion.snapshot === "string"
+          ? JSON.parse(activeVersion.snapshot)
+          : activeVersion.snapshot;
+        if (Array.isArray(snapshot)) {
+          sections = snapshot;
+        }
+      } else {
+        // Fallback to draft sections if no published version exists
+        const draftSections = await db.pageSection.findMany({
+          where: { pageId: page?.id || "" },
+          orderBy: { order: "asc" },
+        });
+        sections = draftSections.map((s) => ({
+          id: s.id,
+          type: s.type,
+          internalLabel: s.internalLabel,
+          settings: typeof s.settings === "string" ? JSON.parse(s.settings) : s.settings || {},
+          visible: s.visible,
+          order: s.order,
+        }));
+      }
+    }
+  } catch (error) {
+    console.error("Failed to load sections:", error);
+  }
+
+  // Filter out hidden sections and sort by order index
+  const visibleSections = sections
+    .filter((s) => s.visible)
+    .sort((a, b) => a.order - b.order);
+
+  // Prevent double rendering of combined EducationExperienceSection
+  let eduExpRendered = false;
+
   return (
-    <div
-      className="flex flex-col flex-1 items-center justify-center min-h-screen px-6 py-12 transition-colors duration-300"
-      style={{ backgroundColor: "var(--bg)", color: "var(--ink)", fontFamily: "var(--font-body)" }}
-    >
-      <div className="max-w-[720px] w-full text-center">
-        {/* Eyebrow comment rail */}
-        <p
-          className="mb-3 text-mono-label"
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: "13px",
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            color: "var(--ink-faint)",
-          }}
-        >
-          //00 — WELCOME
-        </p>
+    <div className="w-full flex flex-col">
+      {visibleSections.map((section) => {
+        const registryKey = dbEnumToRegistryKey[section.type];
+        if (!registryKey) {
+          console.warn(`No registry mapping for section type: ${section.type}`);
+          return null;
+        }
 
-        {/* Headline */}
-        <h1
-          className="mb-6 font-bold tracking-tight text-display"
-          style={{
-            fontFamily: "var(--font-display)",
-            fontSize: "clamp(36px, 6vw, 64px)",
-            lineHeight: 1.05,
-            letterSpacing: "-0.02em",
-          }}
-        >
-          Developer Portfolio & CMS
-        </h1>
+        const SectionComponent = sectionRegistry[registryKey as keyof typeof sectionRegistry] as any;
+        if (!SectionComponent) {
+          console.warn(`Unknown section component: ${registryKey}`);
+          return null;
+        }
 
-        {/* Subtitle description */}
-        <p
-          className="mb-10 text-body-lg"
-          style={{
-            fontSize: "18px",
-            lineHeight: 1.65,
-            color: "var(--ink-soft)",
-          }}
-        >
-          Welcome to your new portfolio platform. Phase 1 (Foundations, Design Tokens,
-          Google Fonts, and Database schema) is fully set up.
-        </p>
+        // Special handling for Education & Experience layout
+        if (registryKey === "education-experience") {
+          if (eduExpRendered) return null; // Skip duplicate render
+          eduExpRendered = true;
 
-        {/* Phase completion badge */}
-        <div className="mb-12 inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-line bg-bg-raised text-small">
-          <span className="h-2 w-2 rounded-full bg-success animate-pulse" />
-          <span style={{ color: "var(--ink-soft)" }}>Phase 1 (Foundations) Complete</span>
-        </div>
+          return (
+            <SectionComponent
+              key={section.id}
+              education={education}
+              experience={experience}
+              isPreview={isPreview}
+            />
+          );
+        }
 
-        {/* Nav Links Grid */}
-        <div className="grid gap-4 sm:grid-cols-2 text-left mb-8">
-          <Link
-            href="/admin/templates"
-            className="p-6 transition-all duration-300 hover:-translate-y-1 block"
-            style={{
-              backgroundColor: "var(--glass, var(--bg-raised))",
-              border: "1px solid var(--line)",
-              borderRadius: "var(--r-md)",
-              boxShadow: "var(--shadow-card)",
-            }}
-          >
-            <p
-              className="text-mono-label mb-1"
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "11px",
-                color: "var(--accent)",
-              }}
-            >
-              // ACTIVE PREVIEW
-            </p>
-            <h3
-              className="font-semibold text-lg mb-1"
-              style={{ fontFamily: "var(--font-display)" }}
-            >
-              Template Switcher →
-            </h3>
-            <p className="text-small text-ink-soft" style={{ color: "var(--ink-soft)" }}>
-              Test colors, typography, buttons, and card styles for all 3 templates.
-            </p>
-          </Link>
+        // Standard section rendering with appropriate data passed
+        const props: any = {
+          key: section.id,
+          settings: section.settings,
+          isPreview,
+        };
 
-          <Link
-            href="/about"
-            className="p-6 transition-all duration-300 hover:-translate-y-1 block"
-            style={{
-              backgroundColor: "var(--glass, var(--bg-raised))",
-              border: "1px solid var(--line)",
-              borderRadius: "var(--r-md)",
-              boxShadow: "var(--shadow-card)",
-            }}
-          >
-            <p
-              className="text-mono-label mb-1"
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "11px",
-                color: "var(--ink-faint)",
-              }}
-            >
-              // PUBLIC ROUTE
-            </p>
-            <h3
-              className="font-semibold text-lg mb-1"
-              style={{ fontFamily: "var(--font-display)" }}
-            >
-              About Page →
-            </h3>
-            <p className="text-small text-ink-soft" style={{ color: "var(--ink-soft)" }}>
-              Check out the public developer biography placeholder page.
-            </p>
-          </Link>
+        if (registryKey === "hero" || registryKey === "about" || registryKey === "contact") {
+          props.profile = profile;
+        } else if (registryKey === "tech-stack") {
+          props.technologies = technologies;
+        } else if (registryKey === "featured-projects") {
+          props.projects = projects;
+        } else if (registryKey === "other-projects" || registryKey === "project-grid") {
+          props.projects = projects;
+        } else if (registryKey === "project-timeline") {
+          props.timelineEntries = timelineEntries;
+        } else if (registryKey === "stack-game") {
+          props.technologies = technologies;
+          props.gameSettings = gameSettings;
+        }
 
-          <Link
-            href="/projects"
-            className="p-6 transition-all duration-300 hover:-translate-y-1 block"
-            style={{
-              backgroundColor: "var(--glass, var(--bg-raised))",
-              border: "1px solid var(--line)",
-              borderRadius: "var(--r-md)",
-              boxShadow: "var(--shadow-card)",
-            }}
-          >
-            <p
-              className="text-mono-label mb-1"
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "11px",
-                color: "var(--ink-faint)",
-              }}
-            >
-              // PUBLIC ROUTE
-            </p>
-            <h3
-              className="font-semibold text-lg mb-1"
-              style={{ fontFamily: "var(--font-display)" }}
-            >
-              Projects Page →
-            </h3>
-            <p className="text-small text-ink-soft" style={{ color: "var(--ink-soft)" }}>
-              Browse the public project list layout placeholder page.
-            </p>
-          </Link>
-
-          <Link
-            href="/contact"
-            className="p-6 transition-all duration-300 hover:-translate-y-1 block"
-            style={{
-              backgroundColor: "var(--glass, var(--bg-raised))",
-              border: "1px solid var(--line)",
-              borderRadius: "var(--r-md)",
-              boxShadow: "var(--shadow-card)",
-            }}
-          >
-            <p
-              className="text-mono-label mb-1"
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "11px",
-                color: "var(--ink-faint)",
-              }}
-            >
-              // PUBLIC ROUTE
-            </p>
-            <h3
-              className="font-semibold text-lg mb-1"
-              style={{ fontFamily: "var(--font-display)" }}
-            >
-              Contact Page →
-            </h3>
-            <p className="text-small text-ink-soft" style={{ color: "var(--ink-soft)" }}>
-              View the dynamic public email & form placeholder page.
-            </p>
-          </Link>
-        </div>
-
-        {/* Footer */}
-        <p
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: "12px",
-            color: "var(--ink-faint)",
-          }}
-        >
-          Built with Next.js • Prisma 7 • PostgreSQL • Tailwind CSS
-        </p>
-      </div>
+        return <SectionComponent {...props} />;
+      })}
     </div>
   );
 }

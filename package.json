@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "C:\\\\PROGRA~1\\\\PostgreSQL\\\\17\\\\bin\\\\pg_ctl.exe start -D C:\\\\PROGRA~1\\\\PostgreSQL\\\\17\\\\data & next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "C:\\\\PROGRA~1\\\\PostgreSQL\\\\17\\\\bin\\\\pg_ctl.exe start -D C:\\\\PROGRA~1\\\\PostgreSQL\\\\17\\\\data & next start",
     "lint": "eslint"
   },
   "dependencies": {
