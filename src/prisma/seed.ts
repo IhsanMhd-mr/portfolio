@@ -59,18 +59,18 @@ async function main() {
     },
   });
 
-  // 2. Seed Default Admin User
+  // 2. Seed Default Admin User (use 'npm run admin:init' in production instead)
   console.log("Creating Admin User...");
   const hashedPassword = await hashPassword("admin123");
   const adminUser = await prisma.user.upsert({
     where: { email: "admin@portfolio.com" },
     update: {},
     create: {
+      username: "admin",
       email: "admin@portfolio.com",
+      name: "Portfolio Owner",
       passwordHash: hashedPassword,
-      role: "OWNER",
-      provider: "CREDENTIALS",
-      isActive: true,
+      mustChangePassword: true,
     },
   });
 

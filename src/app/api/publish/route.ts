@@ -1,26 +1,20 @@
 import { NextResponse } from "next/server";
 import db from "@/lib/database";
-import { getServerSession } from "@/lib/auth";
+import { safeRequireAdmin } from "@/lib/require-admin";
+import { recordAudit } from "@/lib/audit";
 
 // GET - Compile summary of differences between draft configuration and active live snapshot
-export async function GET() {
-  try {
-    const session = await getServerSession();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+export async function GET(request: Request) {
+  const { context, response } = await safeRequireAdmin(request);
+  if (response) return response;
 
+  try {
     const page = await db.page.findUnique({
       where: { key: "home" },
       include: {
         draftTemplate: true,
-        sections: {
-          orderBy: { order: "asc" },
-        },
-        versions: {
-          where: { isActive: true },
-          take: 1,
-        },
+        sections: { orderBy: { order: "asc" } },
+        versions: { where: { isActive: true }, take: 1 },
       },
     });
 
@@ -41,17 +35,12 @@ export async function GET() {
     if (activeVersion) {
       publishedTemplateKey = activeVersion.templateKey;
       hasTemplateDiff = draftTemplateKey !== publishedTemplateKey;
-      
       const snapshot = typeof activeVersion.snapshot === "string"
         ? JSON.parse(activeVersion.snapshot)
         : activeVersion.snapshot;
-      
-      if (Array.isArray(snapshot)) {
-        publishedSectionsCount = snapshot.length;
-      }
+      if (Array.isArray(snapshot)) publishedSectionsCount = snapshot.length;
       hasSectionsCountDiff = draftSections.length !== publishedSectionsCount;
     } else {
-      // If there are no published versions, everything is a pending change
       hasTemplateDiff = true;
       hasSectionsCountDiff = true;
     }
@@ -80,36 +69,26 @@ export async function GET() {
 }
 
 // POST - Publish draft configuration
-export async function POST() {
-  try {
-    const session = await getServerSession();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+export async function POST(request: Request) {
+  const { context, response } = await safeRequireAdmin(request);
+  if (response) return response;
 
-    // 1. Load current page and draft layout
+  try {
     const page = await db.page.findUnique({
       where: { key: "home" },
-      include: {
-        draftTemplate: true,
-        sections: {
-          orderBy: { order: "asc" },
-        },
-      },
+      include: { draftTemplate: true, sections: { orderBy: { order: "asc" } } },
     });
 
     if (!page || !page.draftTemplate) {
       return NextResponse.json({ error: "Draft template or page not found" }, { status: 400 });
     }
 
-    // 2. Fetch the latest version number
     const latestVersion = await db.pageVersion.findFirst({
       where: { pageId: page.id },
       orderBy: { versionNumber: "desc" },
     });
     const nextVersionNumber = latestVersion ? latestVersion.versionNumber + 1 : 1;
 
-    // 3. Serialize sections snapshot
     const sectionsSnapshot = page.sections.map((s) => ({
       id: s.id,
       type: s.type,
@@ -122,50 +101,45 @@ export async function POST() {
       animationStagger: s.animationStagger,
     }));
 
-    // 4. Create new PageVersion and mark all others inactive
+    const auditCtx = {
+      actorId: context.userId,
+      loginMethod: context.loginMethod,
+      loginAccountId: context.loginAccountId,
+    };
+
     await db.$transaction(async (tx) => {
-      // Deactivate current active versions
       await tx.pageVersion.updateMany({
         where: { pageId: page.id, isActive: true },
         data: { isActive: false },
       });
 
-      // Create new active version
-      await tx.pageVersion.create({
+      const newVersion = await tx.pageVersion.create({
         data: {
           pageId: page.id,
           versionNumber: nextVersionNumber,
           templateKey: page.draftTemplate!.key,
           snapshot: sectionsSnapshot,
           isActive: true,
-          publishedById: session.user.id,
+          publishedById: context.userId,
         },
       });
 
-      // Reset page unpublished changes flag
-      await tx.page.update({
-        where: { id: page.id },
-        data: { hasUnpublishedChanges: false },
-      });
+      await tx.page.update({ where: { id: page.id }, data: { hasUnpublishedChanges: false } });
 
-      // Update Template active status (synchronize Template model for consistency)
-      await tx.template.updateMany({
-        data: { isActiveLive: false },
-      });
+      await tx.template.updateMany({ data: { isActiveLive: false } });
       await tx.template.update({
         where: { id: page.draftTemplateId! },
         data: { isActiveLive: true },
       });
-    });
 
-    // Create Audit Log entry
-    await db.auditLog.create({
-      data: {
-        action: "PUBLISH",
+      await recordAudit({
+        action: "PAGE_PUBLISHED",
         entityType: "PageVersion",
+        entityId: newVersion.id,
         summary: `Published layout snapshot version #${nextVersionNumber}`,
-        actorId: session.user.id,
-      },
+        context: auditCtx,
+        tx,
+      });
     });
 
     return NextResponse.json({ success: true, version: nextVersionNumber });

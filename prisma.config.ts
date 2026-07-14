@@ -11,5 +11,6 @@ export default defineConfig({
   },
   migrations: {
     path: "src/prisma/migrations",
+    seed: "node node_modules/tsx/dist/cli.mjs src/prisma/seed.ts",
   },
 });

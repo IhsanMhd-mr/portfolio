@@ -1,8 +1,20 @@
-export default function AdminLoginPage() {
+import LoginForm from "@/components/auth/LoginForm";
+import { SessionProvider } from "next-auth/react";
+import { auth } from "@/lib/auth";
+
+export default async function AdminLoginPage() {
+  const session = await auth();
+
   return (
-    <div className="p-8">
-      <h1 className="text-3xl font-bold">Admin Login</h1>
-      <p className="mt-4">Placeholder for the Admin login page.</p>
-    </div>
+    <SessionProvider session={session}>
+      <div
+        className="min-h-screen w-full flex items-center justify-center p-4 transition-colors duration-300"
+        style={{
+          backgroundColor: "var(--bg)",
+        }}
+      >
+        <LoginForm standalone={true} />
+      </div>
+    </SessionProvider>
   );
 }

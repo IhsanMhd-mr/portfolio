@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import db from "@/lib/database";
-import { getServerSession } from "@/lib/auth";
+import { safeRequireAdmin } from "@/lib/require-admin";
+import { recordAudit } from "@/lib/audit";
 
-// GET all sections for home page
+// GET all sections for home page (public-readable)
 export async function GET() {
   try {
     const page = await db.page.findUnique({
@@ -27,68 +28,70 @@ export async function GET() {
 
 // PUT /api/sections - Reorder or update multiple/single section
 export async function PUT(request: Request) {
+  const { context, response } = await safeRequireAdmin(request);
+  if (response) return response;
+
   try {
-    const session = await getServerSession();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const body = await request.json();
+    const auditCtx = {
+      actorId: context.userId,
+      loginMethod: context.loginMethod,
+      loginAccountId: context.loginAccountId,
+    };
 
-    // 1. Check if bulk reorder
+    // Bulk reorder
     if (body.reorder && Array.isArray(body.sections)) {
-      const updates = body.sections.map((sec: { id: string; order: number }) =>
-        db.pageSection.update({
-          where: { id: sec.id },
-          data: { order: sec.order },
-        })
-      );
-      await db.$transaction(updates);
-
-      // Set hasUnpublishedChanges to true
-      await db.page.update({
-        where: { key: "home" },
-        data: { hasUnpublishedChanges: true },
+      await db.$transaction(async (tx) => {
+        const updates = body.sections.map((sec: { id: string; order: number }) =>
+          tx.pageSection.update({ where: { id: sec.id }, data: { order: sec.order } })
+        );
+        await Promise.all(updates);
+        await tx.page.update({ where: { key: "home" }, data: { hasUnpublishedChanges: true } });
+        await recordAudit({
+          action: "SECTION_REORDERED",
+          entityType: "Page",
+          summary: `Reordered ${body.sections.length} homepage sections`,
+          context: auditCtx,
+          tx,
+        });
       });
-
       return NextResponse.json({ success: true });
     }
 
-    // 2. Otherwise update a single section
+    // Single section update
     const { id, internalLabel, visible, settings, animationPresetSlug, animationDelay, animationStagger } = body;
     if (!id) {
       return NextResponse.json({ error: "Section ID is required" }, { status: 400 });
     }
 
-    const updatedSection = await db.pageSection.update({
-      where: { id },
-      data: {
-        internalLabel,
-        visible,
-        settings: settings ? (typeof settings === "string" ? JSON.parse(settings) : settings) : undefined,
-        animationPresetSlug,
-        animationDelay,
-        animationStagger,
-      },
-    });
-
-    await db.page.update({
-      where: { key: "home" },
-      data: { hasUnpublishedChanges: true },
-    });
-
-    // Log action
-    await db.auditLog.create({
-      data: {
-        action: "UPDATE",
+    const result = await db.$transaction(async (tx) => {
+      const before = await tx.pageSection.findUniqueOrThrow({ where: { id } });
+      const after = await tx.pageSection.update({
+        where: { id },
+        data: {
+          internalLabel,
+          visible,
+          settings: settings ? (typeof settings === "string" ? JSON.parse(settings) : settings) : undefined,
+          animationPresetSlug,
+          animationDelay,
+          animationStagger,
+        },
+      });
+      await tx.page.update({ where: { key: "home" }, data: { hasUnpublishedChanges: true } });
+      await recordAudit({
+        action: "SECTION_UPDATED",
         entityType: "PageSection",
         entityId: id,
-        summary: `Updated settings for homepage section: ${updatedSection.internalLabel}`,
-        actorId: session.user.id,
-      },
+        summary: `Updated settings for homepage section: ${after.internalLabel}`,
+        before,
+        after,
+        context: auditCtx,
+        tx,
+      });
+      return after;
     });
 
-    return NextResponse.json({ success: true, section: updatedSection });
+    return NextResponse.json({ success: true, section: result });
   } catch (error) {
     console.error("PUT sections error:", error);
     return NextResponse.json({ error: "Failed to update sections" }, { status: 500 });
@@ -97,26 +100,20 @@ export async function PUT(request: Request) {
 
 // POST - Create a new section
 export async function POST(request: Request) {
+  const { context, response } = await safeRequireAdmin(request);
+  if (response) return response;
+
   try {
-    const session = await getServerSession();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const { type, internalLabel, order, visible, settings } = await request.json();
-
     if (!type || !internalLabel) {
       return NextResponse.json({ error: "Type and internalLabel are required" }, { status: 400 });
     }
 
-    const page = await db.page.findUnique({
-      where: { key: "home" },
-    });
+    const page = await db.page.findUnique({ where: { key: "home" } });
     if (!page) {
       return NextResponse.json({ error: "Page 'home' not found" }, { status: 404 });
     }
 
-    // Determine position order if not provided
     let finalOrder = order;
     if (finalOrder === undefined) {
       const maxOrderSection = await db.pageSection.findFirst({
@@ -126,31 +123,34 @@ export async function POST(request: Request) {
       finalOrder = maxOrderSection ? maxOrderSection.order + 1 : 1;
     }
 
-    const newSection = await db.pageSection.create({
-      data: {
-        pageId: page.id,
-        type,
-        internalLabel,
-        order: finalOrder,
-        visible: visible !== undefined ? visible : true,
-        settings: settings || {},
-      },
-    });
+    const auditCtx = {
+      actorId: context.userId,
+      loginMethod: context.loginMethod,
+      loginAccountId: context.loginAccountId,
+    };
 
-    await db.page.update({
-      where: { key: "home" },
-      data: { hasUnpublishedChanges: true },
-    });
-
-    // Log action
-    await db.auditLog.create({
-      data: {
-        action: "CREATE",
+    const newSection = await db.$transaction(async (tx) => {
+      const section = await tx.pageSection.create({
+        data: {
+          pageId: page.id,
+          type,
+          internalLabel,
+          order: finalOrder,
+          visible: visible !== undefined ? visible : true,
+          settings: settings || {},
+        },
+      });
+      await tx.page.update({ where: { key: "home" }, data: { hasUnpublishedChanges: true } });
+      await recordAudit({
+        action: "SECTION_ADDED",
         entityType: "PageSection",
-        entityId: newSection.id,
-        summary: `Created homepage section: ${newSection.internalLabel}`,
-        actorId: session.user.id,
-      },
+        entityId: section.id,
+        summary: `Added homepage section: ${section.internalLabel}`,
+        after: section,
+        context: auditCtx,
+        tx,
+      });
+      return section;
     });
 
     return NextResponse.json({ success: true, section: newSection });
@@ -162,37 +162,35 @@ export async function POST(request: Request) {
 
 // DELETE a section
 export async function DELETE(request: Request) {
-  try {
-    const session = await getServerSession();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const { context, response } = await safeRequireAdmin(request);
+  if (response) return response;
 
+  try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
-
     if (!id) {
       return NextResponse.json({ error: "ID is required" }, { status: 400 });
     }
 
-    const deleted = await db.pageSection.delete({
-      where: { id },
-    });
+    const auditCtx = {
+      actorId: context.userId,
+      loginMethod: context.loginMethod,
+      loginAccountId: context.loginAccountId,
+    };
 
-    await db.page.update({
-      where: { key: "home" },
-      data: { hasUnpublishedChanges: true },
-    });
-
-    // Log action
-    await db.auditLog.create({
-      data: {
-        action: "DELETE",
+    await db.$transaction(async (tx) => {
+      const section = await tx.pageSection.findUniqueOrThrow({ where: { id } });
+      await tx.pageSection.delete({ where: { id } });
+      await tx.page.update({ where: { key: "home" }, data: { hasUnpublishedChanges: true } });
+      await recordAudit({
+        action: "SECTION_DELETED",
         entityType: "PageSection",
         entityId: id,
-        summary: `Deleted homepage section: ${deleted.internalLabel}`,
-        actorId: session.user.id,
-      },
+        summary: `Deleted homepage section: ${section.internalLabel}`,
+        before: section,
+        context: auditCtx,
+        tx,
+      });
     });
 
     return NextResponse.json({ success: true });
