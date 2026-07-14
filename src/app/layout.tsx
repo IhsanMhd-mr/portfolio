@@ -113,18 +113,64 @@ export const metadata: Metadata = {
    Root Layout
    ========================================================================== */
 
-export default function RootLayout({
+import db from "@/lib/database";
+import { headers } from "next/headers";
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const headersList = await headers();
+  const isPreview = headersList.get("x-preview") === "true";
+
+  let templateKey = "MODERN_GLASS";
+
+  try {
+    if (isPreview) {
+      const page = await db.page.findUnique({
+        where: { key: "home" },
+        include: { draftTemplate: true },
+      });
+      if (page?.draftTemplate?.key) {
+        templateKey = page.draftTemplate.key;
+      }
+    } else {
+      const page = await db.page.findUnique({
+        where: { key: "home" },
+        include: {
+          versions: {
+            where: { isActive: true },
+            take: 1,
+          },
+          draftTemplate: true,
+        },
+      });
+      if (page?.versions?.[0]?.templateKey) {
+        templateKey = page.versions[0].templateKey;
+      } else if (page?.draftTemplate?.key) {
+        templateKey = page.draftTemplate.key;
+      }
+    }
+  } catch (error) {
+    console.error("Failed to load active template from database:", error);
+  }
+
+  const templateMap: Record<string, string> = {
+    PROFESSIONAL_MINIMAL: "minimal",
+    MODERN_GLASS: "glass",
+    INTERACTIVE_3D: "threed",
+  };
+  const templateSlug = templateMap[templateKey] || "glass";
+
   return (
     <html
       lang="en"
-      data-template="glass"
+      data-template={templateSlug}
       className={`${fontVariables} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );
 }
+

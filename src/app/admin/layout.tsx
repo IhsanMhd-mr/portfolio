@@ -1,18 +1,48 @@
-"use client";
-
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Eye, ExternalLink, Globe } from "lucide-react";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { Eye, ExternalLink } from "lucide-react";
+import { getServerSession } from "@/lib/auth";
 
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
+  const session = await getServerSession();
+  
+  const headersList = await headers();
+  const pathname = headersList.get("x-pathname") || "";
+  const isLoginPage = pathname === "/admin/login";
 
-  // Simple breadcrumb generator
+  // Double-check session route protection in layout
+  if (!session && !isLoginPage) {
+    redirect("/admin/login");
+  }
+
+  if (session && isLoginPage) {
+    redirect("/admin/dashboard");
+  }
+
+  if (isLoginPage) {
+    return (
+      <div
+        data-admin="true"
+        className="min-h-screen flex flex-col items-center justify-center transition-colors duration-300"
+        style={{
+          backgroundColor: "var(--a-bg)",
+          fontFamily: "var(--a-font-body)",
+        }}
+      >
+        <main className="w-full max-w-md p-8 bg-[var(--a-surface)] border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] shadow-lg">
+          {children}
+        </main>
+      </div>
+    );
+  }
+
+  // Simple breadcrumb generator (Server side)
   const pathParts = pathname.split("/").filter(Boolean);
   const breadcrumbs = pathParts.map((part, index) => {
     const href = "/" + pathParts.slice(0, index + 1).join("/");
@@ -42,8 +72,8 @@ export default function AdminLayout({
           {/* Breadcrumbs */}
           <div className="flex items-center gap-2 text-sm">
             <Link
-              href="/admin"
-              className="text-[var(--a-soft)] hover:text-[var(--a-ink)] transition-colors"
+              href="/admin/dashboard"
+              className="text-[var(--a-soft)] hover:text-[var(--a-ink)] transition-colors animate-none"
             >
               Admin
             </Link>
@@ -77,26 +107,28 @@ export default function AdminLayout({
                 <Eye size={14} />
                 Preview Draft
               </Link>
-              <Link
+              <a
                 href="/"
                 target="_blank"
+                rel="noopener noreferrer"
                 className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-[var(--a-soft)] hover:text-[var(--a-ink)] hover:border-[var(--a-ink)] transition-colors bg-[var(--a-surface)]"
               >
                 <ExternalLink size={14} />
                 View Live Site
-              </Link>
-              <button
+              </a>
+              <Link
+                href="/admin/publish-confirmation"
                 className="flex items-center gap-1.5 text-xs font-semibold px-4 py-1.5 bg-[var(--a-primary)] hover:bg-[var(--a-primary-hover)] text-white rounded-[var(--a-r-sm)] transition-colors border-none"
               >
                 Publish...
-              </button>
+              </Link>
             </div>
 
             {/* Profile Avatar indicator */}
             <div
               className="h-8 w-8 rounded-full bg-slate-200 border border-solid border-[var(--a-line)] flex items-center justify-center text-xs font-bold text-[var(--a-soft)]"
             >
-              JD
+              {session?.user.email.substring(0, 2).toUpperCase() || "AD"}
             </div>
           </div>
         </header>
