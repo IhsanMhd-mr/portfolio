@@ -2,21 +2,43 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { ArrowDownToLine, Menu, X } from "lucide-react";
+import { useSession, signOut } from "next-auth/react";
+import AuthDialog from "../auth/AuthDialog";
 
 export default function Navbar({
   logoText = "Jane Doe",
   cvUrl = "/resume",
-  isLoggedIn = false,
 }: {
   logoText?: string;
   cvUrl?: string;
-  isLoggedIn?: boolean;
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const { data: session, status } = useSession();
+  const isLoggedIn = status === "authenticated";
+
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (isDropdownOpen && !(e.target as Element).closest(".dropdown-container")) {
+        setIsDropdownOpen(false);
+      }
+    };
+    window.addEventListener("click", handleClickOutside);
+    return () => window.removeEventListener("click", handleClickOutside);
+  }, [isDropdownOpen]);
+
+  useEffect(() => {
+    if (searchParams.get("login") === "1" && !isLoggedIn) {
+      setIsAuthDialogOpen(true);
+    }
+  }, [searchParams, isLoggedIn]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -90,15 +112,56 @@ export default function Navbar({
             <ArrowDownToLine size={14} />
             CV
           </a>
-          <Link
-            href={isLoggedIn ? "/admin/dashboard" : "/admin/login"}
-            className="text-xs font-semibold px-4 py-2 bg-[var(--accent)] rounded-[var(--radius-sm)] transition-colors hover:bg-[var(--accent-hover)] text-center block"
-            style={{
-              color: "var(--bg)",
-            }}
-          >
-            {isLoggedIn ? "Dashboard" : "Log in"}
-          </Link>
+
+          {isLoggedIn ? (
+            <div className="relative dropdown-container">
+              <button
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="text-xs font-semibold px-4 py-2 bg-[var(--accent)] rounded-[var(--radius-sm)] text-[var(--bg)] transition-colors hover:bg-[var(--accent-hover)] flex items-center gap-1"
+              >
+                Admin ▾
+              </button>
+              {isDropdownOpen && (
+                <div
+                  className="absolute right-0 mt-2 w-40 rounded-[var(--radius-sm)] border border-solid border-[var(--line)] bg-[var(--bg-raised)] py-1 shadow-lg z-[110]"
+                >
+                  <Link
+                    href="/admin/dashboard"
+                    onClick={() => setIsDropdownOpen(false)}
+                    className="block px-4 py-2 text-xs font-medium text-[var(--ink-soft)] hover:text-[var(--accent)] transition-all hover:bg-[var(--bg)]"
+                  >
+                    Dashboard
+                  </Link>
+                  <Link
+                    href="/"
+                    onClick={() => setIsDropdownOpen(false)}
+                    className="block px-4 py-2 text-xs font-medium text-[var(--ink-soft)] hover:text-[var(--accent)] transition-all hover:bg-[var(--bg)]"
+                  >
+                    View live site
+                  </Link>
+                  <button
+                    onClick={() => {
+                      setIsDropdownOpen(false);
+                      signOut({ callbackUrl: "/" });
+                    }}
+                    className="block w-full text-left px-4 py-2 text-xs font-medium text-[var(--danger, #ef4444)] transition-all hover:bg-[var(--bg)]"
+                  >
+                    Log out
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsAuthDialogOpen(true)}
+              className="text-xs font-semibold px-4 py-2 bg-[var(--accent)] rounded-[var(--radius-sm)] transition-colors hover:bg-[var(--accent-hover)] text-center block"
+              style={{
+                color: "var(--bg)",
+              }}
+            >
+              Log in
+            </button>
+          )}
         </div>
 
         {/* Mobile Menu Toggle */}
@@ -144,17 +207,41 @@ export default function Navbar({
               <ArrowDownToLine size={16} />
               Download CV
             </a>
-            <Link
-              href={isLoggedIn ? "/admin/dashboard" : "/admin/login"}
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="w-full py-3 bg-[var(--accent)] text-[var(--bg)] font-semibold rounded-[var(--radius-sm)] text-center"
-            >
-              {isLoggedIn ? "Dashboard" : "Log in"}
-            </Link>
+            {isLoggedIn ? (
+              <>
+                <Link
+                  href="/admin/dashboard"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="w-full py-3 border border-solid border-[var(--line)] text-[var(--ink)] font-semibold rounded-[var(--radius-sm)] text-center"
+                >
+                  Dashboard
+                </Link>
+                <button
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    signOut({ callbackUrl: "/" });
+                  }}
+                  className="w-full py-3 bg-[var(--danger, #ef4444)] text-white font-semibold rounded-[var(--radius-sm)] text-center"
+                >
+                  Log out
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  setIsAuthDialogOpen(true);
+                }}
+                className="w-full py-3 bg-[var(--accent)] text-[var(--bg)] font-semibold rounded-[var(--radius-sm)] text-center"
+              >
+                Log in
+              </button>
+            )}
           </div>
         </div>
       )}
 
+      <AuthDialog isOpen={isAuthDialogOpen} onClose={() => setIsAuthDialogOpen(false)} />
     </>
   );
 }

@@ -1,16 +1,11 @@
 // ============================================================================
 //  PORTFOLIO CMS — Prisma Schema (Prisma 7 Compatible)
 //  PostgreSQL · Next.js App Router
-//  Covers: User, Project, Technology, ProjectTechnology, Page, PageSection,
-//          PageVersion, Template, TimelineEntry, Education, Experience,
-//          MediaAsset, ContactMessage, GameSettings, AuditLog
 //
-//  Design principles baked in:
-//   - Draft vs. published is explicit; public site reads only published data.
-//   - Soft-delete (deletedAt) everywhere content can be "archived + restored".
-//   - Media is a reusable asset referenced by other models (never duplicated).
-//   - Page layout/order/animation is DATA (PageSection), snapshotted per publish.
-//   - Every important mutation is recorded in AuditLog.
+//  Design: Single-owner portfolio.
+//  One canonical User (owner). Multiple login identities via Auth.js Account model.
+//  TrackedSession provides JWT revocation without abandoning JWT strategy.
+//  AuditLog records every meaningful mutation with before/after snapshots.
 // ============================================================================
 
 generator client {
@@ -25,17 +20,6 @@ datasource db {
 // ============================================================================
 //  ENUMS
 // ============================================================================
-
-enum Role {
-  OWNER // full control, cannot be deleted
-  ADMIN // authorized administrator
-}
-
-enum AuthProvider {
-  CREDENTIALS
-  GITHUB
-  GOOGLE
-}
 
 enum PublishState {
   DRAFT
@@ -139,49 +123,123 @@ enum GameMode {
   STATIC_FALLBACK
 }
 
-enum AuditAction {
-  LOGIN
-  LOGOUT
-  CREATE
-  UPDATE
-  DELETE
-  ARCHIVE
-  RESTORE
-  DUPLICATE
-  PUBLISH
-  ROLLBACK
-  RESTORE_VERSION
-  TEMPLATE_CHANGE
-  MEDIA_UPLOAD
-  MEDIA_DELETE
-}
-
 // ============================================================================
-//  USER  (owner / admin accounts; supports credentials + OAuth)
+//  USER  (the single canonical portfolio owner)
 // ============================================================================
 
 model User {
-  id            String       @id @default(cuid())
-  email         String       @unique
-  name          String?
-  passwordHash  String? // null when the account is OAuth-only
-  role          Role         @default(ADMIN)
-  provider      AuthProvider @default(CREDENTIALS)
-  providerId    String? // subject id from GitHub/Google
-  avatarUrl     String?
-  isActive      Boolean      @default(true)
-  lastLoginAt   DateTime?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  id                   String    @id @default(cuid())
+  username             String    @unique
+  email                String    @unique
+  name                 String?
+  /// PBKDF2-SHA256 hash: "iterations:salt:hash" — null when no local password set
+  passwordHash         String?   @map("password_hash")
+  mustChangePassword   Boolean   @default(false) @map("must_change_password")
+  avatarUrl            String?   @map("avatar_url")
+  lastLoginAt          DateTime? @map("last_login_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
 
-  // relations (who performed which admin actions / published versions)
-  auditLogs      AuditLog[]
-  publishedVersions PageVersion[] @relation("VersionPublisher")
-  uploadedMedia  MediaAsset[]  @relation("MediaUploader")
+  // Relations
+  accounts          Account[]
+  trackedSessions   TrackedSession[]
+  auditLogs         AuditLog[]
+  publishedVersions PageVersion[]    @relation("VersionPublisher")
+  uploadedMedia     MediaAsset[]     @relation("MediaUploader")
 
-  @@unique([provider, providerId])
-  @@index([role])
   @@map("users")
+}
+
+// ============================================================================
+//  AUTH.JS — ACCOUNT  (one row per linked login identity)
+//  provider = "credentials" → local username/password
+//  provider = "google"      → a linked Google account
+// ============================================================================
+
+model Account {
+  id                String   @id @default(cuid())
+  userId            String   @map("user_id")
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider          String   // "credentials" | "google"
+  providerAccountId String   @map("provider_account_id")  // Google OIDC subject (stable)
+  type              String   // "credentials" | "oauth"
+  /// Verified email of this identity — for display only; not used as login key
+  email             String?
+  access_token      String?  @db.Text
+  refresh_token     String?  @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?  @db.Text
+
+  trackedSessions TrackedSession[]
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+// ============================================================================
+//  TRACKED SESSION  (database-side revocation record for JWT sessions)
+//  The `sid` field is embedded in the encrypted Auth.js JWT cookie.
+//  requireAdmin() reads sid from the JWT and validates it here.
+// ============================================================================
+
+model TrackedSession {
+  id           String    @id @default(cuid())
+  /// Random UUID injected into the JWT to identify this specific session
+  sid          String    @unique
+  userId       String    @map("user_id")
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// "LOCAL" | "GOOGLE"
+  loginMethod  String    @map("login_method")
+  /// Nullable: set to Account.id when loginMethod = GOOGLE
+  accountId    String?   @map("account_id")
+  account      Account?  @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  ipAddress    String?   @map("ip_address")
+  userAgent    String?   @map("user_agent")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  lastSeenAt   DateTime  @default(now()) @map("last_seen_at")
+  expiresAt    DateTime  @map("expires_at")
+  revokedAt    DateTime? @map("revoked_at")
+  revokeReason String?   @map("revoke_reason")
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+  @@map("tracked_sessions")
+}
+
+// ============================================================================
+//  ACCOUNT LINK INTENT  (short-lived token for linking a Google account)
+//  Created when authenticated owner clicks "Link Another Google Account".
+//  Validated in the OAuth callback before linking the Account row.
+// ============================================================================
+
+model AccountLinkIntent {
+  id          String    @id @default(cuid())
+  userId      String    @map("user_id")
+  /// SHA-256 hash of the one-time link token (never store the raw token)
+  tokenHash   String    @unique @map("token_hash")
+  expiresAt   DateTime  @map("expires_at")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@map("account_link_intents")
+}
+
+// ============================================================================
+//  LOGIN ATTEMPT  (rate-limiting; ephemeral — no PII stored)
+// ============================================================================
+
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  emailHash String   @map("email_hash")
+  ipHash    String   @map("ip_hash")
+  success   Boolean
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([emailHash, createdAt])
+  @@index([ipHash, createdAt])
+  @@map("login_attempts")
 }
 
 // ============================================================================
@@ -556,7 +614,7 @@ model Template {
   name         String
   description  String?
   previewImageUrl String? @map("preview_image_url")
-  isActiveLive Boolean     @default(false) @map("is_active_live") // exactly one true at a time (enforced in service layer)
+  isActiveLive Boolean     @default(false) @map("is_active_live")
   createdAt    DateTime    @default(now()) @map("created_at")
   updatedAt    DateTime    @updatedAt @map("updated_at")
 
@@ -567,12 +625,6 @@ model Template {
 
 // ============================================================================
 //  PAGE  +  PAGE SECTION  +  PAGE VERSION  (the page-builder core)
-//
-//  Model:
-//   - Page = a logical page (currently "home"); holds the DRAFT working state.
-//   - PageSection = ordered, configurable sections in the DRAFT of a Page.
-//   - PageVersion = an immutable published SNAPSHOT of the page's sections +
-//     template, created on every publish. The live site reads the active one.
 // ============================================================================
 
 model Page {
@@ -582,7 +634,6 @@ model Page {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  // draft template selection (published state lives in PageVersion.templateKey)
   draftTemplateId String? @map("draft_template_id")
   draftTemplate   Template? @relation(fields: [draftTemplateId], references: [id], onDelete: SetNull)
 
@@ -602,16 +653,10 @@ model PageSection {
   internalLabel String @map("internal_label")
   order        Int         @default(0)
   visible      Boolean     @default(true)
-
-  // arbitrary, VALIDATED-per-type settings (heading, layout, background,
-  // selected record ids, display count, etc.). Never executable code.
   settings     Json        @default("{}")
-
-  // animation assignment (preset by slug; overrides clamped in service layer)
-  animationPresetSlug String? @map("animation_preset_slug") // null = template default
+  animationPresetSlug String? @map("animation_preset_slug")
   animationDelay      Float?  @default(0) @map("animation_delay")
   animationStagger    Float?  @default(0.08) @map("animation_stagger")
-
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -624,20 +669,11 @@ model PageVersion {
   pageId      String @map("page_id")
   page        Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
   versionNumber Int @map("version_number")
-
   templateKey TemplateKey @map("template_key")
-
-  // immutable snapshot of the full section list + settings at publish time
   snapshot    Json
-
-  // human-readable diff summary shown in Version History
-  changeSummary Json? @map("change_summary") // [{ type: added|removed|moved|edited, label }]
-
-  isActive    Boolean  @default(false) @map("is_active") // the currently-live version
-
-  // one-hour quick-rollback window
+  changeSummary Json? @map("change_summary")
+  isActive    Boolean  @default(false) @map("is_active")
   rollbackUntil DateTime? @map("rollback_until")
-
   publishedById String? @map("published_by_id")
   publishedBy   User?    @relation("VersionPublisher", fields: [publishedById], references: [id], onDelete: SetNull)
   createdAt     DateTime @default(now()) @map("created_at")
@@ -655,7 +691,7 @@ model GameSettings {
   id             String   @id @default(cuid())
   enabled        Boolean  @default(false)
   mode           GameMode @default(ROTATING_SPHERE)
-  selectedTechIds Json? @map("selected_tech_ids") // string[] of Technology ids; null = all showInGame
+  selectedTechIds Json? @map("selected_tech_ids")
   ballCount      Int      @default(12) @map("ball_count")
   ballSize       Float    @default(1) @map("ball_size")
   fallingSpeed   Float    @default(1) @map("falling_speed")
@@ -673,7 +709,6 @@ model GameSettings {
   @@map("game_settings")
 }
 
-// optional: persisted game scores (only if saveScores/leaderboard on)
 model GameScore {
   id         String   @id @default(cuid())
   playerName String @map("player_name")
@@ -696,7 +731,7 @@ model ContactMessage {
   message   String          @db.Text
   category  MessageCategory @default(GENERAL)
   status    MessageStatus   @default(NEW)
-  ipHash    String? @map("ip_hash") // for rate-limiting / spam, not shown to admin
+  ipHash    String? @map("ip_hash")
   deletedAt DateTime? @map("deleted_at")
   createdAt DateTime        @default(now()) @map("created_at")
   updatedAt DateTime        @updatedAt @map("updated_at")
@@ -707,24 +742,41 @@ model ContactMessage {
 }
 
 // ============================================================================
-//  AUDIT LOG  (read-only trail of important actions)
+//  AUDIT LOG  (read-only trail of all important admin actions)
+//
+//  action is a free-form string to allow fine-grained event labelling:
+//  LOGIN_SUCCESS, LOGIN_FAILED, LOGOUT, PASSWORD_CHANGED,
+//  GOOGLE_LINKED, GOOGLE_UNLINKED, SESSION_REVOKED,
+//  PROJECT_CREATED, PROJECT_UPDATED, PROJECT_DELETED, PROJECT_RESTORED,
+//  SECTION_ADDED, SECTION_UPDATED, SECTION_DELETED, SECTION_REORDERED,
+//  TEMPLATE_CHANGED, PAGE_PUBLISHED, PAGE_ROLLED_BACK,
+//  MEDIA_UPLOADED, MEDIA_DELETED, SETTINGS_UPDATED
 // ============================================================================
 
 model AuditLog {
-  id         String      @id @default(cuid())
-  action     AuditAction
-  entityType String @map("entity_type") // "Project", "PageVersion", "Template", ...
-  entityId   String? @map("entity_id")
-  summary    String? // one-line human description
-  before     Json?
-  after      Json?
-  createdAt  DateTime    @default(now()) @map("created_at")
+  id              String   @id @default(cuid())
+  /// Free-form action label — see comment above for valid values
+  action          String
+  entityType      String   @map("entity_type") // "User" | "Project" | "PageVersion" | ...
+  entityId        String?  @map("entity_id")
+  summary         String?  // one-line human description
+  /// loginMethod that created this action's session: "LOCAL" | "GOOGLE" | null
+  loginMethod     String?  @map("login_method")
+  /// Account.id when loginMethod = GOOGLE; null for LOCAL or system events
+  loginAccountId  String?  @map("login_account_id")
+  /// Redacted before-snapshot of the changed record
+  beforeJson      Json?    @map("before_json")
+  /// Redacted after-snapshot of the changed record
+  afterJson       Json?    @map("after_json")
+  ipAddress       String?  @map("ip_address")
+  userAgent       String?  @map("user_agent")
+  createdAt       DateTime @default(now()) @map("created_at")
 
   actorId String? @map("actor_id")
   actor   User?   @relation(fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([action])
-  @@index([entityType])
+  @@index([entityType, entityId])
   @@index([createdAt])
   @@map("audit_logs")
 }

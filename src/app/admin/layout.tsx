@@ -1,28 +1,25 @@
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import Link from "next/link";
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
 import { Eye, ExternalLink } from "lucide-react";
-import { getServerSession } from "@/lib/auth";
+import { requireAdmin } from "@/lib/require-admin";
+import db from "@/lib/database";
 
 export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getServerSession();
-  
   const headersList = await headers();
   const pathname = headersList.get("x-pathname") || "";
   const isLoginPage = pathname === "/admin/login";
 
-  // Double-check session route protection in layout
-  if (!session && !isLoginPage) {
-    redirect("/admin/login");
-  }
-
-  if (session && isLoginPage) {
-    redirect("/admin/dashboard");
+  // On non-login admin pages, deep-validate the session against TrackedSession
+  let ownerEmail = "";
+  if (!isLoginPage) {
+    const ctx = await requireAdmin({ pathname });
+    const owner = await db.user.findUnique({ where: { id: ctx.userId }, select: { email: true } });
+    ownerEmail = owner?.email ?? "";
   }
 
   if (isLoginPage) {
@@ -128,7 +125,7 @@ export default async function AdminLayout({
             <div
               className="h-8 w-8 rounded-full bg-slate-200 border border-solid border-[var(--a-line)] flex items-center justify-center text-xs font-bold text-[var(--a-soft)]"
             >
-              {session?.user.email.substring(0, 2).toUpperCase() || "AD"}
+              {ownerEmail.substring(0, 2).toUpperCase() || "AD"}
             </div>
           </div>
         </header>
