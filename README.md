@@ -1,5 +1,22 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Database Workflow (Mandatory)
+
+Never run raw Prisma database commands (`prisma migrate dev`, `prisma migrate reset`, `prisma db push`, …) for the normal project workflow. Every controlled command below performs the database operation, then **automatically runs `scripts/initialize.js` and `scripts/verify-initialization.js`**. If any step fails, the whole command fails — the database is never silently left half-ready.
+
+| Command | Use for |
+| --- | --- |
+| `npm run db:setup` | Existing production/deployment database — applies migrations, initializes, verifies |
+| `npm run db:migrate` | Creating development migrations (`prisma migrate dev` + init + verify) |
+| `npm run db:push` | Intentionally syncing the dev schema without migration files |
+| `npm run db:reset` | Complete development reset — **destroys all data**, requires `-- --yes` |
+| `npm run initialize` | Manually rerun safe, idempotent initialization |
+| `npm run db:verify` | Verify all required records exist |
+
+Initialization is **idempotent**: it creates the canonical owner (printing a temporary username/password **once** — only when no owner exists), the three templates, the site profile, the homepage with default sections, an initial published page version, and game settings. Existing records — including the owner's password and Google links — are always preserved; ordinary migrations never regenerate credentials. To deliberately regenerate a lost owner password, run `npm run initialize -- --reset`.
+
+Production deployments should run `npm run db:setup` (or `npm run deploy:setup`) once per deploy, before starting the app — never regenerate credentials on server restart.
+
 ## Getting Started
 
 First, run the development server:

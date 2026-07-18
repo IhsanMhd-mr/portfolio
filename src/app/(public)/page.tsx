@@ -1,190 +1,39 @@
-import db from "@/lib/database";
-import { headers } from "next/headers";
-import { sectionRegistry, dbEnumToRegistryKey } from "@/components/sections/registry";
+import { cookies } from "next/headers";
+import { getValidatedOwner } from "@/lib/require-admin";
+import { PublicContentService } from "@/services/public-content.service";
+import ProfessionalMinimalTemplate from "@/components/templates/ProfessionalMinimalTemplate";
+import ModernGlassTemplate from "@/components/templates/ModernGlassTemplate";
+import Interactive3DTemplate from "@/components/templates/Interactive3DTemplate";
 
-interface SectionData {
-  id: string;
-  type: string;
-  internalLabel: string;
-  settings: any;
-  visible: boolean;
-  order: number;
-}
-
+/**
+ * Public homepage — thin route layer.
+ * All content resolution (draft/published, visibility, sections, template)
+ * lives in PublicContentService; this file only authorizes preview mode,
+ * gates owner-only UI, and picks the template component to render.
+ */
 export default async function HomePage() {
-  const headersList = await headers();
-  const isPreview = headersList.get("x-preview") === "true";
+  const cookiesList = await cookies();
 
-  // 1. Fetch site profile, technologies, projects, timeline, education, experience, gameSettings
-  const [
-    profile,
-    technologies,
-    projects,
-    timelineEntries,
-    education,
-    experience,
-    gameSettings,
-  ] = await Promise.all([
-    db.siteProfile.findFirst({
-      include: {
-        profileImage: true,
-        cvFile: true,
-      },
-    }),
-    db.technology.findMany({
-      where: { visible: true, deletedAt: null },
-      orderBy: { order: "asc" },
-    }),
-    db.project.findMany({
-      where: { visible: true, deletedAt: null },
-      include: {
-        technologies: {
-          include: { technology: true },
-          orderBy: { order: "asc" },
-        },
-        thumbnail: true,
-      },
-      orderBy: { manualOrder: "asc" },
-    }),
-    db.timelineEntry.findMany({
-      where: { visible: true, deletedAt: null },
-      include: { linkedProject: true },
-      orderBy: { order: "asc" },
-    }),
-    db.education.findMany({
-      where: { visible: true, deletedAt: null },
-      orderBy: { order: "asc" },
-    }),
-    db.experience.findMany({
-      where: { visible: true, deletedAt: null },
-      orderBy: { order: "asc" },
-    }),
-    db.gameSettings.findFirst(),
-  ]);
+  // Secure preview mode authorization (httpOnly cookie set by admin-only action)
+  const isPreview = cookiesList.get("portfolio_preview_mode")?.value === "true";
 
-  // 2. Fetch layout sections (draft vs published)
-  let sections: SectionData[] = [];
+  // Owner-only UI gate. Validates against TrackedSession (not just the JWT), so
+  // a revoked/expired session is treated as a guest. Guests get isOwner=false
+  // and owner-only JSX is never rendered into the response.
+  const isOwner = (await getValidatedOwner()) !== null;
 
-  try {
-    if (isPreview) {
-      // Load draft sections
-      const page = await db.page.findUnique({
-        where: { key: "home" },
-        include: {
-          sections: {
-            orderBy: { order: "asc" },
-          },
-        },
-      });
-      sections = (page?.sections || []).map((s) => ({
-        id: s.id,
-        type: s.type,
-        internalLabel: s.internalLabel,
-        settings: typeof s.settings === "string" ? JSON.parse(s.settings) : s.settings || {},
-        visible: s.visible,
-        order: s.order,
-      }));
-    } else {
-      // Load published sections
-      const page = await db.page.findUnique({
-        where: { key: "home" },
-        include: {
-          versions: {
-            where: { isActive: true },
-            take: 1,
-          },
-        },
-      });
-      const activeVersion = page?.versions?.[0];
-      if (activeVersion && activeVersion.snapshot) {
-        const snapshot = typeof activeVersion.snapshot === "string"
-          ? JSON.parse(activeVersion.snapshot)
-          : activeVersion.snapshot;
-        if (Array.isArray(snapshot)) {
-          sections = snapshot;
-        }
-      } else {
-        // Fallback to draft sections if no published version exists
-        const draftSections = await db.pageSection.findMany({
-          where: { pageId: page?.id || "" },
-          orderBy: { order: "asc" },
-        });
-        sections = draftSections.map((s) => ({
-          id: s.id,
-          type: s.type,
-          internalLabel: s.internalLabel,
-          settings: typeof s.settings === "string" ? JSON.parse(s.settings) : s.settings || {},
-          visible: s.visible,
-          order: s.order,
-        }));
-      }
-    }
-  } catch (error) {
-    console.error("Failed to load sections:", error);
+  const { templateKey, ...data } = await PublicContentService.getHomePageData(isPreview);
+
+  const templateProps = { ...data, isPreview, isOwner };
+
+  if (templateKey === "PROFESSIONAL_MINIMAL") {
+    return <ProfessionalMinimalTemplate {...templateProps} />;
   }
 
-  // Filter out hidden sections and sort by order index
-  const visibleSections = sections
-    .filter((s) => s.visible)
-    .sort((a, b) => a.order - b.order);
+  if (templateKey === "INTERACTIVE_3D") {
+    return <Interactive3DTemplate {...templateProps} />;
+  }
 
-  // Prevent double rendering of combined EducationExperienceSection
-  let eduExpRendered = false;
-
-  return (
-    <div className="w-full flex flex-col">
-      {visibleSections.map((section) => {
-        const registryKey = dbEnumToRegistryKey[section.type];
-        if (!registryKey) {
-          console.warn(`No registry mapping for section type: ${section.type}`);
-          return null;
-        }
-
-        const SectionComponent = sectionRegistry[registryKey as keyof typeof sectionRegistry] as any;
-        if (!SectionComponent) {
-          console.warn(`Unknown section component: ${registryKey}`);
-          return null;
-        }
-
-        // Special handling for Education & Experience layout
-        if (registryKey === "education-experience") {
-          if (eduExpRendered) return null; // Skip duplicate render
-          eduExpRendered = true;
-
-          return (
-            <SectionComponent
-              key={section.id}
-              education={education}
-              experience={experience}
-              isPreview={isPreview}
-            />
-          );
-        }
-
-        // Standard section rendering with appropriate data passed
-        const props: any = {
-          key: section.id,
-          settings: section.settings,
-          isPreview,
-        };
-
-        if (registryKey === "hero" || registryKey === "about" || registryKey === "contact") {
-          props.profile = profile;
-        } else if (registryKey === "tech-stack") {
-          props.technologies = technologies;
-        } else if (registryKey === "featured-projects") {
-          props.projects = projects;
-        } else if (registryKey === "other-projects" || registryKey === "project-grid") {
-          props.projects = projects;
-        } else if (registryKey === "project-timeline") {
-          props.timelineEntries = timelineEntries;
-        } else if (registryKey === "stack-game") {
-          props.technologies = technologies;
-          props.gameSettings = gameSettings;
-        }
-
-        return <SectionComponent {...props} />;
-      })}
-    </div>
-  );
+  // Default fallback is MODERN_GLASS
+  return <ModernGlassTemplate {...templateProps} />;
 }

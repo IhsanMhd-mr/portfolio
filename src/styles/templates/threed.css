@@ -5,25 +5,25 @@
    ========================================================================== */
 
 [data-template="threed"] {
-  /* --- Palette --- */
-  --bg:              #07080D;  /* void */
-  --bg-2:            #0C0E16;
-  --bg-raised:       #0C0E16;
-  --bg-inset:        #11141F;
-  --panel:           #11141F;  /* solid cards — NO glass in this template */
-  --panel-line:      #232838;
-  --ink:             #F2F3F7;
-  --ink-soft:        #A6ACBF;
-  --ink-faint:       #62687C;
-  --line:            #232838;
-  --accent:          #FFB454;  /* solar amber */
-  --accent-hover:    #E08A1E;
-  --accent-tint:     rgba(255, 180, 84, 0.12);
-  --ember:           linear-gradient(100deg, #FFB454, #FF7847);
-  --violet-ambient:  rgba(124, 93, 250, 0.10);
-  --success:         #3DDC97;
-  --warn:            #FFB454;
-  --danger:          #FF5C5C;
+  /* --- Palette (dark — the template's default/base mode) --- */
+  --bg:              #0A0A0C;  /* deep near-black base */
+  --bg-2:            #131316;
+  --bg-raised:       #131316;
+  --bg-inset:        #1C1C21;
+  --panel:           #131316;  /* solid cards — NO glass in this template */
+  --panel-line:      #2A2A31;
+  --ink:             #F2F2F5;
+  --ink-soft:        #9C9CA8;
+  --ink-faint:       #6B6B75;
+  --line:            #2A2A31;
+  --accent:          #6366F1;  /* indigo */
+  --accent-hover:    #818CF8;
+  --accent-tint:     rgba(99, 102, 241, 0.12);
+  --ember:           linear-gradient(100deg, #6366F1, #818CF8);
+  --violet-ambient:  rgba(99, 102, 241, 0.10);
+  --success:         #34D399;
+  --warn:            #FBBF24;
+  --danger:          #F87171;
 
   /* --- Font family aliases --- */
   --font-display:  var(--font-syne);
@@ -42,7 +42,7 @@
 
   /* --- Elevation --- */
   --shadow-card:       0 8px 24px rgba(0, 0, 0, 0.4);
-  --shadow-card-hover: 0 0 0 1px rgba(255, 180, 84, 0.25), 0 16px 40px rgba(0, 0, 0, 0.5);
+  --shadow-card-hover: 0 0 0 1px rgba(99, 102, 241, 0.25), 0 16px 40px rgba(0, 0, 0, 0.4);
 
   /* --- Motion --- */
   --ease-default: cubic-bezier(0.83, 0, 0.17, 1);
@@ -54,4 +54,35 @@
   [data-template="threed"] {
     --section-gap: 180px;
   }
+}
+
+/* ==========================================================================
+   Interactive 3D — Light Mode
+   Base block above stays the dark design (default). In light mode the void
+   becomes paper-white; the solar-amber brand accent is kept but deepened
+   for contrast on light surfaces.
+   ========================================================================== */
+
+[data-template="threed"][data-theme="light"] {
+  --bg:              var(--bg-primary);      /* #FFFFFF */
+  --bg-2:            var(--bg-secondary);    /* #F5F5F7 */
+  --bg-raised:       var(--bg-secondary);
+  --bg-inset:        #EDEDF1;
+  --panel:           var(--bg-secondary);
+  --panel-line:      var(--border-color);
+  --ink:             var(--text-primary);    /* #111111 */
+  --ink-soft:        var(--text-secondary);  /* #555555 */
+  --ink-faint:       #8A8A92;
+  --line:            var(--border-color);    /* #E0E0E5 */
+  --accent:          #C25E00;                /* amber, darkened for contrast */
+  --accent-hover:    #9A4A00;
+  --accent-tint:     rgba(194, 94, 0, 0.10);
+  --ember:           linear-gradient(100deg, #E08A1E, #E05A2B);
+  --violet-ambient:  rgba(124, 93, 250, 0.08);
+  --success:         #0E9F6E;
+  --warn:            #B45309;
+  --danger:          #DC2626;
+
+  --shadow-card:       0 8px 24px rgba(17, 24, 39, 0.08);
+  --shadow-card-hover: 0 0 0 1px rgba(194, 94, 0, 0.25), 0 16px 40px rgba(17, 24, 39, 0.12);
 }

@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { Eye, ExternalLink } from "lucide-react";
 import { requireAdmin } from "@/lib/require-admin";
 import db from "@/lib/database";
+import ThemeToggle from "@/components/theme/theme-toggle";
 
 export default async function AdminLayout({
   children,
@@ -16,10 +17,16 @@ export default async function AdminLayout({
 
   // On non-login admin pages, deep-validate the session against TrackedSession
   let ownerEmail = "";
+  let hasUnpublishedChanges = false;
   if (!isLoginPage) {
     const ctx = await requireAdmin({ pathname });
     const owner = await db.user.findUnique({ where: { id: ctx.userId }, select: { email: true } });
     ownerEmail = owner?.email ?? "";
+    const page = await db.page.findUnique({
+      where: { key: "home" },
+      select: { hasUnpublishedChanges: true },
+    });
+    hasUnpublishedChanges = page?.hasUnpublishedChanges ?? false;
   }
 
   if (isLoginPage) {
@@ -32,6 +39,9 @@ export default async function AdminLayout({
           fontFamily: "var(--a-font-body)",
         }}
       >
+        <div className="w-full max-w-md mb-4 flex justify-end">
+          <ThemeToggle />
+        </div>
         <main className="w-full max-w-md p-8 bg-[var(--a-surface)] border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] shadow-lg">
           {children}
         </main>
@@ -89,11 +99,20 @@ export default async function AdminLayout({
 
           {/* Right Area Actions */}
           <div className="flex items-center gap-4">
-            {/* Draft status chip */}
-            <div className="flex items-center gap-2 text-xs text-[var(--a-soft)]">
-              <span className="h-2.5 w-2.5 rounded-full bg-amber-500 animate-pulse" />
-              <span>Draft changes saved</span>
-            </div>
+            {/* Draft status chip (live from Page.hasUnpublishedChanges) */}
+            {hasUnpublishedChanges ? (
+              <div className="flex items-center gap-2 text-xs text-[var(--a-soft)]">
+                <span className="h-2.5 w-2.5 rounded-full bg-amber-500 animate-pulse" />
+                <span>Unpublished changes</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-xs text-[var(--a-soft)]">
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                <span>Everything published</span>
+              </div>
+            )}
+
+            <ThemeToggle />
 
             {/* Actions list */}
             <div className="flex items-center gap-2">
@@ -123,7 +142,7 @@ export default async function AdminLayout({
 
             {/* Profile Avatar indicator */}
             <div
-              className="h-8 w-8 rounded-full bg-slate-200 border border-solid border-[var(--a-line)] flex items-center justify-center text-xs font-bold text-[var(--a-soft)]"
+              className="h-8 w-8 rounded-full bg-[var(--a-primary-tint)] border border-solid border-[var(--a-line)] flex items-center justify-center text-xs font-bold text-[var(--a-soft)]"
             >
               {ownerEmail.substring(0, 2).toUpperCase() || "AD"}
             </div>

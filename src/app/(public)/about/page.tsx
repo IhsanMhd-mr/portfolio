@@ -1,25 +1,51 @@
 import db from "@/lib/database";
 import Link from "next/link";
-import { ArrowRight, Briefcase, GraduationCap, Calendar, MapPin, Mail, Award, BookOpen, Target } from "lucide-react";
+import { ArrowRight, Briefcase, GraduationCap, MapPin, Mail, Award, BookOpen, Target } from "lucide-react";
 
 export default async function AboutPage() {
-  const [profile, education, experience] = await Promise.all([
+  const [profile, educationRaw, experienceRaw] = await Promise.all([
     db.siteProfile.findFirst({
       include: { cvFile: true },
     }),
     db.education.findMany({
-      where: { visible: true, deletedAt: null },
-      orderBy: { order: "asc" },
+      where: { deletedAt: null },
+      include: { versions: { where: { state: "PUBLISHED", visible: true } } },
     }),
     db.experience.findMany({
-      where: { visible: true, deletedAt: null },
-      orderBy: { order: "asc" },
+      where: { deletedAt: null },
+      include: { versions: { where: { state: "PUBLISHED", visible: true } } },
     }),
   ]);
 
   const fullName = profile?.fullName || "Jane Doe";
   const title = profile?.title || "Full-Stack Software Engineer";
   const cvUrl = profile?.cvFile?.url || "/resume";
+
+  const education = educationRaw
+    .map((e) => ({
+      ...e,
+      pub: e.versions[0],
+    }))
+    .filter((e) => e.pub);
+
+  education.sort((a, b) => {
+    const oDiff = (a.pub?.order || 0) - (b.pub?.order || 0);
+    if (oDiff !== 0) return oDiff;
+    return new Date(b.pub?.startDate || 0).getTime() - new Date(a.pub?.startDate || 0).getTime();
+  });
+
+  const experience = experienceRaw
+    .map((e) => ({
+      ...e,
+      pub: e.versions[0],
+    }))
+    .filter((e) => e.pub);
+
+  experience.sort((a, b) => {
+    const oDiff = (a.pub?.order || 0) - (b.pub?.order || 0);
+    if (oDiff !== 0) return oDiff;
+    return new Date(b.pub?.startDate || 0).getTime() - new Date(a.pub?.startDate || 0).getTime();
+  });
 
   function formatDate(dateVal: Date | string) {
     const d = new Date(dateVal);
@@ -28,7 +54,7 @@ export default async function AboutPage() {
 
   return (
     <div
-      className="flex-1 w-full px-[var(--gutter)] py-16 transition-colors duration-300"
+      className="flex-1 w-full px-[var(--gutter)] py-16 transition-colors duration-300 animate-fadeIn"
       style={{
         backgroundColor: "var(--bg)",
         color: "var(--ink)",
@@ -121,29 +147,32 @@ export default async function AboutPage() {
             Experience
           </h2>
           <div className="space-y-6">
-            {experience.map((exp) => (
-              <div key={exp.id}>
-                <div className="flex justify-between items-baseline mb-1">
-                  <h3 className="font-semibold text-body text-[var(--ink)]">
-                    {exp.role} <span className="text-[var(--ink-soft)] font-normal">at {exp.organization}</span>
-                  </h3>
-                  <span className="text-xs text-mono-label text-[var(--ink-faint)]">
-                    {formatDate(exp.startDate)} - {exp.isCurrent || !exp.endDate ? "Present" : formatDate(exp.endDate)}
-                  </span>
+            {experience.map((job) => {
+              const pub = job.pub!;
+              return (
+                <div key={job.id}>
+                  <div className="flex justify-between items-baseline mb-1">
+                    <h3 className="font-semibold text-body text-[var(--ink)]">
+                      {pub.role} <span className="text-[var(--ink-soft)] font-normal">at {pub.organization}</span>
+                    </h3>
+                    <span className="text-xs text-mono-label text-[var(--ink-faint)]">
+                      {formatDate(pub.startDate)} - {pub.isCurrent || !pub.endDate ? "Present" : formatDate(pub.endDate)}
+                    </span>
+                  </div>
+                  {pub.locationText && (
+                    <p className="text-xs text-[var(--ink-soft)] flex items-center gap-1 mb-2">
+                      <MapPin size={12} />
+                      {pub.locationText}
+                    </p>
+                  )}
+                  {pub.description && (
+                    <p className="text-small text-[var(--ink-soft)] leading-relaxed">
+                      {pub.description}
+                    </p>
+                  )}
                 </div>
-                {exp.locationText && (
-                  <p className="text-xs text-[var(--ink-soft)] flex items-center gap-1 mb-2">
-                    <MapPin size={12} />
-                    {exp.locationText}
-                  </p>
-                )}
-                {exp.description && (
-                  <p className="text-small text-[var(--ink-soft)] leading-relaxed">
-                    {exp.description}
-                  </p>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -154,26 +183,29 @@ export default async function AboutPage() {
             Education
           </h2>
           <div className="space-y-6">
-            {education.map((edu) => (
-              <div key={edu.id}>
-                <div className="flex justify-between items-baseline">
-                  <h3 className="font-semibold text-body text-[var(--ink)]">
-                    {edu.qualification}
-                  </h3>
-                  <span className="text-xs text-mono-label text-[var(--ink-faint)]">
-                    {formatDate(edu.startDate)} - {edu.isCurrent || !edu.endDate ? "Present" : formatDate(edu.endDate)}
-                  </span>
-                </div>
-                <p className="text-small text-[var(--accent)] font-medium mt-0.5">
-                  {edu.institution}
-                </p>
-                {edu.description && (
-                  <p className="text-small text-[var(--ink-soft)] leading-relaxed mt-2">
-                    {edu.description}
+            {education.map((edu) => {
+              const pub = edu.pub!;
+              return (
+                <div key={edu.id}>
+                  <div className="flex justify-between items-baseline">
+                    <h3 className="font-semibold text-body text-[var(--ink)]">
+                      {pub.qualification}
+                    </h3>
+                    <span className="text-xs text-mono-label text-[var(--ink-faint)]">
+                      {formatDate(pub.startDate)} - {pub.isCurrent || !pub.endDate ? "Present" : formatDate(pub.endDate)}
+                    </span>
+                  </div>
+                  <p className="text-small text-[var(--accent)] font-medium mt-0.5">
+                    {pub.institution}
                   </p>
-                )}
-              </div>
-            ))}
+                  {pub.description && (
+                    <p className="text-small text-[var(--ink-soft)] leading-relaxed mt-2">
+                      {pub.description}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

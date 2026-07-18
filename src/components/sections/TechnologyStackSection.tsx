@@ -1,9 +1,16 @@
 interface TechnologyStackSectionProps {
   technologies: any[];
+  settings?: any;
   isPreview?: boolean;
 }
 
-export default function TechnologyStackSection({ technologies, isPreview = false }: TechnologyStackSectionProps) {
+export default function TechnologyStackSection({ technologies, settings, isPreview = false }: TechnologyStackSectionProps) {
+  // Option to filter by ID list if configured in builder
+  const selectedIds = settings?.selectedTechIds;
+  const filtered = Array.isArray(selectedIds) && selectedIds.length > 0
+    ? technologies.filter(t => selectedIds.includes(t.id))
+    : technologies;
+
   // Group technologies by category
   const categoriesMap: Record<string, string> = {
     FRONTEND: "Frontend Development",
@@ -18,7 +25,7 @@ export default function TechnologyStackSection({ technologies, isPreview = false
 
   const grouped: Record<string, any[]> = {};
   
-  technologies.forEach((tech) => {
+  filtered.forEach((tech) => {
     const catKey = tech.category || "OTHER";
     if (!grouped[catKey]) {
       grouped[catKey] = [];

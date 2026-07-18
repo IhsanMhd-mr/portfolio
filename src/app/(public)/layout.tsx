@@ -1,20 +1,17 @@
 import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
-import db from "@/lib/database";
 import { auth } from "@/lib/auth";
 import { SessionProvider } from "next-auth/react";
+import { PublicContentService } from "@/services/public-content.service";
 
 export default async function PublicLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const profile = await db.siteProfile.findFirst({
-    include: {
-      cvFile: true,
-      logoImage: true,
-    },
-  });
+  // Social links apply immediately (no draft state) — they are simple
+  // metadata, not page content. Resolution lives in PublicContentService.
+  const { profile, socialLinks } = await PublicContentService.getPublicChrome();
 
   const session = await auth();
 
@@ -24,7 +21,8 @@ export default async function PublicLayout({
 
   return (
     <SessionProvider session={session}>
-      <div className="min-h-screen flex flex-col transition-colors duration-300" style={{ backgroundColor: "var(--bg)" }}>
+      <div className="public-cursor-zone min-h-screen flex flex-col transition-colors duration-300" style={{ backgroundColor: "var(--bg)" }}>
+
         {/* Dynamic Navbar */}
         <Navbar logoText={logoText} cvUrl={cvUrl} />
 
@@ -32,9 +30,8 @@ export default async function PublicLayout({
         <main className="flex-1 flex flex-col pt-[68px]">{children}</main>
 
         {/* Public Footer */}
-        <Footer logoText={logoText} contactEmail={contactEmail} />
+        <Footer logoText={logoText} contactEmail={contactEmail} socialLinks={socialLinks} />
       </div>
     </SessionProvider>
   );
 }
-

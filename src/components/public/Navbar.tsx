@@ -6,6 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { ArrowDownToLine, Menu, X } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
 import AuthDialog from "../auth/AuthDialog";
+import ThemeToggle from "../theme/theme-toggle";
 
 export default function Navbar({
   logoText = "Jane Doe",
@@ -102,6 +103,7 @@ export default function Navbar({
 
         {/* Action Buttons */}
         <div className="hidden md:flex items-center gap-4">
+          <ThemeToggle />
           <a
             href={cvUrl}
             target="_blank"
@@ -197,6 +199,9 @@ export default function Navbar({
           </nav>
 
           <div className="mt-auto flex flex-col gap-4">
+            <div className="flex justify-center">
+              <ThemeToggle />
+            </div>
             <a
               href={cvUrl}
               target="_blank"

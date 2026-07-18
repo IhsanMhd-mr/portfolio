@@ -5,24 +5,24 @@
    ========================================================================== */
 
 [data-template="glass"] {
-  /* --- Palette --- */
-  --bg:              #0A0F1E;  /* deep space navy */
-  --bg-2:            #0D1428;  /* section alternate */
-  --bg-raised:       #0D1428;
-  --bg-inset:        #101a33;
+  /* --- Palette (dark — the template's default/base mode) --- */
+  --bg:              #0A0A0C;  /* deep near-black base */
+  --bg-2:            #131316;  /* section alternate */
+  --bg-raised:       #131316;
+  --bg-inset:        #1C1C21;
   --glass:           rgba(255, 255, 255, 0.055);
   --glass-strong:    rgba(255, 255, 255, 0.09);
-  --glass-border:    rgba(255, 255, 255, 0.12);
-  --glass-border-hover: rgba(103, 232, 249, 0.45);
-  --ink:             #E7ECF6;
-  --ink-soft:        #9AA6BD;
-  --ink-faint:       #5E6A82;
-  --line:            rgba(255, 255, 255, 0.12);
-  --accent:          #22D3EE;  /* cyan */
-  --accent-hover:    #06B6D4;
-  --accent-tint:     rgba(34, 211, 238, 0.12);
-  --violet:          #8B5CF6;  /* secondary accent */
-  --aurora:          linear-gradient(120deg, #22D3EE 0%, #6366F1 50%, #8B5CF6 100%);
+  --glass-border:    #2A2A31;
+  --glass-border-hover: rgba(129, 140, 248, 0.45);
+  --ink:             #F2F2F5;
+  --ink-soft:        #9C9CA8;
+  --ink-faint:       #6B6B75;
+  --line:            #2A2A31;
+  --accent:          #6366F1;  /* indigo */
+  --accent-hover:    #818CF8;
+  --accent-tint:     rgba(99, 102, 241, 0.12);
+  --violet:          #818CF8;  /* secondary accent */
+  --aurora:          linear-gradient(120deg, #6366F1 0%, #818CF8 50%, #A5B4FC 100%);
   --success:         #34D399;
   --warn:            #FBBF24;
   --danger:          #F87171;
@@ -44,11 +44,11 @@
 
   /* --- Glass recipe --- */
   --glass-blur:      blur(18px) saturate(140%);
-  --glass-shadow:    0 8px 32px rgba(2, 6, 23, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --glass-shadow:    0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 
   /* --- Elevation --- */
-  --shadow-card:       0 8px 32px rgba(2, 6, 23, 0.45);
-  --shadow-card-hover: 0 8px 32px rgba(2, 6, 23, 0.55);
+  --shadow-card:       0 8px 32px rgba(0, 0, 0, 0.4);
+  --shadow-card-hover: 0 8px 32px rgba(0, 0, 0, 0.5);
 
   /* --- Motion --- */
   --ease-default: cubic-bezier(0.16, 1, 0.3, 1);
@@ -60,4 +60,38 @@
   [data-template="glass"] {
     --section-gap: 140px;
   }
+}
+
+/* ==========================================================================
+   Modern Glass — Light Mode
+   The base block above is the dark design (default). When the UI theme is
+   light (data-theme set on <html> by next-themes), swap to the light
+   palette. Glass surfaces become frosted white over a soft grey canvas.
+   ========================================================================== */
+
+[data-template="glass"][data-theme="light"] {
+  --bg:              var(--bg-primary);      /* #FFFFFF */
+  --bg-2:            var(--bg-secondary);    /* #F5F5F7 */
+  --bg-raised:       var(--bg-secondary);
+  --bg-inset:        #EDEDF1;
+  --glass:           rgba(17, 17, 17, 0.035);
+  --glass-strong:    rgba(255, 255, 255, 0.75);
+  --glass-border:    rgba(17, 17, 17, 0.10);
+  --glass-border-hover: rgba(37, 99, 235, 0.45);
+  --ink:             var(--text-primary);    /* #111111 */
+  --ink-soft:        var(--text-secondary);  /* #555555 */
+  --ink-faint:       #8A8A92;
+  --line:            var(--border-color);    /* #E0E0E5 */
+  --accent:          var(--accent-brand);    /* #2563EB */
+  --accent-hover:    #1D4ED8;
+  --accent-tint:     rgba(37, 99, 235, 0.10);
+  --violet:          #7C3AED;
+  --aurora:          linear-gradient(120deg, #2563EB 0%, #6366F1 50%, #7C3AED 100%);
+  --success:         #0E9F6E;
+  --warn:            #B45309;
+  --danger:          #DC2626;
+
+  --glass-shadow:    0 8px 32px rgba(17, 24, 39, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --shadow-card:       0 8px 32px rgba(17, 24, 39, 0.08);
+  --shadow-card-hover: 0 8px 32px rgba(17, 24, 39, 0.14);
 }

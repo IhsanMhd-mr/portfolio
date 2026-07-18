@@ -1,13 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ArrowLeft, Laptop, Smartphone, Tablet, Upload } from "lucide-react";
+import { enablePreviewModeAction } from "./actions";
 
 type DeviceMode = "desktop" | "tablet" | "mobile";
 
 export default function PreviewPage() {
   const [device, setDevice] = useState<DeviceMode>("desktop");
+  const [cookieReady, setCookieReady] = useState(false);
+
+  useEffect(() => {
+    // Securely enable preview mode cookie
+    enablePreviewModeAction().then(() => {
+      setCookieReady(true);
+    });
+  }, []);
 
   const deviceWidths = {
     desktop: "100%",
@@ -34,7 +43,7 @@ export default function PreviewPage() {
             PREVIEW
           </div>
           <span className="text-slate-400 font-medium hidden sm:inline">
-            Template: <strong className="text-white">Modern Glass</strong>
+            Active Draft Layout
           </span>
         </div>
 
@@ -78,12 +87,13 @@ export default function PreviewPage() {
             <ArrowLeft size={14} />
             Back to Editor
           </Link>
-          <button
-            className="flex items-center gap-1.5 px-4 py-1.5 bg-[var(--accent, #22d3ee)] hover:opacity-90 text-black rounded-[var(--r-xs)] font-semibold transition-colors border-none"
+          <Link
+            href="/admin/publish-confirmation"
+            className="flex items-center gap-1.5 px-4 py-1.5 bg-cyan-400 hover:opacity-90 text-black rounded-[var(--r-xs)] font-semibold transition-colors border-none"
           >
             <Upload size={14} />
             Start Publish
-          </button>
+          </Link>
         </div>
       </header>
 
@@ -112,11 +122,17 @@ export default function PreviewPage() {
               </div>
             )}
 
-            <iframe
-              src="/"
-              className="w-full h-full border-none bg-transparent"
-              title="Draft Site Preview"
-            />
+            {cookieReady ? (
+              <iframe
+                src="/"
+                className="w-full h-full border-none bg-transparent"
+                title="Draft Site Preview"
+              />
+            ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center text-xs font-mono text-slate-500">
+                <span>PREPARING SECURE SANDBOX PREVIEW...</span>
+              </div>
+            )}
           </div>
         </div>
       </div>

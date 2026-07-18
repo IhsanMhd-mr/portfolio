@@ -12,7 +12,7 @@
  *    rejected before a session is created.
  */
 
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
@@ -20,6 +20,15 @@ import crypto from "crypto";
 import db from "./database";
 import { verifyPassword } from "./password";
 import { recordAudit } from "./audit";
+
+// ─── Typed credential errors (surfaced to the client as `res.code`) ──────────
+
+class AccountLockedError extends CredentialsSignin {
+  code = "account_locked";
+}
+class RateLimitedError extends CredentialsSignin {
+  code = "rate_limited";
+}
 
 // ─── Rate-limiting helpers ────────────────────────────────────────────────────
 
@@ -36,7 +45,7 @@ async function assertNotRateLimited(email: string, ip: string) {
       createdAt: { gte: fifteenMinutesAgo },
     },
   });
-  if (attempts >= 10) throw new Error("RATE_LIMITED");
+  if (attempts >= 10) throw new RateLimitedError();
 }
 
 async function recordLoginAttempt(email: string, ip: string, success: boolean) {
@@ -123,7 +132,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth((request) => ({
           },
         });
         if (recentFailures >= 5) {
-          throw new Error("ACCOUNT_LOCKED");
+          throw new AccountLockedError();
         }
 
         const isMatch = await verifyPassword(password, user.passwordHash);

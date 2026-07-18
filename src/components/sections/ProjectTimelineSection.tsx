@@ -3,21 +3,29 @@ import { ArrowRight, Calendar, Bookmark } from "lucide-react";
 
 interface ProjectTimelineSectionProps {
   timelineEntries: any[];
+  settings?: any;
   isPreview?: boolean;
 }
 
-export default function ProjectTimelineSection({ timelineEntries, isPreview = false }: ProjectTimelineSectionProps) {
-  if (timelineEntries.length === 0) {
+export default function ProjectTimelineSection({ timelineEntries, settings, isPreview = false }: ProjectTimelineSectionProps) {
+  // Option to filter by ID list if configured
+  const selectedIds = settings?.selectedTimelineIds;
+  let items = Array.isArray(selectedIds) && selectedIds.length > 0
+    ? timelineEntries.filter(t => selectedIds.includes(t.id))
+    : timelineEntries;
+
+  if (items.length === 0) {
     return null;
   }
 
   // Sort entries chronologically descending (newest first)
-  const sorted = [...timelineEntries].sort(
+  let sorted = [...items].sort(
     (a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
   );
 
-  // Take the first 3 for home preview
-  const previewEntries = sorted.slice(0, 3);
+  // Slice entries based on configuration
+  const limitVal = settings?.limit || 3;
+  const previewEntries = sorted.slice(0, limitVal);
 
   function formatDate(dateStr: string) {
     const d = new Date(dateStr);

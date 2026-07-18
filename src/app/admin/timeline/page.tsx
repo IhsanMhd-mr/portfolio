@@ -1,86 +1,104 @@
 import db from "@/lib/database";
 import { revalidatePath } from "next/cache";
-import { Milestone, Plus, Trash2, Save, Eye, EyeOff } from "lucide-react";
+import { Milestone, Plus, Trash2, Save, Eye, EyeOff, ArrowUp, ArrowDown, Image as ImageIcon } from "lucide-react";
+import { 
+  createTimelineEntryAction, 
+  updateTimelineEntryAction, 
+  deleteTimelineEntryAction, 
+  reorderTimelineEntriesAction 
+} from "./actions";
 
 export default async function AdminTimelinePage() {
-  const [entries, projects] = await Promise.all([
+  const [entriesRaw, projects, allMedia] = await Promise.all([
     db.timelineEntry.findMany({
       where: { deletedAt: null },
-      include: { linkedProject: true },
-      orderBy: { order: "asc" },
+      include: {
+        versions: true,
+        linkedProject: {
+          include: {
+            versions: { where: { state: "DRAFT" }, take: 1 },
+          },
+        },
+      },
     }),
     db.project.findMany({
       where: { deletedAt: null },
-      orderBy: { title: "asc" },
+      include: { versions: { where: { state: "DRAFT" }, take: 1 } },
+      orderBy: { slug: "asc" },
+    }),
+    db.mediaAsset.findMany({
+      where: { deletedAt: null },
+      orderBy: { createdAt: "desc" },
     }),
   ]);
 
-  // Create new milestone entry
-  async function createMilestone(formData: FormData) {
+  // Resolve draft details
+  const entries = entriesRaw.map((entry) => {
+    const draft = entry.versions.find((v) => v.state === "DRAFT");
+    const published = entry.versions.find((v) => v.state === "PUBLISHED");
+    const projectTitle = entry.linkedProject?.versions[0]?.title || entry.linkedProject?.slug || "";
+
+    return {
+      ...entry,
+      draft,
+      published,
+      projectTitle,
+    };
+  });
+
+  // Sort by manualOrder of draft versions
+  entries.sort((a, b) => (a.draft?.order || 0) - (b.draft?.order || 0));
+
+  async function handleCreateMilestone(formData: FormData) {
     "use server";
     const title = formData.get("title") as string;
     const entryType = formData.get("entryType") as any;
     const startDateInput = formData.get("startDate") as string;
     const description = formData.get("description") as string;
-    const linkedProjectId = formData.get("linkedProjectId") as string;
+    const linkedProjectId = formData.get("linkedProjectId") as string || null;
+    const imageId = formData.get("imageId") as string || null;
 
     if (!title || !startDateInput) return;
-    const count = await db.timelineEntry.count({ where: { deletedAt: null } });
 
-    await db.timelineEntry.create({
-      data: {
-        title,
-        entryType: entryType || "PROJECT",
-        startDate: new Date(startDateInput),
-        description,
-        linkedProjectId: linkedProjectId || null,
-        visible: true,
-        order: count + 1,
-      },
+    await createTimelineEntryAction({
+      title,
+      entryType,
+      startDate: new Date(startDateInput),
+      description,
+      linkedProjectId,
+      imageId,
+      visible: true,
     });
-
-    await db.page.update({
-      where: { key: "home" },
-      data: { hasUnpublishedChanges: true },
-    });
-
-    revalidatePath("/admin/timeline");
   }
 
-  // Toggle visibility of entry
-  async function toggleVisibility(formData: FormData) {
+  async function handleToggleVisibility(id: string, currentVisible: boolean) {
     "use server";
-    const id = formData.get("id") as string;
-    const currentVisible = formData.get("value") === "true";
-
-    await db.timelineEntry.update({
-      where: { id },
-      data: { visible: !currentVisible },
-    });
-
-    await db.page.update({
-      where: { key: "home" },
-      data: { hasUnpublishedChanges: true },
-    });
-
-    revalidatePath("/admin/timeline");
+    await updateTimelineEntryAction(id, { visible: !currentVisible });
   }
 
-  // Delete timeline entry
-  async function deleteEntry(formData: FormData) {
+  async function handleDeleteEntry(id: string) {
     "use server";
-    const id = formData.get("id") as string;
-    await db.timelineEntry.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
+    await deleteTimelineEntryAction(id);
+  }
 
-    await db.page.update({
-      where: { key: "home" },
-      data: { hasUnpublishedChanges: true },
-    });
+  async function handleMoveUp(index: number) {
+    "use server";
+    if (index === 0) return;
+    const ids = entries.map((e) => e.id);
+    const temp = ids[index];
+    ids[index] = ids[index - 1];
+    ids[index - 1] = temp;
+    await reorderTimelineEntriesAction(ids);
+  }
 
-    revalidatePath("/admin/timeline");
+  async function handleMoveDown(index: number) {
+    "use server";
+    if (index === entries.length - 1) return;
+    const ids = entries.map((e) => e.id);
+    const temp = ids[index];
+    ids[index] = ids[index + 1];
+    ids[index + 1] = temp;
+    await reorderTimelineEntriesAction(ids);
   }
 
   return (
@@ -101,50 +119,88 @@ export default async function AdminTimelinePage() {
           </div>
 
           <div className="divide-y divide-solid divide-[var(--a-line)] text-xs">
-            {entries.map((entry) => (
-              <div key={entry.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/30">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm text-[var(--a-ink)]">{entry.title}</span>
-                    <span className="bg-slate-100 text-[8px] font-mono font-bold tracking-wider px-2 py-0.5 rounded text-[var(--a-faint)]">
-                      {entry.entryType}
-                    </span>
+            {entries.map((entry, idx) => {
+              const draft = entry.draft;
+              if (!draft) return null;
+
+              // Logo preview
+              const logoAsset = allMedia.find((m) => m.id === draft.imageId);
+
+              return (
+                <div key={entry.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/30">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded bg-slate-100 border border-solid border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
+                      {logoAsset ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={logoAsset.url} alt={draft.title} className="w-full h-full object-contain" />
+                      ) : (
+                        <Milestone size={14} className="text-slate-400" />
+                      )}
+                    </div>
+
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm text-[var(--a-ink)]">{draft.title}</span>
+                        <span className="bg-slate-100 text-[8px] font-mono font-bold tracking-wider px-2 py-0.5 rounded text-[var(--a-faint)]">
+                          {draft.entryType}
+                        </span>
+                      </div>
+                      {draft.description && (
+                        <p className="text-[var(--a-soft)] max-w-sm line-clamp-1">{draft.description}</p>
+                      )}
+                      <p className="text-[10px] text-[var(--a-faint)]">
+                        Date: {new Date(draft.startDate).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
+                        {entry.projectTitle && ` · Linked Project: ${entry.projectTitle}`}
+                      </p>
+                    </div>
                   </div>
-                  {entry.description && (
-                    <p className="text-[var(--a-soft)] mt-1 max-w-sm line-clamp-1">{entry.description}</p>
-                  )}
-                  <p className="text-[10px] text-[var(--a-faint)] mt-1">
-                    Date: {entry.startDate.toLocaleDateString("en-US", { month: "short", year: "numeric" })}
-                    {entry.linkedProject && ` · Linked: ${entry.linkedProject.title}`}
-                  </p>
-                </div>
 
-                <div className="flex items-center gap-3">
-                  {/* Visibility */}
-                  <form action={toggleVisibility}>
-                    <input type="hidden" name="id" value={entry.id} />
-                    <input type="hidden" name="value" value={String(entry.visible)} />
-                    <button
-                      type="submit"
-                      className="p-1.5 hover:bg-slate-100 rounded text-[var(--a-soft)] cursor-pointer border-none bg-transparent"
-                    >
-                      {entry.visible ? <Eye size={14} /> : <EyeOff size={14} className="text-red-400" />}
-                    </button>
-                  </form>
+                  <div className="flex items-center gap-3">
+                    {/* Shift order */}
+                    <div className="flex items-center gap-0.5">
+                      <form action={handleMoveUp.bind(null, idx)}>
+                        <button
+                          type="submit"
+                          disabled={idx === 0}
+                          className="p-1 hover:bg-slate-100 text-slate-400 hover:text-slate-600 disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
+                        >
+                          <ArrowUp size={12} />
+                        </button>
+                      </form>
+                      <form action={handleMoveDown.bind(null, idx)}>
+                        <button
+                          type="submit"
+                          disabled={idx === entries.length - 1}
+                          className="p-1 hover:bg-slate-100 text-slate-400 hover:text-slate-600 disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
+                        >
+                          <ArrowDown size={12} />
+                        </button>
+                      </form>
+                    </div>
 
-                  {/* Delete */}
-                  <form action={deleteEntry}>
-                    <input type="hidden" name="id" value={entry.id} />
-                    <button
-                      type="submit"
-                      className="p-1.5 hover:bg-red-50 text-red-500 rounded cursor-pointer border-none bg-transparent"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </form>
+                    {/* Visibility */}
+                    <form action={handleToggleVisibility.bind(null, entry.id, draft.visible)}>
+                      <button
+                        type="submit"
+                        className="p-1.5 hover:bg-slate-100 rounded text-[var(--a-soft)] cursor-pointer border-none bg-transparent"
+                      >
+                        {draft.visible ? <Eye size={14} /> : <EyeOff size={14} className="text-red-400" />}
+                      </button>
+                    </form>
+
+                    {/* Delete */}
+                    <form action={handleDeleteEntry.bind(null, entry.id)}>
+                      <button
+                        type="submit"
+                        className="p-1.5 hover:bg-red-50 text-red-500 rounded cursor-pointer border-none bg-transparent"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </form>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
             {entries.length === 0 && (
               <p className="text-center py-12 text-[var(--a-faint)] font-mono">// NO TIMELINE EVENTS SEEDED</p>
@@ -159,63 +215,83 @@ export default async function AdminTimelinePage() {
             Add Milestone
           </h3>
 
-          <form action={createMilestone} className="space-y-4">
+          <form action={handleCreateMilestone} className="space-y-4">
             <div className="space-y-1">
-              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block">Title</label>
+              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Title</label>
               <input
                 type="text"
                 name="title"
                 required
                 placeholder="e.g. Launched Beta, Internship"
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)]"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block">Entry Type</label>
+              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Entry Type</label>
               <select
                 name="entryType"
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-white focus:outline-none focus:border-[var(--a-primary)]"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-slate-50 focus:outline-none focus:border-[var(--a-primary)]"
               >
                 <option value="PROJECT">Project Launch</option>
                 <option value="ACADEMIC">Academic Milestone</option>
                 <option value="MILESTONE">Career Milestone</option>
                 <option value="PERSONAL">Personal Milestone</option>
+                <option value="RELEASE">Release</option>
+                <option value="ACHIEVEMENT">Achievement</option>
               </select>
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block">Start Date</label>
+              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Start Date</label>
               <input
                 type="date"
                 name="startDate"
                 required
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)]"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block">Linked Project</label>
+              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Linked Project</label>
               <select
                 name="linkedProjectId"
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-white focus:outline-none focus:border-[var(--a-primary)]"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-slate-50 focus:outline-none focus:border-[var(--a-primary)]"
               >
                 <option value="">None</option>
-                {projects.map((proj) => (
-                  <option key={proj.id} value={proj.id}>
-                    {proj.title}
+                {projects.map((proj) => {
+                  const title = proj.versions.find((v) => v.state === "DRAFT")?.title || proj.slug;
+                  return (
+                    <option key={proj.id} value={proj.id}>
+                      {title}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Milestone Icon Asset</label>
+              <select
+                name="imageId"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-slate-50 focus:outline-none focus:border-[var(--a-primary)]"
+              >
+                <option value="">-- No Icon Selected --</option>
+                {allMedia.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.filename}
                   </option>
                 ))}
               </select>
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block">Short Description</label>
+              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Short Description</label>
               <textarea
                 name="description"
                 rows={3}
                 placeholder="Description of the milestone..."
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] resize-y"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50 resize-y"
               />
             </div>
 

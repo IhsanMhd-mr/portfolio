@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* Tailwind 4: make `dark:` utilities respond to the root `.dark` class
+   (applied to <html> by next-themes). */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* --- Template token sheets --- */
 @import "../styles/templates/minimal.css";
 @import "../styles/templates/glass.css";
@@ -158,6 +162,55 @@
    Base Styles
    ========================================================================== */
 
+/* ==========================================================================
+   Base Theme Palette
+   Set on <html> by next-themes as BOTH `class` (.dark/.light) and
+   `data-theme` (light/dark). Template and admin sheets derive their
+   semantic tokens from these values.
+   ========================================================================== */
+
+:root,
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg-primary:    #FFFFFF;
+  --bg-secondary:  #F5F5F7;
+  --bg-tertiary:   #EDEDF1;
+  --border-color:  #E0E0E5;
+  --border-hover:  #C8C8D0;
+  --text-primary:  #111111;
+  --text-secondary: #555555;
+  --text-tertiary: #8A8A92;
+  --accent-brand:  #2563EB;
+  --accent-brand-hover: #1D4ED8;
+  --accent-text:   #FFFFFF;
+  --success:       #0E9F6E;
+  --warning:       #B45309;
+  --danger:        #DC2626;
+  --shadow-color:  rgba(17, 24, 39, 0.10);
+}
+
+:root[data-theme="dark"],
+:root.dark {
+  color-scheme: dark;
+
+  --bg-primary:    #0A0A0C;   /* deep near-black base */
+  --bg-secondary:  #131316;   /* cards/panels */
+  --bg-tertiary:   #1C1C21;   /* nested surfaces, inputs */
+  --border-color:  #2A2A31;   /* subtle borders */
+  --border-hover:  #3A3A44;   /* border on hover/focus */
+  --text-primary:  #F2F2F5;   /* main text */
+  --text-secondary: #9C9CA8;  /* muted text */
+  --text-tertiary: #6B6B75;   /* disabled/placeholder */
+  --accent-brand:  #6366F1;   /* indigo accent */
+  --accent-brand-hover: #818CF8;
+  --accent-text:   #FFFFFF;
+  --success:       #34D399;
+  --warning:       #FBBF24;
+  --danger:        #F87171;
+  --shadow-color:  rgba(0, 0, 0, 0.4);
+}
+
 body {
   background-color: var(--bg);
   color: var(--ink);
@@ -225,3 +278,38 @@ body {
   margin-inline: auto;
   padding-inline: var(--gutter);
 }
+
+/* ==========================================================================
+   Motion — Scroll Reveal & Custom Cursor
+   Timing values mirror src/lib/motion/tokens.ts (dur.hero / ease.*)
+   ========================================================================== */
+
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1), transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+html[data-template="glass"] .reveal {
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html[data-template="threed"] .reveal {
+  transform: translateY(32px) scale(0.98);
+  transition-timing-function: cubic-bezier(0.83, 0, 0.17, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+

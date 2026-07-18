@@ -4,12 +4,16 @@ import { Github } from "@/components/public/Icons";
 
 interface OtherProjectsSectionProps {
   projects: any[];
+  settings?: any;
   isPreview?: boolean;
 }
 
-export default function OtherProjectsSection({ projects, isPreview = false }: OtherProjectsSectionProps) {
+export default function OtherProjectsSection({ projects, settings, isPreview = false }: OtherProjectsSectionProps) {
   // Filter out featured projects
-  const otherProjects = projects.filter((p) => !p.featured);
+  let otherProjects = projects.filter((p) => !p.featured);
+  if (settings?.limit) {
+    otherProjects = otherProjects.slice(0, settings.limit);
+  }
 
   if (otherProjects.length === 0) {
     return null;

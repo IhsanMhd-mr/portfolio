@@ -1,79 +1,89 @@
 import db from "@/lib/database";
 import { revalidatePath } from "next/cache";
-import { GraduationCap, Plus, Trash2, Save, Eye, EyeOff } from "lucide-react";
+import { GraduationCap, Plus, Trash2, Save, Eye, EyeOff, ArrowUp, ArrowDown, Image as ImageIcon } from "lucide-react";
+import { 
+  createEducationAction, 
+  updateEducationAction, 
+  deleteEducationAction, 
+  reorderEducationAction 
+} from "./actions";
 
 export default async function AdminEducationPage() {
-  const education = await db.education.findMany({
-    where: { deletedAt: null },
-    orderBy: { order: "asc" },
+  const [educationRaw, allMedia] = await Promise.all([
+    db.education.findMany({
+      where: { deletedAt: null },
+      include: { versions: true },
+    }),
+    db.mediaAsset.findMany({
+      where: { deletedAt: null },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+
+  // Resolve draft versions
+  const education = educationRaw.map((edu) => {
+    const draft = edu.versions.find((v) => v.state === "DRAFT");
+    const published = edu.versions.find((v) => v.state === "PUBLISHED");
+    return {
+      ...edu,
+      draft,
+      published,
+    };
   });
 
-  // Create new education qualification
-  async function createEducation(formData: FormData) {
+  // Sort by manualOrder of draft versions
+  education.sort((a, b) => (a.draft?.order || 0) - (b.draft?.order || 0));
+
+  async function handleCreateEducation(formData: FormData) {
     "use server";
     const institution = formData.get("institution") as string;
     const qualification = formData.get("qualification") as string;
     const startDateInput = formData.get("startDate") as string;
     const grade = formData.get("grade") as string;
     const description = formData.get("description") as string;
+    const logoId = formData.get("logoId") as string || null;
 
     if (!institution || !qualification || !startDateInput) return;
-    const count = await db.education.count({ where: { deletedAt: null } });
 
-    await db.education.create({
-      data: {
-        institution,
-        qualification,
-        startDate: new Date(startDateInput),
-        grade,
-        description,
-        visible: true,
-        order: count + 1,
-      },
+    await createEducationAction({
+      institution,
+      qualification,
+      startDate: new Date(startDateInput),
+      grade,
+      description,
+      logoId,
+      visible: true,
     });
-
-    await db.page.update({
-      where: { key: "home" },
-      data: { hasUnpublishedChanges: true },
-    });
-
-    revalidatePath("/admin/education");
   }
 
-  // Toggle visible status
-  async function toggleVisibility(formData: FormData) {
+  async function handleToggleVisibility(id: string, currentVisible: boolean) {
     "use server";
-    const id = formData.get("id") as string;
-    const currentVisible = formData.get("value") === "true";
-
-    await db.education.update({
-      where: { id },
-      data: { visible: !currentVisible },
-    });
-
-    await db.page.update({
-      where: { key: "home" },
-      data: { hasUnpublishedChanges: true },
-    });
-
-    revalidatePath("/admin/education");
+    await updateEducationAction(id, { visible: !currentVisible });
   }
 
-  // Delete education entry
-  async function deleteEducation(formData: FormData) {
+  async function handleDelete(id: string) {
     "use server";
-    const id = formData.get("id") as string;
-    await db.education.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
+    await deleteEducationAction(id);
+  }
 
-    await db.page.update({
-      where: { key: "home" },
-      data: { hasUnpublishedChanges: true },
-    });
+  async function handleMoveUp(index: number) {
+    "use server";
+    if (index === 0) return;
+    const ids = education.map((e) => e.id);
+    const temp = ids[index];
+    ids[index] = ids[index - 1];
+    ids[index - 1] = temp;
+    await reorderEducationAction(ids);
+  }
 
-    revalidatePath("/admin/education");
+  async function handleMoveDown(index: number) {
+    "use server";
+    if (index === education.length - 1) return;
+    const ids = education.map((e) => e.id);
+    const temp = ids[index];
+    ids[index] = ids[index + 1];
+    ids[index + 1] = temp;
+    await reorderEducationAction(ids);
   }
 
   return (
@@ -94,47 +104,86 @@ export default async function AdminEducationPage() {
           </div>
 
           <div className="divide-y divide-solid divide-[var(--a-line)] text-xs">
-            {education.map((edu) => (
-              <div key={edu.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/30">
-                <div>
-                  <h3 className="font-bold text-sm text-[var(--a-ink)]">{edu.qualification}</h3>
-                  <p className="text-xs text-[var(--a-primary)] font-medium mt-0.5">{edu.institution}</p>
-                  {edu.grade && (
-                    <span className="inline-block bg-slate-100 text-[9px] font-mono px-2 py-0.5 rounded text-[var(--a-soft)] mt-1">
-                      Grade: {edu.grade}
-                    </span>
-                  )}
-                  <p className="text-[10px] text-[var(--a-faint)] mt-1">
-                    Enrolled: {edu.startDate.toLocaleDateString("en-US", { month: "short", year: "numeric" })}
-                  </p>
-                </div>
+            {education.map((edu, idx) => {
+              const draft = edu.draft;
+              if (!draft) return null;
 
-                <div className="flex items-center gap-3">
-                  {/* Visibility */}
-                  <form action={toggleVisibility}>
-                    <input type="hidden" name="id" value={edu.id} />
-                    <input type="hidden" name="value" value={String(edu.visible)} />
-                    <button
-                      type="submit"
-                      className="p-1.5 hover:bg-slate-100 rounded text-[var(--a-soft)] cursor-pointer border-none bg-transparent"
-                    >
-                      {edu.visible ? <Eye size={14} /> : <EyeOff size={14} className="text-red-400" />}
-                    </button>
-                  </form>
+              // Find logo
+              const logoAsset = allMedia.find((m) => m.id === draft.logoId);
 
-                  {/* Delete */}
-                  <form action={deleteEducation}>
-                    <input type="hidden" name="id" value={edu.id} />
-                    <button
-                      type="submit"
-                      className="p-1.5 hover:bg-red-50 text-red-500 rounded cursor-pointer border-none bg-transparent"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </form>
+              return (
+                <div key={edu.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/30">
+                  <div className="flex items-start gap-3">
+                    {/* Logo Display */}
+                    <div className="w-8 h-8 rounded bg-slate-100 border border-solid border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
+                      {logoAsset ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={logoAsset.url} alt={draft.institution} className="w-full h-full object-contain" />
+                      ) : (
+                        <GraduationCap size={14} className="text-slate-400" />
+                      )}
+                    </div>
+
+                    <div className="space-y-0.5">
+                      <h3 className="font-bold text-sm text-[var(--a-ink)]">{draft.qualification}</h3>
+                      <p className="text-xs text-[var(--a-primary)] font-medium mt-0.5">{draft.institution}</p>
+                      {draft.grade && (
+                        <span className="inline-block bg-slate-100 text-[9px] font-mono px-2 py-0.5 rounded text-[var(--a-soft)] mt-1">
+                          Grade: {draft.grade}
+                        </span>
+                      )}
+                      <p className="text-[10px] text-[var(--a-faint)] mt-1">
+                        Enrolled: {new Date(draft.startDate).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    {/* Shift order */}
+                    <div className="flex items-center gap-0.5">
+                      <form action={handleMoveUp.bind(null, idx)}>
+                        <button
+                          type="submit"
+                          disabled={idx === 0}
+                          className="p-1 hover:bg-slate-100 text-slate-400 hover:text-slate-600 disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
+                        >
+                          <ArrowUp size={12} />
+                        </button>
+                      </form>
+                      <form action={handleMoveDown.bind(null, idx)}>
+                        <button
+                          type="submit"
+                          disabled={idx === education.length - 1}
+                          className="p-1 hover:bg-slate-100 text-slate-400 hover:text-slate-600 disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
+                        >
+                          <ArrowDown size={12} />
+                        </button>
+                      </form>
+                    </div>
+
+                    {/* Visibility */}
+                    <form action={handleToggleVisibility.bind(null, edu.id, draft.visible)}>
+                      <button
+                        type="submit"
+                        className="p-1.5 hover:bg-slate-100 rounded text-[var(--a-soft)] cursor-pointer border-none bg-transparent"
+                      >
+                        {draft.visible ? <Eye size={14} /> : <EyeOff size={14} className="text-red-400" />}
+                      </button>
+                    </form>
+
+                    {/* Delete */}
+                    <form action={handleDelete.bind(null, edu.id)}>
+                      <button
+                        type="submit"
+                        className="p-1.5 hover:bg-red-50 text-red-500 rounded cursor-pointer border-none bg-transparent"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </form>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
             {education.length === 0 && (
               <p className="text-center py-12 text-[var(--a-faint)] font-mono">// NO QUALIFICATIONS SEEDED</p>
@@ -149,58 +198,73 @@ export default async function AdminEducationPage() {
             Add Qualification
           </h3>
 
-          <form action={createEducation} className="space-y-4">
+          <form action={handleCreateEducation} className="space-y-4">
             <div className="space-y-1">
-              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block">Institution</label>
+              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Institution</label>
               <input
                 type="text"
                 name="institution"
                 required
                 placeholder="e.g. Stanford University"
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)]"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block">Qualification</label>
+              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Qualification</label>
               <input
                 type="text"
                 name="qualification"
                 required
                 placeholder="e.g. B.Sc. in Computer Science"
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)]"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block">Start Date</label>
+                <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Start Date</label>
                 <input
                   type="date"
                   name="startDate"
                   required
-                  className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)]"
+                  className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block">GPA / Grade</label>
+                <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">GPA / Grade</label>
                 <input
                   type="text"
                   name="grade"
                   placeholder="e.g. First Class, 3.8"
-                  className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)]"
+                  className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50"
                 />
               </div>
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block">Short Description</label>
+              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Institution Logo</label>
+              <select
+                name="logoId"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-slate-50 focus:outline-none focus:border-[var(--a-primary)]"
+              >
+                <option value="">-- No Logo Selected --</option>
+                {allMedia.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.filename}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Short Description</label>
               <textarea
                 name="description"
                 rows={3}
                 placeholder="Courses, honors, extra curriculars..."
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] resize-y"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50 resize-y"
               />
             </div>
 

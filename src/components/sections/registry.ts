@@ -8,6 +8,7 @@ import EducationExperienceSection from "./EducationExperienceSection";
 import OtherProjectsSection from "./OtherProjectsSection";
 import StackGameSection from "./StackGameSection";
 import ContactCTASection from "./ContactCTASection";
+import CustomContentSection from "./CustomContentSection";
 
 export const sectionRegistry = {
   "hero": HeroSection,
@@ -20,6 +21,7 @@ export const sectionRegistry = {
   "other-projects": OtherProjectsSection,
   "stack-game": StackGameSection,
   "contact": ContactCTASection,
+  "custom-content": CustomContentSection,
 };
 
 // Map database enums to registry keys
@@ -35,4 +37,5 @@ export const dbEnumToRegistryKey: Record<string, string> = {
   STACK_GAME: "stack-game",
   CONTACT: "contact",
   CALL_TO_ACTION: "contact",
+  CUSTOM_CONTENT: "custom-content",
 };

@@ -6,14 +6,14 @@
 
 [data-admin="true"] {
   /* --- Palette --- */
-  --a-bg:            #F6F7F9;
+  --a-bg:            #F5F5F7;
   --a-surface:       #FFFFFF;
-  --a-line:          #E5E8EC;
-  --a-ink:           #171A1F;
-  --a-soft:          #5B6472;
+  --a-line:          #E0E0E5;
+  --a-ink:           #111111;
+  --a-soft:          #555555;
   --a-faint:         #94A0AE;
-  --a-primary:       #2E5BFF;
-  --a-primary-hover: #1F47D6;
+  --a-primary:       #2563EB;
+  --a-primary-hover: #1D4ED8;
   --a-primary-tint:  #EAF0FF;
   --a-success:       #17825B;
   --a-warn:          #B45309;
@@ -39,4 +39,71 @@
   --a-sidebar-width: 248px;
   --a-sidebar-collapsed: 64px;
   --a-topbar-height: 60px;
+}
+
+/* ==========================================================================
+   Admin Panel — Dark Theme
+   Activated by the `dark` class on <html> (managed by ThemeToggle +
+   pre-hydration script in the root layout).
+   ========================================================================== */
+
+.dark [data-admin="true"] {
+  --a-bg:            #0A0A0C;
+  --a-surface:       #131316;
+  --a-inset:         #1C1C21;
+  --a-line:          #2A2A31;
+  --a-line-hover:    #3A3A44;
+  --a-ink:           #F2F2F5;
+  --a-soft:          #9C9CA8;
+  --a-faint:         #6B6B75;
+  --a-primary:       #6366F1;
+  --a-primary-hover: #818CF8;
+  --a-primary-tint:  #1E1E33;
+  --a-success:       #34D399;
+  --a-warn:          #FBBF24;
+  --a-danger:        #F87171;
+  --a-sidebar:       #0A0A0C;
+  --a-sidebar-text:  #9C9CA8;
+  --a-sidebar-active: #818CF8;
+
+  --a-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --a-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* ==========================================================================
+   Admin zone — template-variable aliases + color-scheme
+   The admin (including /admin/login) must follow the UI theme regardless of
+   which public template is active on <html data-template=...>. Components
+   like LoginForm use template tokens (--bg, --ink, ...); inside the admin
+   zone those resolve to the admin palette, which has a dark variant above.
+   ========================================================================== */
+
+[data-admin="true"] {
+  color-scheme: light;
+
+  --bg:           var(--a-bg);
+  --bg-raised:    var(--a-surface);
+  --bg-inset:     var(--a-bg);
+  --ink:          var(--a-ink);
+  --ink-soft:     var(--a-soft);
+  --ink-faint:    var(--a-faint);
+  --line:         var(--a-line);
+  --accent:       var(--a-primary);
+  --accent-hover: var(--a-primary-hover);
+  --accent-tint:  var(--a-primary-tint);
+  --success:      var(--a-success);
+  --warn:         var(--a-warn);
+  --danger:       var(--a-danger);
+
+  --font-display: var(--a-font-body);
+  --font-body:    var(--a-font-body);
+  --font-mono:    var(--a-font-mono);
+
+  --radius-sm:    var(--a-r-sm);
+  --radius-md:    var(--a-r-md);
+  --radius-lg:    var(--a-r-lg);
+}
+
+.dark [data-admin="true"] {
+  color-scheme: dark;
 }

@@ -1,116 +1,139 @@
-# Project Architecture & Work Order Roadmap
+# Project Architecture
 
-This document outlines the clean software architecture layers for the Full-Stack Developer Portfolio with Admin CMS and visualizes the sequential roadmap of implementation phases.
+Modular boundaries for the Full-Stack Developer Portfolio with Admin CMS.
+The goal is **development scalability**: new features attach at the edges
+without forcing changes to the stable core, and modules connect through
+contracts — not by reaching into each other's tables.
 
 ---
 
-## 1. Clean Architecture Model
-
-We adhere to a decoupled, layered architecture to separate user interfaces, business rules, database access, and configuration helpers.
+## 1. Layered Model (as built)
 
 ```mermaid
 graph TD
-    %% Presentation Layer
-    subgraph Presentation ["1. Presentation Layer (UI/Pages)"]
-        Pages["app/ (Next.js Pages & APIs)"]
-        PublicComp["components/public/ (Skins & Sections)"]
-        AdminComp["components/admin/ (Visual Page Builder)"]
-        GameComp["components/game/ (R3F 3D Canvas)"]
+    subgraph Presentation ["1. Presentation Layer"]
+        Pages["src/app/ — pages, layouts, route handlers"]
+        Actions["Server Actions — actions.ts (contract layer)"]
+        Components["src/components/ — public sections, templates, admin UI"]
     end
 
-    %% Service Layer
-    subgraph Services ["2. Service Layer (Business Logic)"]
-        PubService["Publishing & Versioning Service"]
-        RollbackService["1-Hour Rollback Service"]
-        GameService["Game & Leaderboard Service"]
+    subgraph Services ["2. Service Layer (business rules)"]
+        PublicContent["public-content.service (STABLE CORE)"]
+        Domain["project / technology / timeline / education / experience"]
+        Singletons["site-profile / social-link / media / dashboard"]
     end
 
-    %% Repository Layer
-    subgraph Repositories ["3. Repository Layer (Data Access)"]
-        ProjectRepo["Project & Tech Repository"]
-        PageRepo["Page & Section Configuration Repository"]
-        AuthService["Authentication & Security Guard"]
+    subgraph AuthBoundary ["Auth boundary (src/lib)"]
+        RequireAdmin["requireAdmin / getValidatedOwner / safeRequireAdmin"]
     end
 
-    %% Infrastructure & Data Source
-    subgraph Infra ["4. Infrastructure & Data Source"]
-        PrismaDb["Prisma Client Singleton (database.ts)"]
-        Postgres["PostgreSQL Database"]
+    subgraph Infra ["3. Infrastructure"]
+        PrismaDb["Prisma singleton (src/lib/database.ts)"]
+        Postgres["PostgreSQL"]
     end
 
-    %% Flow of control
-    Pages --> PubService
-    Pages --> RollbackService
-    PubService --> PageRepo
-    RollbackService --> PageRepo
-    PageRepo --> PrismaDb
-    ProjectRepo --> PrismaDb
+    Pages --> Actions
+    Actions --> RequireAdmin
+    Actions --> Services
+    Pages --> Services
+    Services --> PrismaDb
+    RequireAdmin --> PrismaDb
     PrismaDb --> Postgres
 ```
 
-### Layer Responsibilities
+### Layer responsibilities
 
-1. **Presentation Layer (`src/app/` & `src/components/`):**
-   - Renders visual layout templates.
-   - Binds styling properties via CSS variables (`[data-template]`).
-   - Dispatches page-builder adjustments, template selections, and message submissions.
+1. **Presentation (`src/app/`, `src/components/`)** — rendering and user input.
+   Route files and layouts stay *thin*: authorize, call a service, render.
+2. **Contract layer (Server Actions / route handlers)** — authentication
+   (`requireAdmin` / `getValidatedOwner`), input validation (Zod), typed
+   `{ success, data | error, fieldErrors }` responses, `revalidatePath`.
+3. **Service layer (`src/services/`)** — all business rules, domain
+   invariants, transactions, and audit logging. Services never do auth;
+   callers pass an `auditContext`.
+4. **Infrastructure (`src/lib/`, `src/prisma/`)** — Prisma singleton, auth
+   config, password hashing, audit helper, env bindings.
 
-2. **Service Layer (`src/services/`):**
-   - Contains pure business logic.
-   - Manages version snapshot generation and rollback timer expirations.
-   - Resolves custom keyframes into validated Framer Motion variants.
-   - Coordinates multi-entity publishing confirmations.
-
-3. **Repository Layer (`src/repositories/`):**
-   - Isolates database query logic from API routes and services.
-   - Standardizes database CRUD routines.
-   - Handles soft-deletion filters (`deleted_at`).
-
-4. **Infrastructure Layer (`src/lib/` & `src/prisma/`):**
-   - Instantiates database connection singletons (Prisma client with pg driver adapters).
-   - Manages environment variable configuration bindings.
+> Note: the originally planned separate `src/repositories/` layer was folded
+> into the service layer — services own their queries directly. With Prisma
+> as the data mapper, a second repository abstraction added indirection
+> without value at this project's scale.
 
 ---
 
-## 2. Order of Work (Phased Roadmap)
+## 2. The Rules
 
-To maintain a stable development lifecycle, we build dependency layers bottom-up:
+1. **Routes, pages, layouts, and Server Actions do not import `@/lib/database`.**
+   They call a service. If the service doesn't exist, create one — don't
+   inline queries. (Legacy exceptions: see Debt.)
+2. **Each service owns one domain and its invariants** (e.g.
+   `SocialLinkService` owns "one handle per platform"). Cross-domain features
+   compose services; they never query another domain's tables.
+3. **Services throw `Error` with user-safe messages; the contract layer maps
+   them** to typed results. UI components consume contracts, never services.
+4. **Related writes share one transaction inside the service** (see
+   `SocialLinkService.reorder`, the publish flow, `initialize.js`).
+5. **Connect domains by id, not by widening tables.** A new feature gets its
+   own entity referencing existing ids — existing tables don't grow columns
+   for someone else's feature.
+
+## 3. Stable Core
+
+`PublicContentService.getHomePageData(isPreview)` is the CMS pipeline:
 
 ```
-[Phase 1: Foundations] ──> [Phase 2: Data Repositories] ──> [Phase 3: Service Layer]
-                                                                     │
-[Phase 6: Visual Templates] <── [Phase 5: Admin UI] <── [Phase 4: API Route Handlers]
-         │
-[Phase 7: 3D Sphere/Game] ──> [Phase 8: Polish & Deploy]
+isPreview → version state (DRAFT | PUBLISHED)
+          → entity resolution (merge version rows, visibility filter, sort)
+          → section list (draft rows | active PageVersion snapshot)
+          → template key
 ```
 
-### Phase 1: Foundations & Setup (✅ Complete)
-- Initialized Next.js 15 App, styling systems (Minimal, Glass, 3D), Prisma 7 configuration, PostgreSQL connection templates, and native password hashing libraries.
+Everything else — auth, admin managers, themes, templates, analytics —
+attaches around this pipeline. **Do not modify it to add a feature**; add a
+service that composes with it.
 
-### Phase 2: Repository & Seed Layer (Next Step)
-- Build database wrappers under `src/repositories/` for all entities.
-- Write robust database seeder scripts (`prisma/seed.ts`) to populate standard templates, default pages, animation presets, and test projects.
+## 4. Service Inventory
 
-### Phase 3: Services & Core Business Rules
-- Implement rollback validations, version difference calculation algorithms, and snapshot engines under `src/services/`.
+| Service | Domain |
+| --- | --- |
+| `public-content.service` | Public site data resolution (stable core) + layout chrome |
+| `project.service` | Projects, versions, gallery, tech links |
+| `technology.service` | Technologies + versions |
+| `timeline.service`, `education.service`, `experience.service` | Their versioned entities |
+| `media.service` | Uploads, replacement, usage tracking |
+| `site-profile.service` | SiteProfile singleton |
+| `social-link.service` | Social handles (order, visibility, duplicate rules) |
+| `dashboard.service` | Admin dashboard aggregates |
 
-### Phase 4: API Endpoints (REST API)
-- Create Next.js Route Handlers (`src/app/api/`) mapped to services.
-- Guard admin endpoints with JWT/Session validation and write request validators using Zod.
+## 5. Auth Boundary (do not bypass)
 
-### Phase 5: Admin Panel Interface
-- Build CRUD dashboard views, sidebar frames, media libraries, and messages manager.
-- Implement visual Page Builder canvas drag-and-drop mechanics (using `@dnd-kit`) and the keyframe editor timeline.
+- `requireAdmin()` — admin pages/routes; validates JWT **and** TrackedSession;
+  on failure redirects through `/api/auth/force-logout` (clears stale cookies,
+  prevents redirect loops).
+- `getValidatedOwner()` — public pages needing owner-only UI; returns `null`
+  for guests, never redirects.
+- `proxy.ts` — fast optimistic JWT-presence check only; never add DB calls.
 
-### Phase 6: Public Views & Template Skins
-- Build reusable public sections (Hero, About, Timeline, Tech stack).
-- Implement template variants (Professional Minimal, Modern Glass, Interactive 3D) swapping styling elements via CSS variables.
+## 6. Database Workflow
 
-### Phase 7: 3D Interactions & physics
-- Program the interactive floating tech-ball sphere using React Three Fiber.
-- Set up fallback modes for touch, low-performance, or reduced-motion.
-- Add physics-based falling ball basket game.
+Schema changes go through the controlled commands — `npm run db:migrate`,
+`db:push`, `db:setup`, `db:reset` — which chain Prisma → `initialize.js` →
+`verify-initialization.js` (see README "Database Workflow"). Never run raw
+prisma commands in the normal workflow.
 
-### Phase 8: Verification & Auditing
-- Add E2E tests for the publishing and rollback flow.
-- Audit performance, accessibility (Lighthouse checks), and responsiveness.
+## 7. Adding a Feature (checklist)
+
+1. Model the domain entity; link to other domains **by id**.
+2. Migrate via `npm run db:migrate`.
+3. Create `src/services/<domain>.service.ts` with the business rules.
+4. Add thin Server Actions (auth + Zod + typed results) calling the service.
+5. Build UI against the action contracts.
+6. Public rendering goes through `PublicContentService` (extend it or compose
+   a new read service) — never query from a page file.
+
+## 8. Debt (known rule violations)
+
+Direct `db` imports remain in some older routes/pages: admin settings, game,
+technologies, resume page, and several `/api/*` handlers. Rule: **when
+touching one of these files, extract its queries into the owning service as
+part of the change.** Do not add new violations.
