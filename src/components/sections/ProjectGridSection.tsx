@@ -4,11 +4,21 @@ import { Github } from "@/components/public/Icons";
 
 interface ProjectGridSectionProps {
   projects: any[];
+  settings?: any;
   isPreview?: boolean;
 }
 
-export default function ProjectGridSection({ projects, isPreview = false }: ProjectGridSectionProps) {
-  if (projects.length === 0) {
+export default function ProjectGridSection({ projects, settings, isPreview = false }: ProjectGridSectionProps) {
+  const selectedIds = settings?.selectedProjectIds;
+  let items = Array.isArray(selectedIds) && selectedIds.length > 0
+    ? projects.filter(p => selectedIds.includes(p.id))
+    : projects;
+
+  if (settings?.limit) {
+    items = items.slice(0, settings.limit);
+  }
+
+  if (items.length === 0) {
     return null;
   }
 
@@ -26,7 +36,7 @@ export default function ProjectGridSection({ projects, isPreview = false }: Proj
         </div>
 
         <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3">
-          {projects.map((project) => {
+          {items.map((project) => {
             const thumbnail = project.thumbnail?.url;
             const category = project.category || "WEB";
 

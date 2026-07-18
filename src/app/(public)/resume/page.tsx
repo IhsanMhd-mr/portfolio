@@ -2,21 +2,21 @@ import db from "@/lib/database";
 import { ArrowDownToLine, Mail, MapPin, Globe } from "lucide-react";
 
 export default async function ResumePage() {
-  const [profile, education, experience, technologies] = await Promise.all([
+  const [profile, educationRaw, experienceRaw, technologiesRaw] = await Promise.all([
     db.siteProfile.findFirst({
       include: { cvFile: true },
     }),
     db.education.findMany({
-      where: { visible: true, deletedAt: null },
-      orderBy: { order: "asc" },
+      where: { deletedAt: null },
+      include: { versions: { where: { state: "PUBLISHED", visible: true } } },
     }),
     db.experience.findMany({
-      where: { visible: true, deletedAt: null },
-      orderBy: { order: "asc" },
+      where: { deletedAt: null },
+      include: { versions: { where: { state: "PUBLISHED", visible: true } } },
     }),
     db.technology.findMany({
-      where: { visible: true, showOnResume: true, deletedAt: null },
-      orderBy: { order: "asc" },
+      where: { deletedAt: null },
+      include: { versions: { where: { state: "PUBLISHED", visible: true, showOnResume: true } } },
     }),
   ]);
 
@@ -26,12 +26,47 @@ export default async function ResumePage() {
   const contactEmail = profile?.contactEmail || "admin@portfolio.com";
   const locationText = profile?.locationText || "Colombo, LK";
 
-  function formatDate(dateStr: string) {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+  // Resolve active versions
+  const education = educationRaw
+    .map((edu) => ({
+      ...edu,
+      pub: edu.versions[0],
+    }))
+    .filter((e) => e.pub);
+
+  education.sort((a, b) => {
+    const oDiff = (a.pub?.order || 0) - (b.pub?.order || 0);
+    if (oDiff !== 0) return oDiff;
+    return new Date(b.pub?.startDate || 0).getTime() - new Date(a.pub?.startDate || 0).getTime();
+  });
+
+  const experience = experienceRaw
+    .map((exp) => ({
+      ...exp,
+      pub: exp.versions[0],
+    }))
+    .filter((e) => e.pub);
+
+  experience.sort((a, b) => {
+    const oDiff = (a.pub?.order || 0) - (b.pub?.order || 0);
+    if (oDiff !== 0) return oDiff;
+    return new Date(b.pub?.startDate || 0).getTime() - new Date(a.pub?.startDate || 0).getTime();
+  });
+
+  const technologies = technologiesRaw
+    .map((tech) => ({
+      ...tech,
+      pub: tech.versions[0],
+    }))
+    .filter((t) => t.pub);
+
+  technologies.sort((a, b) => (a.pub?.order || 0) - (b.pub?.order || 0));
+
+  function formatDate(date: Date) {
+    return new Date(date).toLocaleDateString("en-US", { month: "short", year: "numeric" });
   }
 
-  // Group technologies by category for the skills grid
+  // Group technologies by category
   const groupedTech: Record<string, string[]> = {
     LANGUAGES: [],
     FRAMEWORKS: [],
@@ -40,20 +75,21 @@ export default async function ResumePage() {
   };
 
   technologies.forEach((tech) => {
-    if (tech.category === "FRONTEND") {
-      groupedTech.FRAMEWORKS.push(tech.name);
-    } else if (tech.category === "BACKEND" || tech.category === "DEVOPS") {
-      groupedTech.LANGUAGES.push(tech.name);
-    } else if (tech.category === "DATABASE") {
-      groupedTech.DATABASES.push(tech.name);
+    const pub = tech.pub!;
+    if (pub.category === "FRONTEND") {
+      groupedTech.FRAMEWORKS.push(pub.name);
+    } else if (pub.category === "BACKEND" || pub.category === "DEVOPS") {
+      groupedTech.LANGUAGES.push(pub.name);
+    } else if (pub.category === "DATABASE") {
+      groupedTech.DATABASES.push(pub.name);
     } else {
-      groupedTech.OTHER.push(tech.name);
+      groupedTech.OTHER.push(pub.name);
     }
   });
 
   return (
     <div
-      className="flex-1 w-full px-[var(--gutter)] py-12 transition-colors duration-300"
+      className="flex-1 w-full px-[var(--gutter)] py-12 transition-colors duration-300 animate-fadeIn"
       style={{
         backgroundColor: "var(--bg)",
         color: "var(--ink)",
@@ -122,23 +158,26 @@ export default async function ResumePage() {
               Experience
             </h2>
             <div className="space-y-6">
-              {experience.map((job) => (
-                <div key={job.id}>
-                  <div className="flex justify-between items-baseline mb-2">
-                    <h3 className="font-semibold text-body text-[var(--ink)]">
-                      {job.role} <span className="text-[var(--ink-soft)] font-normal">at {job.organization}</span>
-                    </h3>
-                    <span className="text-xs text-mono-label text-[var(--ink-faint)]">
-                      {formatDate(job.startDate.toISOString())} - {job.isCurrent || !job.endDate ? "Present" : formatDate(job.endDate.toISOString())}
-                    </span>
+              {experience.map((job) => {
+                const pub = job.pub!;
+                return (
+                  <div key={job.id}>
+                    <div className="flex justify-between items-baseline mb-2">
+                      <h3 className="font-semibold text-body text-[var(--ink)]">
+                        {pub.role} <span className="text-[var(--ink-soft)] font-normal">at {pub.organization}</span>
+                      </h3>
+                      <span className="text-xs text-mono-label text-[var(--ink-faint)]">
+                        {formatDate(pub.startDate)} - {pub.isCurrent || !pub.endDate ? "Present" : formatDate(pub.endDate)}
+                      </span>
+                    </div>
+                    {pub.description && (
+                      <p className="text-small text-[var(--ink-soft)] leading-relaxed whitespace-pre-wrap">
+                        {pub.description}
+                      </p>
+                    )}
                   </div>
-                  {job.description && (
-                    <p className="text-small text-[var(--ink-soft)] leading-relaxed">
-                      {job.description}
-                    </p>
-                  )}
-                </div>
-              ))}
+                );
+              })}
               {experience.length === 0 && (
                 <p className="text-small text-[var(--ink-faint)]">// NO EXPERIENCE ENTRIES SEEDED</p>
               )}
@@ -151,26 +190,29 @@ export default async function ResumePage() {
               Education
             </h2>
             <div className="space-y-4">
-              {education.map((edu) => (
-                <div key={edu.id}>
-                  <div className="flex justify-between items-baseline">
-                    <h3 className="font-semibold text-body text-[var(--ink)]">
-                      {edu.qualification}
-                    </h3>
-                    <span className="text-xs text-mono-label text-[var(--ink-faint)]">
-                      {formatDate(edu.startDate.toISOString())} - {edu.isCurrent || !edu.endDate ? "Present" : formatDate(edu.endDate.toISOString())}
-                    </span>
-                  </div>
-                  <p className="text-small text-[var(--accent)] font-medium mt-0.5">
-                    {edu.institution}
-                  </p>
-                  {edu.description && (
-                    <p className="text-small text-[var(--ink-soft)] mt-1">
-                      {edu.description}
+              {education.map((edu) => {
+                const pub = edu.pub!;
+                return (
+                  <div key={edu.id}>
+                    <div className="flex justify-between items-baseline">
+                      <h3 className="font-semibold text-body text-[var(--ink)]">
+                        {pub.qualification}
+                      </h3>
+                      <span className="text-xs text-mono-label text-[var(--ink-faint)]">
+                        {formatDate(pub.startDate)} - {pub.isCurrent || !pub.endDate ? "Present" : formatDate(pub.endDate)}
+                      </span>
+                    </div>
+                    <p className="text-small text-[var(--accent)] font-medium mt-0.5">
+                      {pub.institution}
                     </p>
-                  )}
-                </div>
-              ))}
+                    {pub.description && (
+                      <p className="text-small text-[var(--ink-soft)] mt-1">
+                        {pub.description}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
               {education.length === 0 && (
                 <p className="text-small text-[var(--ink-faint)]">// NO EDUCATION ENTRIES SEEDED</p>
               )}
@@ -191,7 +233,7 @@ export default async function ResumePage() {
                     <h4 className="text-xs text-mono-label text-[var(--ink-faint)] mb-2">// {cat}</h4>
                     <div className="flex flex-wrap gap-2">
                       {list.map((skill) => (
-                        <span key={skill} className="px-2.5 py-1 text-xs border border-solid border-[var(--line)] rounded-[var(--radius-xs)] bg-[var(--bg-raised)] text-[var(--ink)]">
+                        <span key={skill} className="px-2.5 py-1 text-xs border border-solid border-[var(--line)] rounded-[var(--radius-xs)] bg-[var(--bg-raised)] text-[var(--ink)] animate-scaleIn">
                           {skill}
                         </span>
                       ))}

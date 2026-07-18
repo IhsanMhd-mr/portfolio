@@ -264,14 +264,14 @@ model MediaAsset {
   uploadedBy   User?   @relation("MediaUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
 
   // reverse references so we can compute "used in" and block deletion
-  projectThumbnails    Project[]       @relation("ProjectThumbnail")
-  projectCovers        Project[]       @relation("ProjectCover")
-  projectArchitectures Project[]       @relation("ProjectArchitecture")
+  projectThumbnails    ProjectVersion[] @relation("ProjectThumbnail")
+  projectCovers        ProjectVersion[] @relation("ProjectCover")
+  projectArchitectures ProjectVersion[] @relation("ProjectArchitecture")
   galleryItems         ProjectImage[]
-  technologies         Technology[]
-  timelineImages       TimelineEntry[]
-  educationLogos       Education[]
-  experienceLogos      Experience[]
+  technologies         TechnologyVersion[]
+  timelineImages       TimelineEntryVersion[]
+  educationLogos       EducationVersion[]
+  experienceLogos      ExperienceVersion[]
   socialIcons          SocialLink[]
 
   // single-record profile media
@@ -356,16 +356,34 @@ model SocialLink {
 
 model Project {
   id              String          @id @default(cuid())
-  title           String
   slug            String          @unique
-  summary         String
-  fullDescription String?         @db.Text @map("full_description")
-  category        ProjectCategory @default(OTHER)
-  startDate       DateTime? @map("start_date")
-  endDate         DateTime? @map("end_date")
-  status          ProjectStatus   @default(COMPLETED)
+  deletedAt       DateTime?       @map("deleted_at")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
 
-  // long-form detail fields (all optional, hidden if empty)
+  versions        ProjectVersion[]
+  technologies    ProjectTechnology[]
+  images          ProjectImage[]
+  timelineEntries TimelineEntry[]
+  redirects       ProjectRedirect[]
+
+  @@index([deletedAt])
+  @@map("projects")
+}
+
+model ProjectVersion {
+  id                    String          @id @default(cuid())
+  projectId             String          @map("project_id")
+  state                 PublishState
+  title                 String
+  summary               String
+  fullDescription       String?         @db.Text @map("full_description")
+  category              ProjectCategory @default(OTHER)
+  startDate             DateTime?       @map("start_date")
+  endDate               DateTime?       @map("end_date")
+  status                ProjectStatus   @default(COMPLETED)
+
+  // long-form detail fields
   problem            String? @db.Text
   solution           String? @db.Text
   myRole             String? @db.Text @map("my_role")
@@ -377,9 +395,9 @@ model Project {
   testing            String? @db.Text
   results            String? @db.Text
   lessonsLearned     String? @db.Text @map("lessons_learned")
-  metrics            Json? // [{ label, value }]
+  metrics            Json?
 
-  // external links (hidden when null)
+  // links
   liveDemoUrl      String? @map("live_demo_url")
   githubUrl        String? @map("github_url")
   reportUrl        String? @map("report_url")
@@ -399,42 +417,42 @@ model Project {
   seoTitle       String? @map("seo_title")
   seoDescription String? @map("seo_description")
 
-  // lifecycle
-  publishState PublishState @default(DRAFT) @map("publish_state")
-  archivedAt   DateTime? @map("archived_at")
-  deletedAt    DateTime? @map("deleted_at")
-  createdAt    DateTime     @default(now()) @map("created_at")
-  updatedAt    DateTime     @updatedAt @map("updated_at")
+  publishedAt    DateTime? @map("published_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
-  // media
+  // media relations
   thumbnailId    String? @map("thumbnail_id")
   thumbnail      MediaAsset? @relation("ProjectThumbnail", fields: [thumbnailId], references: [id], onDelete: SetNull)
   coverImageId   String? @map("cover_image_id")
   coverImage     MediaAsset? @relation("ProjectCover", fields: [coverImageId], references: [id], onDelete: SetNull)
   architectureImageId String? @map("architecture_image_id")
   architectureImage   MediaAsset? @relation("ProjectArchitecture", fields: [architectureImageId], references: [id], onDelete: SetNull)
-  gallery        ProjectImage[]
 
-  // many-to-many with Technology (explicit join)
-  technologies   ProjectTechnology[]
+  project        Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  // reverse links
-  timelineEntries TimelineEntry[]
-
-  @@index([publishState])
-  @@index([featured])
-  @@index([category])
+  @@unique([projectId, state])
+  @@index([state, visible])
   @@index([manualOrder])
-  @@index([deletedAt])
-  @@map("projects")
+  @@map("project_versions")
 }
 
-// ordered gallery images for a project
+model ProjectRedirect {
+  id        String   @id @default(cuid())
+  projectId String   @map("project_id")
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  oldSlug   String   @unique @map("old_slug")
+  newSlug   String   @map("new_slug")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("project_redirects")
+}
+
 model ProjectImage {
   id        String     @id @default(cuid())
-  projectId String @map("project_id")
+  projectId String     @map("project_id")
   project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  mediaId   String @map("media_id")
+  mediaId   String     @map("media_id")
   media     MediaAsset @relation(fields: [mediaId], references: [id], onDelete: Cascade)
   caption   String?
   order     Int        @default(0)
@@ -443,14 +461,27 @@ model ProjectImage {
   @@map("project_images")
 }
 
-// ============================================================================
-//  TECHNOLOGY  +  PROJECT-TECHNOLOGY join
-// ============================================================================
-
 model Technology {
   id              String          @id @default(cuid())
-  name            String          @unique
   slug            String          @unique
+  deletedAt       DateTime?       @map("deleted_at")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  versions        TechnologyVersion[]
+  projects        ProjectTechnology[]
+  experienceTech  ExperienceTechnology[]
+  timelineTech    TimelineTechnology[]
+
+  @@index([deletedAt])
+  @@map("technologies")
+}
+
+model TechnologyVersion {
+  id              String          @id @default(cuid())
+  technologyId    String          @map("technology_id")
+  state           PublishState
+  name            String
   category        TechCategory    @default(OTHER)
   description     String?
   experienceLabel ExperienceLabel @default(WORKING_KNOWLEDGE) @map("experience_label")
@@ -459,21 +490,19 @@ model Technology {
   showOnResume    Boolean         @default(false) @map("show_on_resume")
   visible         Boolean         @default(true)
   order           Int             @default(0)
-  deletedAt       DateTime? @map("deleted_at")
+  publishedAt     DateTime?       @map("published_at")
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
 
-  logoId String? @map("logo_id")
-  logo   MediaAsset? @relation(fields: [logoId], references: [id], onDelete: SetNull)
+  logoId          String?         @map("logo_id")
+  logo            MediaAsset?     @relation(fields: [logoId], references: [id], onDelete: SetNull)
 
-  projects       ProjectTechnology[]
-  experienceTech ExperienceTechnology[]
-  timelineTech   TimelineTechnology[]
+  technology      Technology      @relation(fields: [technologyId], references: [id], onDelete: Cascade)
 
+  @@unique([technologyId, state])
   @@index([category])
   @@index([order])
-  @@index([deletedAt])
-  @@map("technologies")
+  @@map("technology_versions")
 }
 
 model ProjectTechnology {
@@ -488,37 +517,48 @@ model ProjectTechnology {
   @@map("project_technologies")
 }
 
-// ============================================================================
-//  TIMELINE ENTRY
-// ============================================================================
-
 model TimelineEntry {
-  id          String            @id @default(cuid())
-  title       String
-  entryType   TimelineEntryType @default(PROJECT) @map("entry_type")
-  startDate   DateTime @map("start_date")
-  endDate     DateTime? @map("end_date")
-  description String?           @db.Text
-  status      ProjectStatus?
-  externalLinks Json? @map("external_links") // [{ label, url }]
-  visible     Boolean           @default(true)
-  order       Int               @default(0)
-  deletedAt   DateTime? @map("deleted_at")
-  createdAt   DateTime          @default(now()) @map("created_at")
-  updatedAt   DateTime          @updatedAt @map("updated_at")
+  id              String            @id @default(cuid())
+  deletedAt       DateTime?         @map("deleted_at")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
 
-  imageId String? @map("image_id")
-  image   MediaAsset? @relation(fields: [imageId], references: [id], onDelete: SetNull)
+  linkedProjectId String?           @map("project_id")
+  linkedProject   Project?          @relation(fields: [linkedProjectId], references: [id], onDelete: SetNull)
 
-  linkedProjectId String? @map("project_id")
-  linkedProject   Project? @relation(fields: [linkedProjectId], references: [id], onDelete: SetNull)
+  versions        TimelineEntryVersion[]
+  technologies    TimelineTechnology[]
 
-  technologies TimelineTechnology[]
-
-  @@index([startDate])
-  @@index([order])
   @@index([deletedAt])
   @@map("timeline_entries")
+}
+
+model TimelineEntryVersion {
+  id              String            @id @default(cuid())
+  timelineEntryId String            @map("timeline_entry_id")
+  state           PublishState
+  title           String
+  entryType       TimelineEntryType @default(PROJECT) @map("entry_type")
+  startDate       DateTime          @map("start_date")
+  endDate         DateTime?         @map("end_date")
+  description     String?           @db.Text
+  status          ProjectStatus?
+  externalLinks   Json?             @map("external_links")
+  visible         Boolean           @default(true)
+  order           Int               @default(0)
+  publishedAt     DateTime?         @map("published_at")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  imageId         String?           @map("image_id")
+  image           MediaAsset?       @relation(fields: [imageId], references: [id], onDelete: SetNull)
+
+  timelineEntry   TimelineEntry     @relation(fields: [timelineEntryId], references: [id], onDelete: Cascade)
+
+  @@unique([timelineEntryId, state])
+  @@index([startDate])
+  @@index([order])
+  @@map("timeline_entry_versions")
 }
 
 model TimelineTechnology {
@@ -532,65 +572,88 @@ model TimelineTechnology {
   @@map("timeline_technologies")
 }
 
-// ============================================================================
-//  EDUCATION
-// ============================================================================
-
 model Education {
   id            String    @id @default(cuid())
-  institution   String
-  qualification String
-  startDate     DateTime @map("start_date")
-  endDate       DateTime? @map("end_date")
-  isCurrent     Boolean   @default(false) @map("is_current")
-  grade         String?
-  description   String?   @db.Text
-  modules       String? // comma/tag list
-  showOnResume  Boolean   @default(true) @map("show_on_resume")
-  visible       Boolean   @default(true)
-  order         Int       @default(0)
   deletedAt     DateTime? @map("deleted_at")
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
-  logoId String? @map("logo_id")
-  logo   MediaAsset? @relation(fields: [logoId], references: [id], onDelete: SetNull)
+  versions      EducationVersion[]
 
-  @@index([order])
   @@index([deletedAt])
   @@map("education")
 }
 
-// ============================================================================
-//  EXPERIENCE  (+ technology join)
-// ============================================================================
+model EducationVersion {
+  id            String    @id @default(cuid())
+  educationId   String    @map("education_id")
+  state         PublishState
+  institution   String
+  qualification String
+  startDate     DateTime  @map("start_date")
+  endDate       DateTime? @map("end_date")
+  isCurrent     Boolean   @default(false) @map("is_current")
+  grade         String?
+  description   String?   @db.Text
+  modules       String?
+  showOnResume  Boolean   @default(true) @map("show_on_resume")
+  visible       Boolean   @default(true)
+  order         Int       @default(0)
+  publishedAt   DateTime? @map("published_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  logoId        String?     @map("logo_id")
+  logo          MediaAsset? @relation(fields: [logoId], references: [id], onDelete: SetNull)
+
+  education     Education   @relation(fields: [educationId], references: [id], onDelete: Cascade)
+
+  @@unique([educationId, state])
+  @@index([order])
+  @@map("education_versions")
+}
 
 model Experience {
   id               String    @id @default(cuid())
-  organization     String
-  role             String
-  startDate        DateTime @map("start_date")
-  endDate          DateTime? @map("end_date")
-  isCurrent        Boolean   @default(false) @map("is_current")
-  description      String?   @db.Text
-  responsibilities Json? // string[]
-  locationText     String? @map("location_text")
-  workType         WorkType? @map("work_type")
-  showOnResume     Boolean   @default(true) @map("show_on_resume")
-  visible          Boolean   @default(true)
-  order            Int       @default(0)
   deletedAt        DateTime? @map("deleted_at")
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
-  logoId String? @map("logo_id")
-  logo   MediaAsset? @relation(fields: [logoId], references: [id], onDelete: SetNull)
+  versions         ExperienceVersion[]
+  technologies     ExperienceTechnology[]
 
-  technologies ExperienceTechnology[]
-
-  @@index([order])
   @@index([deletedAt])
   @@map("experience")
+}
+
+model ExperienceVersion {
+  id               String    @id @default(cuid())
+  experienceId     String    @map("experience_id")
+  state            PublishState
+  organization     String
+  role             String
+  startDate        DateTime  @map("start_date")
+  endDate          DateTime? @map("end_date")
+  isCurrent        Boolean   @default(false) @map("is_current")
+  description      String?   @db.Text
+  responsibilities Json?
+  locationText     String?   @map("location_text")
+  workType         WorkType? @map("work_type")
+  showOnResume     Boolean   @default(true) @map("show_on_resume")
+  visible          Boolean   @default(true)
+  order            Int       @default(0)
+  publishedAt      DateTime? @map("published_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  logoId           String?     @map("logo_id")
+  logo             MediaAsset? @relation(fields: [logoId], references: [id], onDelete: SetNull)
+
+  experience       Experience  @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+
+  @@unique([experienceId, state])
+  @@index([order])
+  @@map("experience_versions")
 }
 
 model ExperienceTechnology {

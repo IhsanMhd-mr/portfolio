@@ -3,20 +3,47 @@ import Link from "next/link";
 import { Calendar, MapPin, Link2 } from "lucide-react";
 
 export default async function TimelinePage() {
-  const timelineEntries = await db.timelineEntry.findMany({
-    where: { visible: true, deletedAt: null },
-    include: { linkedProject: true },
-    orderBy: { startDate: "desc" }, // Newest first
+  const timelineEntriesRaw = await db.timelineEntry.findMany({
+    where: { deletedAt: null },
+    include: {
+      versions: { where: { state: "PUBLISHED", visible: true } },
+      linkedProject: {
+        include: {
+          versions: { where: { state: "PUBLISHED", visible: true }, take: 1 }
+        }
+      }
+    },
   });
 
-  function formatDate(dateStr: string) {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+  const timelineEntries = timelineEntriesRaw
+    .map((entry) => {
+      const published = entry.versions[0];
+      const projectTitle = entry.linkedProject?.versions[0]?.title || entry.linkedProject?.slug || "";
+      const projectSlug = entry.linkedProject?.slug;
+
+      return {
+        ...entry,
+        published,
+        projectTitle,
+        projectSlug,
+      };
+    })
+    .filter((e) => e.published);
+
+  // Sort by manual published order or newest first if order is identical
+  timelineEntries.sort((a, b) => {
+    const oDiff = (a.published?.order || 0) - (b.published?.order || 0);
+    if (oDiff !== 0) return oDiff;
+    return new Date(b.published?.startDate || 0).getTime() - new Date(a.published?.startDate || 0).getTime();
+  });
+
+  function formatDate(date: Date) {
+    return new Date(date).toLocaleDateString("en-US", { month: "short", year: "numeric" });
   }
 
   return (
     <div
-      className="flex-1 w-full px-[var(--gutter)] py-16 transition-colors duration-300"
+      className="flex-1 w-full px-[var(--gutter)] py-16 transition-colors duration-300 animate-fadeIn"
       style={{
         backgroundColor: "var(--bg)",
         color: "var(--ink)",
@@ -34,9 +61,10 @@ export default async function TimelinePage() {
 
         <div className="relative border-l border-solid border-[var(--line)] ml-4 pl-8 space-y-12">
           {timelineEntries.map((entry) => {
-            const startDateStr = formatDate(entry.startDate.toISOString());
-            const endDateStr = entry.endDate ? formatDate(entry.endDate.toISOString()) : "Present";
-            const dateDisplay = entry.entryType === "MILESTONE" || !entry.endDate ? startDateStr : `${startDateStr} - ${endDateStr}`;
+            const pub = entry.published!;
+            const startDateStr = formatDate(pub.startDate);
+            const endDateStr = pub.endDate ? formatDate(pub.endDate) : "Present";
+            const dateDisplay = pub.entryType === "MILESTONE" || !pub.endDate ? startDateStr : `${startDateStr} - ${endDateStr}`;
 
             return (
               <div key={entry.id} className="relative">
@@ -48,29 +76,29 @@ export default async function TimelinePage() {
 
                 <div className="flex flex-col gap-1">
                   <span className="text-mono-label text-[var(--ink-faint)]">
-                    {dateDisplay} • {entry.entryType.replace("_", " ")}
+                    {dateDisplay} • {pub.entryType.replace("_", " ")}
                   </span>
                   <h3
                     className="text-h3 text-[var(--ink)]"
                     style={{ fontFamily: "var(--font-display)" }}
                   >
-                    {entry.title}
+                    {pub.title}
                   </h3>
                   
-                  {entry.description && (
+                  {pub.description && (
                     <p className="text-body text-[var(--ink-soft)] mt-2">
-                      {entry.description}
+                      {pub.description}
                     </p>
                   )}
 
-                  {entry.linkedProject && (
+                  {entry.projectSlug && (
                     <div className="mt-3 flex">
                       <Link
-                        href={`/projects/${entry.linkedProject.slug}`}
+                        href={`/projects/${entry.projectSlug}`}
                         className="flex items-center gap-1.5 text-xs font-semibold text-[var(--accent)] hover:text-[var(--accent-hover)]"
                       >
                         <Link2 size={12} />
-                        View related project case study
+                        View related project case study: {entry.projectTitle}
                       </Link>
                     </div>
                   )}

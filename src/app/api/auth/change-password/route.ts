@@ -12,7 +12,11 @@ import { recordAudit } from "@/lib/audit";
 import db from "@/lib/database";
 
 export async function POST(request: Request) {
-  const { context, response } = await safeRequireAdmin(request);
+  // Pass the change-password pathname so the mustChangePassword gate does not
+  // block the very endpoint used to change the password.
+  const { context, response } = await safeRequireAdmin(request, {
+    pathname: "/admin/settings/security/change-password",
+  });
   if (response) return response;
 
   const { currentPassword, newPassword } = await request.json();

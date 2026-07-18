@@ -18,6 +18,7 @@ import {
   Palette,
   ScrollText,
   Sliders,
+  User,
 } from "lucide-react";
 
 export default function AdminSidebar() {
@@ -26,6 +27,7 @@ export default function AdminSidebar() {
   const menuItems = [
     { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
     { label: "Page Builder", href: "/admin/page-builder", icon: Columns3 },
+    { label: "Profile", href: "/admin/profile", icon: User },
     { label: "Templates", href: "/admin/templates", icon: Palette },
     { label: "Projects", href: "/admin/projects", icon: Briefcase },
     { label: "Technologies", href: "/admin/technologies", icon: Cpu },
@@ -36,6 +38,8 @@ export default function AdminSidebar() {
     { label: "Messages", href: "/admin/messages", icon: Inbox },
     { label: "3D Game", href: "/admin/game", icon: Gamepad2 },
     { label: "Site Settings", href: "/admin/settings", icon: Sliders },
+    { label: "Security", href: "/admin/settings/security", icon: Sliders },
+    { label: "Audit Log", href: "/admin/audit-log", icon: ScrollText },
   ];
 
   async function handleLogout() {
@@ -74,7 +78,13 @@ export default function AdminSidebar() {
       <div className="flex-1 overflow-y-auto py-6 px-4">
         <nav className="space-y-1">
           {menuItems.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+            // Longest matching href wins so /admin/settings/security only
+            // highlights "Security", not "Site Settings" as well.
+            const matches = menuItems.filter(
+              (m) => pathname === m.href || pathname.startsWith(m.href + "/")
+            );
+            const best = matches.sort((a, b) => b.href.length - a.href.length)[0];
+            const isActive = best?.href === item.href;
             const Icon = item.icon;
             return (
               <Link

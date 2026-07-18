@@ -3,14 +3,15 @@ import { ArrowRight, BookOpen, Target, Settings, Award } from "lucide-react";
 
 interface AboutSummarySectionProps {
   profile: any;
+  settings?: any;
   isPreview?: boolean;
 }
 
-export default function AboutSummarySection({ profile, isPreview = false }: AboutSummarySectionProps) {
-  const aboutBio = profile?.aboutBio || "I focus on building performant, accessible web systems. I believe in clean layers, rich aesthetics, and robust engineering architectures.";
-  const technicalInterests = profile?.technicalInterests || "Web Performance, R3F & WebGL, Microservices, Security & Cryptography";
-  const developmentApproach = profile?.developmentApproach || "Plan thoroughly, build cleanly with standard layers, verify with typechecks and tests.";
-  const currentGoals = profile?.currentGoals || "Looking for full-time Full-Stack Developer roles starting Fall 2026.";
+export default function AboutSummarySection({ profile, settings, isPreview = false }: AboutSummarySectionProps) {
+  const aboutBio = settings?.aboutBio || profile?.aboutBio || "I focus on building performant, accessible web systems. I believe in clean layers, rich aesthetics, and robust engineering architectures.";
+  const technicalInterests = settings?.technicalInterests || profile?.technicalInterests || "Web Performance, R3F & WebGL, Microservices, Security & Cryptography";
+  const developmentApproach = settings?.developmentApproach || profile?.developmentApproach || "Plan thoroughly, build cleanly with standard layers, verify with typechecks and tests.";
+  const currentGoals = settings?.currentGoals || profile?.currentGoals || "Looking for full-time Full-Stack Developer roles starting Fall 2026.";
 
   return (
     <section className="w-full py-20 px-[var(--gutter)] bg-[var(--bg-2, var(--bg))] border-t border-solid border-[var(--line)] transition-colors duration-300">

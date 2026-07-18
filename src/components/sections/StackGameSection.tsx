@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Gamepad2, RotateCcw } from "lucide-react";
+import { useTheme } from "next-themes";
 
 interface StackGameSectionProps {
   settings?: any;
@@ -17,7 +18,8 @@ export default function StackGameSection({
   isPreview = false,
 }: StackGameSectionProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  
+  const { resolvedTheme } = useTheme();
+
   // Use DB game settings, fallback to standard settings
   const mode = gameSettings?.mode || settings?.mode || "ROTATING_SPHERE";
   const ballCount = gameSettings?.ballCount || settings?.ballCount || 12;
@@ -34,6 +36,21 @@ export default function StackGameSection({
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+
+    // Resolve theme colors from the CSS variable system so the canvas scene
+    // matches the active template + light/dark mode. Canvas 2D cannot parse
+    // var() strings, so values must be read via getComputedStyle. The effect
+    // re-runs on resolvedTheme change (see deps), re-reading these.
+    const styles = getComputedStyle(canvas);
+    const cssVar = (name: string, fallback: string) =>
+      styles.getPropertyValue(name).trim() || fallback;
+    const isDarkTheme = resolvedTheme !== "light";
+    const accentColor = cssVar("--accent", isDarkTheme ? "#6366F1" : "#2563EB");
+    const accentAltColor = cssVar("--violet", isDarkTheme ? "#818CF8" : "#7C3AED");
+    const inkSoftColor = cssVar("--ink-soft", isDarkTheme ? "#9C9CA8" : "#555555");
+    // Neutral overlay ink for card fills/strokes/ground (white on dark, black on light)
+    const neutral = (alpha: number) =>
+      isDarkTheme ? `rgba(255, 255, 255, ${alpha})` : `rgba(17, 17, 17, ${alpha})`;
 
     let animationId: number;
     let width = (canvas.width = canvas.parentElement?.clientWidth || 600);
@@ -110,7 +127,7 @@ export default function StackGameSection({
           vy: (Math.random() - 0.5) * 3,
           radius: 35 * ballSize,
           name,
-          color: i % 2 === 0 ? "#22D3EE" : "#8B5CF6", // Cyan or Violet
+          color: i % 2 === 0 ? accentColor : accentAltColor,
         });
       });
     }
@@ -137,7 +154,7 @@ export default function StackGameSection({
         width: 100,
         height: 30,
         name,
-        color: "#FFB454", // Amber
+        color: accentColor,
         isStacked: false,
       };
     };
@@ -189,13 +206,15 @@ export default function StackGameSection({
 
           // Render tag text
           ctx.font = `${Math.max(10, Math.floor(14 * scale))}px var(--font-mono, monospace)`;
-          ctx.fillStyle = `rgba(34, 211, 238, ${Math.min(1, Math.max(0.2, opacity))})`;
+          ctx.fillStyle = accentColor;
+          ctx.globalAlpha = Math.min(1, Math.max(0.2, opacity));
           ctx.textAlign = "center";
           ctx.fillText(node.name, x2d, y2d);
+          ctx.globalAlpha = 1;
         });
 
         // Informational overlay
-        ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+        ctx.fillStyle = inkSoftColor;
         ctx.font = "10px var(--font-mono, monospace)";
         ctx.fillText("// DRAG OR HOVER CURSOR TO ROTATE SPHERE", width / 2, height - 15);
       } 
@@ -242,8 +261,8 @@ export default function StackGameSection({
           // Render sphere card
           ctx.beginPath();
           ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
-          ctx.fillStyle = "rgba(255, 255, 255, 0.03)";
-          ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+          ctx.fillStyle = neutral(0.03);
+          ctx.strokeStyle = neutral(0.12);
           ctx.lineWidth = 1;
           ctx.fill();
           ctx.stroke();
@@ -253,7 +272,7 @@ export default function StackGameSection({
             ball.x - ball.radius/3, ball.y - ball.radius/3, 5,
             ball.x, ball.y, ball.radius
           );
-          glowGrad.addColorStop(0, "rgba(255, 255, 255, 0.15)");
+          glowGrad.addColorStop(0, neutral(0.15));
           glowGrad.addColorStop(1, "transparent");
           ctx.fillStyle = glowGrad;
           ctx.beginPath();
@@ -270,7 +289,7 @@ export default function StackGameSection({
       } 
       else if (mode === "FALLING_GAME") {
         if (!gameStarted) {
-          ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+          ctx.fillStyle = neutral(0.7);
           ctx.font = "14px var(--font-mono, monospace)";
           ctx.textAlign = "center";
           ctx.fillText("// CLICK 'START STACK GAME' TO PLAY", width / 2, height / 2);
@@ -278,7 +297,7 @@ export default function StackGameSection({
         }
 
         // Draw ground
-        ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+        ctx.fillStyle = neutral(0.15);
         ctx.fillRect(0, height - groundHeight, width, groundHeight);
 
         // Draw stacked blocks
@@ -289,7 +308,7 @@ export default function StackGameSection({
           ctx.strokeRect(b.x, b.y, b.width, b.height);
 
           ctx.font = "10px var(--font-mono, monospace)";
-          ctx.fillStyle = "#000";
+          ctx.fillStyle = "#FFFFFF"; /* accent-text on accent-colored block */
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
           ctx.fillText(b.name, b.x + b.width / 2, b.y + b.height / 2);
@@ -332,13 +351,14 @@ export default function StackGameSection({
 
           // Draw current dropping block
           if (currentBlock) {
-            ctx.fillStyle = "var(--accent)";
+            // NOTE: canvas cannot parse "var(--accent)" — must use the resolved value
+            ctx.fillStyle = accentColor;
             ctx.fillRect(currentBlock.x, currentBlock.y, currentBlock.width, currentBlock.height);
             ctx.strokeStyle = "rgba(0,0,0,0.5)";
             ctx.strokeRect(currentBlock.x, currentBlock.y, currentBlock.width, currentBlock.height);
 
             ctx.font = "10px var(--font-mono, monospace)";
-            ctx.fillStyle = "#000";
+            ctx.fillStyle = "#FFFFFF"; /* accent-text on accent-colored block */
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
             ctx.fillText(currentBlock.name, currentBlock.x + currentBlock.width / 2, currentBlock.y + currentBlock.height / 2);
@@ -368,7 +388,7 @@ export default function StackGameSection({
       canvas.removeEventListener("mouseup", handleMouseUp);
       canvas.removeEventListener("click", handleClick);
     };
-  }, [mode, ballCount, ballSize, fallingSpeed, technologies, gameStarted, score]);
+  }, [mode, ballCount, ballSize, fallingSpeed, technologies, gameStarted, score, resolvedTheme]);
 
   // Restart Stack game helper
   const handleRestart = () => {

@@ -13,7 +13,7 @@ export default function AuthError({ errorType, countdown }: AuthErrorProps) {
   switch (errorType) {
     case "CredentialsSignin":
     case "INVALID_CREDENTIALS":
-      message = "The email or password is incorrect.";
+      message = "The username/email or password is incorrect.";
       break;
     case "ACCOUNT_LOCKED":
       message = "Your account is temporarily locked. Try again later.";

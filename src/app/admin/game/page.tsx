@@ -99,7 +99,7 @@ export default async function AdminGamePage() {
           <select
             name="mode"
             defaultValue={settings.mode}
-            className="w-full px-3 py-2 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-white focus:outline-none focus:border-[var(--a-primary)]"
+            className="w-full px-3 py-2 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-surface)] focus:outline-none focus:border-[var(--a-primary)]"
           >
             <option value="ROTATING_SPHERE">Rotating Sphere (3D tag cloud)</option>
             <option value="FLOATING_BALLS">Floating Balls (Bouncing physics circles)</option>

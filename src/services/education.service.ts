@@ -1,0 +1,190 @@
+import db from "@/lib/database";
+import { recordAudit } from "@/lib/audit";
+
+export interface EducationInput {
+  institution: string;
+  qualification: string;
+  startDate: Date;
+  endDate?: Date | null;
+  isCurrent?: boolean;
+  grade?: string | null;
+  description?: string | null;
+  modules?: string | null;
+  showOnResume?: boolean;
+  visible?: boolean;
+  logoId?: string | null;
+  order?: number;
+}
+
+export class EducationService {
+  static async createEducation(
+    input: Partial<EducationInput>,
+    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+  ) {
+    const count = await db.education.count({ where: { deletedAt: null } });
+
+    return await db.$transaction(async (tx) => {
+      const base = await tx.education.create({ data: {} });
+
+      const draft = await tx.educationVersion.create({
+        data: {
+          educationId: base.id,
+          state: "DRAFT",
+          institution: input.institution || "Institution",
+          qualification: input.qualification || "Degree / Course",
+          startDate: input.startDate || new Date(),
+          endDate: input.endDate || null,
+          isCurrent: input.isCurrent ?? false,
+          grade: input.grade || null,
+          description: input.description || null,
+          modules: input.modules || null,
+          showOnResume: input.showOnResume ?? true,
+          visible: input.visible ?? true,
+          order: count + 1,
+          logoId: input.logoId || null,
+        },
+      });
+
+      await recordAudit({
+        action: "EDUCATION_CREATED",
+        entityType: "Education",
+        entityId: base.id,
+        summary: `Created academic profile: ${draft.institution} - ${draft.qualification}`,
+        after: { base, draft },
+        context: auditContext,
+        tx,
+      });
+
+      await tx.page.update({
+        where: { key: "home" },
+        data: { hasUnpublishedChanges: true },
+      });
+
+      return { base, draft };
+    });
+  }
+
+  static async updateEducation(
+    id: string,
+    input: Partial<EducationInput>,
+    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+  ) {
+    const base = await db.education.findUnique({
+      where: { id },
+      include: { versions: { where: { state: "DRAFT" }, take: 1 } },
+    });
+
+    if (!base) throw new Error("Academic entry not found.");
+
+    const draft = base.versions[0];
+    if (!draft) throw new Error("Academic draft record not found.");
+
+    return await db.$transaction(async (tx) => {
+      const before = await tx.educationVersion.findUnique({ where: { id: draft.id } });
+
+      const updatedDraft = await tx.educationVersion.update({
+        where: { id: draft.id },
+        data: {
+          institution: input.institution !== undefined ? input.institution : draft.institution,
+          qualification: input.qualification !== undefined ? input.qualification : draft.qualification,
+          startDate: input.startDate !== undefined ? input.startDate : draft.startDate,
+          endDate: input.endDate !== undefined ? input.endDate : draft.endDate,
+          isCurrent: input.isCurrent !== undefined ? input.isCurrent : draft.isCurrent,
+          grade: input.grade !== undefined ? input.grade : draft.grade,
+          description: input.description !== undefined ? input.description : draft.description,
+          modules: input.modules !== undefined ? input.modules : draft.modules,
+          showOnResume: input.showOnResume !== undefined ? input.showOnResume : draft.showOnResume,
+          visible: input.visible !== undefined ? input.visible : draft.visible,
+          logoId: input.logoId !== undefined ? input.logoId : draft.logoId,
+        },
+      });
+
+      await recordAudit({
+        action: "EDUCATION_UPDATED",
+        entityType: "Education",
+        entityId: id,
+        summary: `Updated academic draft: ${updatedDraft.institution}`,
+        before,
+        after: updatedDraft,
+        context: auditContext,
+        tx,
+      });
+
+      await tx.page.update({
+        where: { key: "home" },
+        data: { hasUnpublishedChanges: true },
+      });
+
+      return updatedDraft;
+    });
+  }
+
+  static async deleteEducation(
+    id: string,
+    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+  ) {
+    const base = await db.education.findUnique({
+      where: { id },
+      include: { versions: { where: { state: "DRAFT" }, take: 1 } },
+    });
+
+    if (!base) throw new Error("Academic entry not found.");
+
+    return await db.$transaction(async (tx) => {
+      await tx.educationVersion.deleteMany({ where: { educationId: id } });
+      await tx.education.delete({ where: { id } });
+
+      await recordAudit({
+        action: "EDUCATION_DELETED",
+        entityType: "Education",
+        entityId: id,
+        summary: `Deleted academic entry: ${base.versions[0]?.institution || id}`,
+        context: auditContext,
+        tx,
+      });
+
+      await tx.page.update({
+        where: { key: "home" },
+        data: { hasUnpublishedChanges: true },
+      });
+
+      return true;
+    });
+  }
+
+  static async reorderEducation(
+    ids: string[],
+    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+  ) {
+    return await db.$transaction(async (tx) => {
+      for (let i = 0; i < ids.length; i++) {
+        const id = ids[i];
+        const base = await tx.education.findUnique({
+          where: { id },
+          include: { versions: { where: { state: "DRAFT" }, take: 1 } },
+        });
+        if (base && base.versions[0]) {
+          await tx.educationVersion.update({
+            where: { id: base.versions[0].id },
+            data: { order: i + 1 },
+          });
+        }
+      }
+
+      await recordAudit({
+        action: "EDUCATION_REORDERED",
+        entityType: "Education",
+        summary: `Reordered academic profile sequence.`,
+        context: auditContext,
+        tx,
+      });
+
+      await tx.page.update({
+        where: { key: "home" },
+        data: { hasUnpublishedChanges: true },
+      });
+
+      return true;
+    });
+  }
+}

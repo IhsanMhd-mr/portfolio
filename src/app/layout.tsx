@@ -114,15 +114,16 @@ export const metadata: Metadata = {
    ========================================================================== */
 
 import db from "@/lib/database";
-import { headers } from "next/headers";
+import { cookies } from "next/headers";
+import { ThemeProvider } from "@/components/providers/theme-provider";
 
 export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const headersList = await headers();
-  const isPreview = headersList.get("x-preview") === "true";
+  const cookieStore = await cookies();
+  const isPreview = cookieStore.get("portfolio_preview_mode")?.value === "true";
 
   let templateKey = "MODERN_GLASS";
 
@@ -168,8 +169,19 @@ export default async function RootLayout({
       lang="en"
       data-template={templateSlug}
       className={`${fontVariables} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <ThemeProvider
+          attribute={["class", "data-theme"]}
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+          storageKey="portfolio-theme"
+        >
+          {children}
+        </ThemeProvider>
+      </body>
     </html>
   );
 }

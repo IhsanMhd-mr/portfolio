@@ -1,82 +1,123 @@
 import db from "@/lib/database";
 import { revalidatePath } from "next/cache";
-import { Cpu, Plus, Trash2, Save, Eye, EyeOff } from "lucide-react";
+import { Cpu, Plus, Trash2, Save, Eye, EyeOff, ArrowUp, ArrowDown, Image as ImageIcon } from "lucide-react";
+import { 
+  createTechnologyAction, 
+  updateTechnologyAction, 
+  deleteTechnologyAction, 
+  reorderTechnologiesAction 
+} from "./actions";
 
-export default async function AdminTechnologiesPage() {
-  const technologies = await db.technology.findMany({
+interface SearchParams {
+  error?: string;
+}
+
+interface PageProps {
+  searchParams: Promise<SearchParams>;
+}
+
+export default async function AdminTechnologiesPage(props: PageProps) {
+  const params = await props.searchParams;
+  const error = params.error || "";
+
+  // Fetch technologies with draft version and project/experience usage links
+  const technologiesRaw = await db.technology.findMany({
     where: { deletedAt: null },
-    orderBy: { order: "asc" },
+    include: {
+      versions: true,
+      projects: true,
+      experienceTech: true,
+      timelineTech: true,
+    },
   });
 
-  // Create new technology skill
-  async function createTech(formData: FormData) {
+  // Map to resolve draft and count usages
+  const technologies = technologiesRaw.map((tech) => {
+    const draft = tech.versions.find((v) => v.state === "DRAFT");
+    const published = tech.versions.find((v) => v.state === "PUBLISHED");
+    const projectCount = tech.projects.length;
+    const experienceCount = tech.experienceTech.length;
+    const timelineCount = tech.timelineTech.length;
+
+    return {
+      ...tech,
+      draft,
+      published,
+      projectCount,
+      experienceCount,
+      timelineCount,
+    };
+  });
+
+  // Sort by order of draft version
+  technologies.sort((a, b) => (a.draft?.order || 0) - (b.draft?.order || 0));
+
+  // Load media assets (for logo selector dropdown)
+  const allMedia = await db.mediaAsset.findMany({
+    where: { deletedAt: null },
+    orderBy: { createdAt: "desc" },
+  });
+
+  // Server action triggers
+  async function handleCreateTech(formData: FormData) {
     "use server";
     const name = formData.get("name") as string;
     const category = formData.get("category") as any;
     const experienceLabel = formData.get("experienceLabel") as any;
     const description = formData.get("description") as string;
-    
+    const logoId = formData.get("logoId") as string || null;
+
     if (!name) return;
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-    const count = await db.technology.count({ where: { deletedAt: null } });
 
-    await db.technology.create({
-      data: {
-        name,
-        slug,
-        category: category || "OTHER",
-        experienceLabel: experienceLabel || "WORKING_KNOWLEDGE",
-        description,
-        showInStack: true,
-        showOnResume: true,
-        visible: true,
-        order: count + 1,
-      },
+    await createTechnologyAction({
+      name,
+      slug,
+      category,
+      experienceLabel,
+      description,
+      logoId,
+      showInStack: true,
+      showInGame: false,
+      showOnResume: true,
+      visible: true,
     });
-
-    await db.page.update({
-      where: { key: "home" },
-      data: { hasUnpublishedChanges: true },
-    });
-
-    revalidatePath("/admin/technologies");
   }
 
-  // Update specific tech flags (inline checkbox form action)
-  async function toggleTechFlag(formData: FormData) {
+  async function handleToggleFlag(id: string, field: string, currentValue: boolean) {
     "use server";
-    const id = formData.get("id") as string;
-    const field = formData.get("field") as string;
-    const currentValue = formData.get("value") === "true";
-
-    await db.technology.update({
-      where: { id },
-      data: { [field]: !currentValue },
-    });
-
-    await db.page.update({
-      where: { key: "home" },
-      data: { hasUnpublishedChanges: true },
-    });
-
-    revalidatePath("/admin/technologies");
+    await updateTechnologyAction(id, { [field]: !currentValue });
   }
 
-  // Delete technology
-  async function deleteTech(formData: FormData) {
+  async function handleDelete(id: string) {
     "use server";
-    const id = formData.get("id") as string;
-    await db.technology.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
+    try {
+      await deleteTechnologyAction(id);
+    } catch (e: any) {
+      // Redirect to same page with error message
+      const msg = encodeURIComponent(e.message || "Failed to delete technology.");
+      return void revalidatePath(`/admin/technologies?error=${msg}`);
+    }
+  }
 
-    await db.page.update({
-      where: { key: "home" },
-      data: { hasUnpublishedChanges: true },
-    });
+  async function handleMoveUp(index: number) {
+    "use server";
+    if (index === 0) return;
+    const ids = technologies.map((t) => t.id);
+    const temp = ids[index];
+    ids[index] = ids[index - 1];
+    ids[index - 1] = temp;
+    await reorderTechnologiesAction(ids);
+  }
 
-    revalidatePath("/admin/technologies");
+  async function handleMoveDown(index: number) {
+    "use server";
+    if (index === technologies.length - 1) return;
+    const ids = technologies.map((t) => t.id);
+    const temp = ids[index];
+    ids[index] = ids[index + 1];
+    ids[index + 1] = temp;
+    await reorderTechnologiesAction(ids);
   }
 
   return (
@@ -84,9 +125,15 @@ export default async function AdminTechnologiesPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-[var(--a-ink)]">Technologies Manager</h1>
         <p className="text-sm text-[var(--a-soft)] mt-1.5 font-sans">
-          Organize your core programming skills, categories, years of comfort, and display properties.
+          Organize your programming skills, categories, years of comfort, and display properties.
         </p>
       </div>
+
+      {error && (
+        <div className="p-4 border border-solid border-red-200 bg-red-50 text-red-700 text-xs font-mono rounded-[var(--a-r-sm)] white-space-pre-wrap">
+          ⚠️ {decodeURIComponent(error)}
+        </div>
+      )}
 
       <div className="grid gap-8 lg:grid-cols-12 items-start">
         {/* Left: Technologies List Grid */}
@@ -97,93 +144,127 @@ export default async function AdminTechnologiesPage() {
           </div>
 
           <div className="divide-y divide-solid divide-[var(--a-line)] text-xs">
-            {technologies.map((tech) => (
-              <div key={tech.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/30">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm text-[var(--a-ink)]">{tech.name}</span>
-                    <span className="bg-slate-100 text-[8px] font-mono font-bold tracking-wider px-2 py-0.5 rounded text-[var(--a-faint)]">
-                      {tech.category}
-                    </span>
-                  </div>
-                  {tech.description && (
-                    <p className="text-[var(--a-soft)] mt-1 max-w-sm line-clamp-1">{tech.description}</p>
-                  )}
-                  <p className="text-[10px] font-mono text-[var(--a-faint)] mt-1">Level: {tech.experienceLabel.replace("_", " ")}</p>
-                </div>
+            {technologies.map((tech, idx) => {
+              const draft = tech.draft;
+              if (!draft) return null;
 
-                {/* Inline Toggle Switches */}
-                <div className="flex flex-wrap items-center gap-4">
-                  <div className="flex gap-4">
-                    {/* Show in Stack */}
-                    <form action={toggleTechFlag} className="flex items-center gap-1.5">
-                      <input type="hidden" name="id" value={tech.id} />
-                      <input type="hidden" name="field" value="showInStack" />
-                      <input type="hidden" name="value" value={String(tech.showInStack)} />
-                      <input
-                        type="checkbox"
-                        checked={tech.showInStack}
-                        onChange={(e) => e.target.form?.requestSubmit()}
-                        className="cursor-pointer"
-                      />
-                      <span className="text-[10px] font-bold text-[var(--a-soft)] uppercase font-mono">Stack</span>
-                    </form>
+              // Find logo if any
+              const logoAsset = allMedia.find((m) => m.id === draft.logoId);
 
-                    {/* Show in Game */}
-                    <form action={toggleTechFlag} className="flex items-center gap-1.5">
-                      <input type="hidden" name="id" value={tech.id} />
-                      <input type="hidden" name="field" value="showInGame" />
-                      <input type="hidden" name="value" value={String(tech.showInGame)} />
-                      <input
-                        type="checkbox"
-                        checked={tech.showInGame}
-                        onChange={(e) => e.target.form?.requestSubmit()}
-                        className="cursor-pointer"
-                      />
-                      <span className="text-[10px] font-bold text-[var(--a-soft)] uppercase font-mono">Sandbox</span>
-                    </form>
+              return (
+                <div key={tech.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/30">
+                  <div className="flex items-start gap-3">
+                    {/* Logo display */}
+                    <div className="w-8 h-8 rounded bg-slate-100 border border-solid border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
+                      {logoAsset ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={logoAsset.url} alt={draft.name} className="w-full h-full object-contain" />
+                      ) : (
+                        <Cpu size={14} className="text-slate-400" />
+                      )}
+                    </div>
 
-                    {/* Show on Resume */}
-                    <form action={toggleTechFlag} className="flex items-center gap-1.5">
-                      <input type="hidden" name="id" value={tech.id} />
-                      <input type="hidden" name="field" value="showOnResume" />
-                      <input type="hidden" name="value" value={String(tech.showOnResume)} />
-                      <input
-                        type="checkbox"
-                        checked={tech.showOnResume}
-                        onChange={(e) => e.target.form?.requestSubmit()}
-                        className="cursor-pointer"
-                      />
-                      <span className="text-[10px] font-bold text-[var(--a-soft)] uppercase font-mono">Resume</span>
-                    </form>
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm text-[var(--a-ink)]">{draft.name}</span>
+                        <span className="bg-slate-100 text-[8px] font-mono font-bold tracking-wider px-2 py-0.5 rounded text-[var(--a-faint)]">
+                          {draft.category}
+                        </span>
+                      </div>
+                      {draft.description && (
+                        <p className="text-[var(--a-soft)] max-w-sm line-clamp-1">{draft.description}</p>
+                      )}
+                      <div className="flex flex-wrap gap-x-4 text-[10px] font-mono text-[var(--a-faint)]">
+                        <span>Level: {draft.experienceLabel.replace("_", " ")}</span>
+                        <span>Projects: {tech.projectCount}</span>
+                        <span>Experience: {tech.experienceCount}</span>
+                        <span>Timeline: {tech.timelineCount}</span>
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Visibility */}
-                  <form action={toggleTechFlag}>
-                    <input type="hidden" name="id" value={tech.id} />
-                    <input type="hidden" name="field" value="visible" />
-                    <input type="hidden" name="value" value={String(tech.visible)} />
-                    <button
-                      type="submit"
-                      className="p-1 hover:bg-slate-100 rounded text-[var(--a-soft)] cursor-pointer border-none bg-transparent"
-                    >
-                      {tech.visible ? <Eye size={14} /> : <EyeOff size={14} className="text-red-400" />}
-                    </button>
-                  </form>
+                  {/* Inline Toggle Switches and reorder */}
+                  <div className="flex flex-wrap items-center gap-4">
+                    {/* Shift order */}
+                    <div className="flex items-center gap-0.5">
+                      <form action={handleMoveUp.bind(null, idx)}>
+                        <button
+                          type="submit"
+                          disabled={idx === 0}
+                          className="p-1 hover:bg-slate-100 text-slate-400 hover:text-slate-600 disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
+                        >
+                          <ArrowUp size={12} />
+                        </button>
+                      </form>
+                      <form action={handleMoveDown.bind(null, idx)}>
+                        <button
+                          type="submit"
+                          disabled={idx === technologies.length - 1}
+                          className="p-1 hover:bg-slate-100 text-slate-400 hover:text-slate-600 disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
+                        >
+                          <ArrowDown size={12} />
+                        </button>
+                      </form>
+                    </div>
 
-                  {/* Delete */}
-                  <form action={deleteTech}>
-                    <input type="hidden" name="id" value={tech.id} />
-                    <button
-                      type="submit"
-                      className="p-1 hover:bg-red-50 text-red-500 rounded cursor-pointer border-none bg-transparent"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </form>
+                    <div className="flex gap-4">
+                      {/* Show in Stack */}
+                      <form action={handleToggleFlag.bind(null, tech.id, "showInStack", draft.showInStack)} className="flex items-center gap-1.5">
+                        <input
+                          type="checkbox"
+                          checked={draft.showInStack}
+                          onChange={(e) => e.target.form?.requestSubmit()}
+                          className="cursor-pointer"
+                        />
+                        <span className="text-[10px] font-bold text-[var(--a-soft)] uppercase font-mono cursor-pointer">Stack</span>
+                      </form>
+
+                      {/* Show in Game */}
+                      <form action={handleToggleFlag.bind(null, tech.id, "showInGame", draft.showInGame)} className="flex items-center gap-1.5">
+                        <input
+                          type="checkbox"
+                          checked={draft.showInGame}
+                          onChange={(e) => e.target.form?.requestSubmit()}
+                          className="cursor-pointer"
+                        />
+                        <span className="text-[10px] font-bold text-[var(--a-soft)] uppercase font-mono cursor-pointer">Sandbox</span>
+                      </form>
+
+                      {/* Show on Resume */}
+                      <form action={handleToggleFlag.bind(null, tech.id, "showOnResume", draft.showOnResume)} className="flex items-center gap-1.5">
+                        <input
+                          type="checkbox"
+                          checked={draft.showOnResume}
+                          onChange={(e) => e.target.form?.requestSubmit()}
+                          className="cursor-pointer"
+                        />
+                        <span className="text-[10px] font-bold text-[var(--a-soft)] uppercase font-mono cursor-pointer">Resume</span>
+                      </form>
+                    </div>
+
+                    {/* Visibility */}
+                    <form action={handleToggleFlag.bind(null, tech.id, "visible", draft.visible)}>
+                      <button
+                        type="submit"
+                        className="p-1 hover:bg-slate-100 rounded text-[var(--a-soft)] cursor-pointer border-none bg-transparent"
+                      >
+                        {draft.visible ? <Eye size={14} /> : <EyeOff size={14} className="text-red-400" />}
+                      </button>
+                    </form>
+
+                    {/* Delete */}
+                    <form action={handleDelete.bind(null, tech.id)}>
+                      <button
+                        type="submit"
+                        className="p-1 hover:bg-red-50 text-red-500 rounded cursor-pointer border-none bg-transparent"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </form>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
             {technologies.length === 0 && (
               <p className="text-center py-12 text-[var(--a-faint)] font-mono">// NO TECHNOLOGIES SEEDED</p>
@@ -198,23 +279,23 @@ export default async function AdminTechnologiesPage() {
             Add New Skill
           </h3>
 
-          <form action={createTech} className="space-y-4">
+          <form action={handleCreateTech} className="space-y-4">
             <div className="space-y-1">
-              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block">Skill Name</label>
+              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Skill Name</label>
               <input
                 type="text"
                 name="name"
                 required
                 placeholder="e.g. Next.js, Rust"
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)]"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block">Category</label>
+              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Category</label>
               <select
                 name="category"
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-white focus:outline-none focus:border-[var(--a-primary)]"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-slate-50 focus:outline-none focus:border-[var(--a-primary)]"
               >
                 <option value="FRONTEND">Frontend Development</option>
                 <option value="BACKEND">Backend & APIs</option>
@@ -228,10 +309,10 @@ export default async function AdminTechnologiesPage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block">Comfort Level</label>
+              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Comfort Level</label>
               <select
                 name="experienceLabel"
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-white focus:outline-none focus:border-[var(--a-primary)]"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-slate-50 focus:outline-none focus:border-[var(--a-primary)]"
               >
                 <option value="STRONG">Strong expertise (comfortable to lead)</option>
                 <option value="COMFORTABLE">Comfortable (independent work)</option>
@@ -241,12 +322,27 @@ export default async function AdminTechnologiesPage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block">Short Description</label>
+              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Tech Logo Asset</label>
+              <select
+                name="logoId"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-slate-50 focus:outline-none focus:border-[var(--a-primary)]"
+              >
+                <option value="">-- No Logo Selected --</option>
+                {allMedia.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.filename}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Short Description</label>
               <textarea
                 name="description"
                 rows={2}
                 placeholder="Brief summary of usage"
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] resize-y"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50 resize-y"
               />
             </div>
 

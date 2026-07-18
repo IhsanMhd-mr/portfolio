@@ -26,6 +26,7 @@ const AVAILABLE_COMPONENTS = [
   { type: "EXPERIENCE", label: "Experience Details" },
   { type: "STACK_GAME", label: "3D Stack Game" },
   { type: "CONTACT", label: "Contact Form Box" },
+  { type: "CUSTOM_CONTENT", label: "Custom Content block" },
 ];
 
 export default function PageBuilderClient({ initialSections }: { initialSections: Section[] }) {
@@ -339,7 +340,7 @@ export default function PageBuilderClient({ initialSections }: { initialSections
                 <select
                   value={selectedSection.animationPresetSlug}
                   onChange={(e) => setSelectedSection({ ...selectedSection, animationPresetSlug: e.target.value })}
-                  className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-white focus:outline-none focus:border-[var(--a-primary)]"
+                  className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-surface)] focus:outline-none focus:border-[var(--a-primary)]"
                 >
                   <option value="fade-in">Fade In</option>
                   <option value="slide-up">Slide Up</option>

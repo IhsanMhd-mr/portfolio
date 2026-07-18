@@ -4,24 +4,32 @@ import { ArrowRight, Briefcase, GraduationCap, Calendar, MapPin } from "lucide-r
 interface EducationExperienceSectionProps {
   education: any[];
   experience: any[];
+  settings?: any;
   isPreview?: boolean;
 }
 
 export default function EducationExperienceSection({
   education,
   experience,
+  settings,
   isPreview = false,
 }: EducationExperienceSectionProps) {
   
   // Sort experience newest first
-  const sortedExp = [...experience].sort(
+  let sortedExp = [...experience].sort(
     (a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
   );
+  if (settings?.limit) {
+    sortedExp = sortedExp.slice(0, settings.limit);
+  }
 
   // Sort education newest first
-  const sortedEdu = [...education].sort(
+  let sortedEdu = [...education].sort(
     (a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
   );
+  if (settings?.limit) {
+    sortedEdu = sortedEdu.slice(0, settings.limit);
+  }
 
   function formatDate(dateStr: string) {
     const d = new Date(dateStr);

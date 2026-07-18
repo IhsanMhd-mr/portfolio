@@ -1,8 +1,8 @@
 import db from "@/lib/database";
 import { notFound } from "next/navigation";
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 import Link from "next/link";
-import { ArrowLeft, Calendar, User, CheckCircle2, Link2, Globe, FileText, ChevronRight } from "lucide-react";
+import { ArrowLeft, Calendar, User, CheckCircle2, Globe, FileText, ChevronRight, Image as ImageIcon } from "lucide-react";
 import { Github } from "@/components/public/Icons";
 
 interface ProjectDetailPageProps {
@@ -12,55 +12,84 @@ interface ProjectDetailPageProps {
 export default async function ProjectDetailPage({ params }: ProjectDetailPageProps) {
   const { slug } = await params;
   
-  const headersList = await headers();
-  const isPreview = headersList.get("x-preview") === "true";
+  const cookiesList = await cookies();
+  const isPreview = cookiesList.get("portfolio_preview_mode")?.value === "true";
+  const state = isPreview ? "DRAFT" : "PUBLISHED";
 
+  // Find project with active state version
   const project = await db.project.findUnique({
     where: { slug },
     include: {
+      versions: { where: { state } },
       technologies: {
-        include: { technology: true },
+        include: {
+          technology: {
+            include: { versions: { where: { state } } },
+          },
+        },
         orderBy: { order: "asc" },
       },
-      thumbnail: true,
-      coverImage: true,
-      architectureImage: true,
+      images: { include: { media: true }, orderBy: { order: "asc" } },
     },
   });
 
   // Verify project existence and visibility
-  if (!project || project.deletedAt) {
+  if (!project || project.deletedAt || !project.versions[0]) {
     notFound();
   }
+
+  const pub = project.versions[0];
 
   // Hide draft projects from general public
-  if (project.publishState === "DRAFT" && !isPreview) {
+  if (pub.state === "DRAFT" && !isPreview) {
     notFound();
   }
 
-  // Fetch related projects (same category, excluding current project)
-  const relatedProjects = await db.project.findMany({
+  // Load related projects
+  const relatedProjectsRaw = await db.project.findMany({
     where: {
-      category: project.category,
       id: { not: project.id },
-      publishState: isPreview ? undefined : "PUBLISHED",
-      visible: true,
       deletedAt: null,
+      versions: {
+        some: {
+          state,
+          category: pub.category,
+          visible: state === "DRAFT" ? undefined : true,
+        },
+      },
+    },
+    include: {
+      versions: { where: { state } },
     },
     take: 3,
   });
 
-  const categoryLabel = project.category.replace("_", " ");
-  const startDateStr = project.startDate
-    ? project.startDate.toLocaleDateString("en-US", { month: "short", year: "numeric" })
+  const relatedProjects = relatedProjectsRaw
+    .map((rp) => ({
+      ...rp,
+      ...rp.versions[0],
+    }))
+    .filter((rp) => rp.title);
+
+  // Load media references
+  const allMedia = await db.mediaAsset.findMany({
+    where: { deletedAt: null },
+  });
+
+  const coverAsset = allMedia.find((m) => m.id === pub.coverImageId);
+  const architectureAsset = allMedia.find((m) => m.id === pub.architectureImageId);
+
+  const categoryLabel = pub.category.replace("_", " ");
+  const startDateStr = pub.startDate
+    ? new Date(pub.startDate).toLocaleDateString("en-US", { month: "short", year: "numeric" })
     : null;
-  const endDateStr = project.endDate
-    ? project.endDate.toLocaleDateString("en-US", { month: "short", year: "numeric" })
+  const endDateStr = pub.endDate
+    ? new Date(pub.endDate).toLocaleDateString("en-US", { month: "short", year: "numeric" })
     : "Present";
 
   return (
     <div
-      className="flex-1 w-full px-[var(--gutter)] py-12 transition-colors duration-300"
+      className="flex-1 w-full px-[var(--gutter)] py-12 transition-colors duration-300 animate-fadeIn"
       style={{
         backgroundColor: "var(--bg)",
         color: "var(--ink)",
@@ -74,7 +103,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
           <ChevronRight size={10} className="text-[var(--ink-faint)]" />
           <Link href="/projects" className="hover:text-[var(--accent)] transition-colors">PROJECTS</Link>
           <ChevronRight size={10} className="text-[var(--ink-faint)]" />
-          <span className="text-[var(--ink-faint)] truncate max-w-[150px]">{project.title.toUpperCase()}</span>
+          <span className="text-[var(--ink-faint)] truncate max-w-[150px]">{pub.title.toUpperCase()}</span>
         </nav>
 
         {/* 2. Project Hero */}
@@ -83,11 +112,11 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
             // {categoryLabel} CASE STUDY
           </span>
           <h1 className="text-display" style={{ fontFamily: "var(--font-display)", fontSize: "clamp(32px, 5vw, 56px)" }}>
-            {project.title}
+            {pub.title}
           </h1>
-          {project.summary && (
+          {pub.summary && (
             <p className="text-body-lg text-[var(--ink-soft)] leading-relaxed">
-              {project.summary}
+              {pub.summary}
             </p>
           )}
         </div>
@@ -99,7 +128,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
             <div>
               <p className="text-[10px] font-mono uppercase text-[var(--ink-faint)]">Timeline</p>
               <p className="font-semibold text-[var(--ink)] mt-0.5">
-                {startDateStr} - {project.status === "COMPLETED" ? endDateStr : "In Progress"}
+                {startDateStr} - {pub.status === "COMPLETED" ? endDateStr : "In Progress"}
               </p>
             </div>
           </div>
@@ -107,27 +136,27 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
             <CheckCircle2 size={16} className="text-[var(--accent)]" />
             <div>
               <p className="text-[10px] font-mono uppercase text-[var(--ink-faint)]">Status</p>
-              <p className="font-semibold text-[var(--ink)] mt-0.5">{project.status}</p>
+              <p className="font-semibold text-[var(--ink)] mt-0.5">{pub.status}</p>
             </div>
           </div>
-          {project.myRole && (
+          {pub.myRole && (
             <div className="flex items-center gap-2 col-span-2 md:col-span-1">
               <User size={16} className="text-[var(--accent)]" />
               <div>
                 <p className="text-[10px] font-mono uppercase text-[var(--ink-faint)]">My Role</p>
-                <p className="font-semibold text-[var(--ink)] mt-0.5">{project.myRole}</p>
+                <p className="font-semibold text-[var(--ink)] mt-0.5">{pub.myRole}</p>
               </div>
             </div>
           )}
         </div>
 
         {/* 4. Main Cover Image */}
-        {project.coverImage?.url && (
+        {coverAsset?.url && (
           <div className="w-full aspect-video rounded-[var(--radius-md)] overflow-hidden border border-solid border-[var(--line)]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img 
-              src={project.coverImage.url} 
-              alt={project.title} 
+              src={coverAsset.url} 
+              alt={pub.title} 
               className="w-full h-full object-cover" 
             />
           </div>
@@ -138,56 +167,55 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
           <div className="space-y-3">
             <h4 className="text-mono-label text-[var(--ink-faint)]" style={{ fontSize: "11px" }}>// TECHNOLOGY WORKED WITH</h4>
             <div className="flex flex-wrap gap-2">
-              {project.technologies.map((t) => (
-                <span 
-                  key={t.technology.id} 
-                  className="px-3 py-1 text-xs border border-solid border-[var(--line)] rounded-[var(--radius-sm)] bg-[var(--bg-raised)] text-[var(--ink)] font-mono"
-                >
-                  {t.technology.name}
-                </span>
-              ))}
+              {project.technologies.map((t) => {
+                const name = t.technology.versions.find((v) => v.state === state)?.name || t.technology.slug;
+                return (
+                  <span 
+                    key={t.technology.id} 
+                    className="px-3 py-1 text-xs border border-solid border-[var(--line)] rounded-[var(--radius-sm)] bg-[var(--bg-raised)] text-[var(--ink)] font-mono"
+                  >
+                    {name}
+                  </span>
+                );
+              })}
             </div>
           </div>
         )}
 
         {/* Dynamic content rendering for Case Study fields */}
         <div className="space-y-10 pt-4">
-          {/* Problem */}
-          {project.problem && (
+          {pub.problem && (
             <section className="space-y-3">
               <h2 className="text-h3 font-semibold" style={{ fontFamily: "var(--font-display)" }}>The Problem</h2>
-              <p className="text-body text-[var(--ink-soft)] leading-relaxed">{project.problem}</p>
+              <p className="text-body text-[var(--ink-soft)] leading-relaxed">{pub.problem}</p>
             </section>
           )}
 
-          {/* Solution */}
-          {project.solution && (
+          {pub.solution && (
             <section className="space-y-3">
               <h2 className="text-h3 font-semibold" style={{ fontFamily: "var(--font-display)" }}>The Solution</h2>
-              <p className="text-body text-[var(--ink-soft)] leading-relaxed">{project.solution}</p>
+              <p className="text-body text-[var(--ink-soft)] leading-relaxed">{pub.solution}</p>
             </section>
           )}
 
-          {/* Key Features */}
-          {project.mainFeatures && (
+          {pub.mainFeatures && (
             <section className="space-y-3">
               <h2 className="text-h3 font-semibold" style={{ fontFamily: "var(--font-display)" }}>Key Features</h2>
-              <p className="text-body text-[var(--ink-soft)] leading-relaxed whitespace-pre-line">{project.mainFeatures}</p>
+              <p className="text-body text-[var(--ink-soft)] leading-relaxed whitespace-pre-line">{pub.mainFeatures}</p>
             </section>
           )}
 
-          {/* Architecture */}
-          {(project.systemArchitecture || project.architectureImage) && (
+          {(pub.systemArchitecture || architectureAsset?.url) && (
             <section className="space-y-4">
               <h2 className="text-h3 font-semibold" style={{ fontFamily: "var(--font-display)" }}>System Architecture</h2>
-              {project.systemArchitecture && (
-                <p className="text-body text-[var(--ink-soft)] leading-relaxed">{project.systemArchitecture}</p>
+              {pub.systemArchitecture && (
+                <p className="text-body text-[var(--ink-soft)] leading-relaxed">{pub.systemArchitecture}</p>
               )}
-              {project.architectureImage?.url && (
+              {architectureAsset?.url && (
                 <div className="w-full aspect-video rounded-[var(--radius-sm)] overflow-hidden border border-solid border-[var(--line)] p-4 bg-[var(--bg-inset)]">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img 
-                    src={project.architectureImage.url} 
+                    src={architectureAsset.url} 
                     alt="System Architecture Diagram" 
                     className="w-full h-full object-contain" 
                   />
@@ -196,55 +224,70 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
             </section>
           )}
 
-          {/* Development Process */}
-          {project.developmentProcess && (
+          {pub.developmentProcess && (
             <section className="space-y-3">
               <h2 className="text-h3 font-semibold" style={{ fontFamily: "var(--font-display)" }}>Development Process</h2>
-              <p className="text-body text-[var(--ink-soft)] leading-relaxed">{project.developmentProcess}</p>
+              <p className="text-body text-[var(--ink-soft)] leading-relaxed">{pub.developmentProcess}</p>
             </section>
           )}
 
-          {/* Challenges & Solutions */}
-          {project.challenges && (
+          {pub.challenges && (
             <section className="space-y-3">
               <h2 className="text-h3 font-semibold" style={{ fontFamily: "var(--font-display)" }}>Challenges & Solutions</h2>
-              <p className="text-body text-[var(--ink-soft)] leading-relaxed">{project.challenges}</p>
-              {project.solutionsDetail && (
-                <p className="text-body text-[var(--ink-soft)] leading-relaxed mt-2">{project.solutionsDetail}</p>
+              <p className="text-body text-[var(--ink-soft)] leading-relaxed">{pub.challenges}</p>
+              {pub.solutionsDetail && (
+                <p className="text-body text-[var(--ink-soft)] leading-relaxed mt-2">{pub.solutionsDetail}</p>
               )}
             </section>
           )}
 
-          {/* Testing */}
-          {project.testing && (
+          {pub.testing && (
             <section className="space-y-3">
               <h2 className="text-h3 font-semibold" style={{ fontFamily: "var(--font-display)" }}>Testing & Quality Assurance</h2>
-              <p className="text-body text-[var(--ink-soft)] leading-relaxed">{project.testing}</p>
+              <p className="text-body text-[var(--ink-soft)] leading-relaxed">{pub.testing}</p>
             </section>
           )}
 
-          {/* Results */}
-          {project.results && (
+          {pub.results && (
             <section className="space-y-3">
               <h2 className="text-h3 font-semibold" style={{ fontFamily: "var(--font-display)" }}>Results & Metrics</h2>
-              <p className="text-body text-[var(--ink-soft)] leading-relaxed">{project.results}</p>
+              <p className="text-body text-[var(--ink-soft)] leading-relaxed">{pub.results}</p>
             </section>
           )}
 
-          {/* Lessons Learned */}
-          {project.lessonsLearned && (
+          {pub.lessonsLearned && (
             <section className="space-y-3">
               <h2 className="text-h3 font-semibold" style={{ fontFamily: "var(--font-display)" }}>Lessons Learned</h2>
-              <p className="text-body text-[var(--ink-soft)] leading-relaxed">{project.lessonsLearned}</p>
+              <p className="text-body text-[var(--ink-soft)] leading-relaxed">{pub.lessonsLearned}</p>
             </section>
           )}
         </div>
 
+        {/* Visual Gallery grid */}
+        {project.images.length > 0 && (
+          <div className="pt-8 border-t border-solid border-[var(--line)] space-y-4">
+            <h3 className="text-mono-label text-[var(--ink-faint)]" style={{ fontSize: "11px" }}>// CASE STUDY GALLERY</h3>
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+              {project.images.map((img) => (
+                <div key={img.id} className="space-y-1.5 border border-solid border-slate-100 p-2 bg-slate-50/50 rounded">
+                  <div className="aspect-video w-full rounded overflow-hidden bg-slate-900 border border-solid border-slate-200">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={img.media.url} alt={img.caption || "Gallery"} className="w-full h-full object-cover" />
+                  </div>
+                  {img.caption && (
+                    <span className="text-[10px] text-slate-500 italic block pl-1">{img.caption}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* 6. External Links / Actions */}
         <div className="pt-8 border-t border-solid border-[var(--line)] flex flex-wrap gap-4 items-center">
-          {project.liveDemoUrl && (
+          {pub.liveDemoUrl && (
             <a 
-              href={project.liveDemoUrl}
+              href={pub.liveDemoUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 px-5 py-2.5 bg-[var(--accent)] text-[var(--bg)] font-semibold rounded-[var(--radius-sm)] hover:bg-[var(--accent-hover)] transition-colors text-small"
@@ -253,9 +296,9 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
               Visit Live Site
             </a>
           )}
-          {project.githubUrl && (
+          {pub.githubUrl && (
             <a 
-              href={project.githubUrl}
+              href={pub.githubUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 px-5 py-2.5 border border-solid border-[var(--line)] text-[var(--ink)] font-semibold rounded-[var(--radius-sm)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors text-small bg-[var(--bg-raised)]"
@@ -264,9 +307,9 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
               GitHub Repository
             </a>
           )}
-          {project.reportUrl && (
+          {pub.reportUrl && (
             <a 
-              href={project.reportUrl}
+              href={pub.reportUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 px-5 py-2.5 border border-solid border-[var(--line)] text-[var(--ink-soft)] font-semibold rounded-[var(--radius-sm)] hover:text-[var(--ink)] transition-colors text-small"

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, Mail } from "lucide-react";
+import MagneticButton from "@/components/ui/MagneticButton";
 
 interface ContactCTASectionProps {
   settings?: any;
@@ -34,22 +35,26 @@ export default function ContactCTASection({ settings, profile, isPreview = false
         </p>
 
         <div className="flex flex-col sm:flex-row justify-center items-center gap-4 pt-6">
-          <Link 
-            href="/contact"
-            className="flex items-center gap-2 px-6 py-3 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-semibold rounded-[var(--radius-sm)] transition-all hover:translate-x-1"
-            style={{ color: "var(--bg)" }}
-          >
-            Get in touch
-            <ArrowRight size={16} />
-          </Link>
-          
-          <a
-            href={`mailto:${contactEmail}`}
-            className="flex items-center gap-2 px-6 py-3 border border-solid border-[var(--line)] hover:border-[var(--accent)] hover:text-[var(--accent)] text-[var(--ink)] font-semibold rounded-[var(--radius-sm)] transition-colors"
-          >
-            <Mail size={16} />
-            {contactEmail}
-          </a>
+          <MagneticButton>
+            <Link
+              href="/contact"
+              className="flex items-center gap-2 px-6 py-3 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-semibold rounded-[var(--radius-sm)] transition-all hover:translate-x-1"
+              style={{ color: "var(--bg)" }}
+            >
+              Get in touch
+              <ArrowRight size={16} />
+            </Link>
+          </MagneticButton>
+
+          <MagneticButton>
+            <a
+              href={`mailto:${contactEmail}`}
+              className="flex items-center gap-2 px-6 py-3 border border-solid border-[var(--line)] hover:border-[var(--accent)] hover:text-[var(--accent)] text-[var(--ink)] font-semibold rounded-[var(--radius-sm)] transition-colors"
+            >
+              <Mail size={16} />
+              {contactEmail}
+            </a>
+          </MagneticButton>
         </div>
 
         <p className="text-xs text-[var(--ink-faint)] font-mono pt-4">

@@ -1,4 +1,4 @@
-import { auth } from "./auth";
+import { auth, clearAuthCookies } from "./auth";
 import { redirect } from "next/navigation";
 import db from "./database";
 
@@ -37,43 +37,56 @@ export async function requireAdmin(options?: {
   const sid: string | undefined = (session?.user as any)?.sid;
   const userId: string | undefined = (session?.user as any)?.id;
 
-  function deny(reason: string, redirectTo = "/admin/login") {
+  /**
+   * On any failure below, the caller may still be holding an Auth.js cookie
+   * that *decrypts fine* (proxy.ts only checks JWT presence, not
+   * TrackedSession validity) even though the deep check here says the
+   * session is invalid. A plain redirect("/admin/login") from a Server
+   * Component can't clear that cookie (cookies() can't be mutated during
+   * render), so proxy.ts would see "still logged in" on /admin/login and
+   * bounce the request straight back — an infinite redirect loop.
+   *
+   * Fix: always redirect through the force-logout Route Handler, which CAN
+   * clear the cookie before redirecting to /admin/login for real.
+   */
+  async function deny(reason: string): Promise<never> {
     if (options?.apiMode) {
-      // For API routes, throw a Response that the caller should return
+      // Route Handlers/Server Actions CAN mutate cookies directly.
+      await clearAuthCookies();
       throw new Response(JSON.stringify({ error: reason }), {
         status: 401,
         headers: { "Content-Type": "application/json" },
       });
     }
-    redirect(`${redirectTo}?reason=${encodeURIComponent(reason)}`);
+    redirect(`/api/auth/force-logout?reason=${encodeURIComponent(reason)}`);
   }
 
   if (!sid || !userId) {
-    deny("unauthenticated");
+    await deny("unauthenticated");
     throw new Error("unreachable"); // TypeScript narrowing
   }
 
   const tracked = await db.trackedSession.findUnique({ where: { sid } });
 
   if (!tracked) {
-    deny("session-not-found");
+    await deny("session-not-found");
     throw new Error("unreachable");
   }
 
   if (tracked.revokedAt) {
-    deny("session-revoked");
+    await deny("session-revoked");
     throw new Error("unreachable");
   }
 
   if (tracked.expiresAt < new Date()) {
-    deny("session-expired");
+    await deny("session-expired");
     throw new Error("unreachable");
   }
 
   // Verify canonical owner still exists
   const owner = await db.user.findUnique({ where: { id: userId } });
   if (!owner) {
-    deny("owner-not-found");
+    await deny("owner-not-found");
     throw new Error("unreachable");
   }
 
@@ -110,19 +123,56 @@ export async function requireAdmin(options?: {
 }
 
 /**
+ * Non-throwing owner check for PUBLIC pages, where an unauthenticated guest is
+ * the expected common case (so redirect/throw would be wrong).
+ *
+ * Returns the AdminContext when the caller is the canonical owner with a VALID
+ * tracked session (exists, not revoked, not expired) — otherwise null. This
+ * validates against TrackedSession, so a revoked/expired session carrying a
+ * stale JWT is treated as a guest and will NOT see owner-only UI.
+ *
+ * Use to conditionally render owner-only elements on public pages. Because it
+ * runs in a Server Component, gated JSX is simply omitted from the response for
+ * guests — never shipped and hidden client-side.
+ */
+export async function getValidatedOwner(): Promise<AdminContext | null> {
+  const session = await auth();
+  const sid: string | undefined = (session?.user as any)?.sid;
+  const userId: string | undefined = (session?.user as any)?.id;
+  if (!sid || !userId) return null;
+
+  const tracked = await db.trackedSession.findUnique({ where: { sid } });
+  if (!tracked || tracked.revokedAt || tracked.expiresAt < new Date()) return null;
+
+  const owner = await db.user.findUnique({ where: { id: userId } });
+  if (!owner) return null;
+
+  return {
+    userId: owner.id,
+    sid,
+    loginMethod: tracked.loginMethod,
+    loginAccountId: tracked.accountId,
+    mustChangePassword: owner.mustChangePassword,
+  };
+}
+
+/**
  * Convenience: safely call requireAdmin in Route Handlers.
  * Returns { context } on success, or { response } if authorization fails.
- * 
+ *
  * Usage:
  *   const { context, response } = await safeRequireAdmin(request);
  *   if (response) return response;
  */
-export async function safeRequireAdmin(request?: Request): Promise<
+export async function safeRequireAdmin(
+  request?: Request,
+  options?: { pathname?: string }
+): Promise<
   | { context: AdminContext; response: null }
   | { context: null; response: Response }
 > {
   try {
-    const context = await requireAdmin({ apiMode: true });
+    const context = await requireAdmin({ apiMode: true, pathname: options?.pathname });
     return { context, response: null };
   } catch (e) {
     if (e instanceof Response) return { context: null, response: e };

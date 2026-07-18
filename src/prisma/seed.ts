@@ -44,7 +44,7 @@ async function main() {
       key: "MODERN_GLASS",
       name: "Modern Glass",
       description: "Midnight control room. Neon auroras and glassmorphic panels.",
-      isActiveLive: true, // Modern Glass is active live by default
+      isActiveLive: true,
     },
   });
 
@@ -59,7 +59,7 @@ async function main() {
     },
   });
 
-  // 2. Seed Default Admin User (use 'npm run admin:init' in production instead)
+  // 2. Seed Default Admin User
   console.log("Creating Admin User...");
   const hashedPassword = await hashPassword("admin123");
   const adminUser = await prisma.user.upsert({
@@ -103,51 +103,116 @@ async function main() {
 
   // 4. Seed Technologies
   console.log("Creating Technologies...");
-  const nextjs = await prisma.technology.upsert({
-    where: { slug: "nextjs" },
-    update: {},
-    create: {
-      name: "Next.js",
+  await prisma.technology.deleteMany(); // clean for seeding
+
+  const nextjs = await prisma.technology.create({
+    data: {
       slug: "nextjs",
-      category: "FRONTEND",
-      description: "React framework for production grade app routers.",
-      experienceLabel: "STRONG",
-      showInStack: true,
-      showInGame: true,
-      order: 1,
-      visible: true,
+      versions: {
+        createMany: {
+          data: [
+            {
+              state: "DRAFT",
+              name: "Next.js",
+              category: "FRONTEND",
+              description: "React framework for production grade app routers.",
+              experienceLabel: "STRONG",
+              showInStack: true,
+              showInGame: true,
+              showOnResume: true,
+              order: 1,
+              visible: true,
+            },
+            {
+              state: "PUBLISHED",
+              name: "Next.js",
+              category: "FRONTEND",
+              description: "React framework for production grade app routers.",
+              experienceLabel: "STRONG",
+              showInStack: true,
+              showInGame: true,
+              showOnResume: true,
+              order: 1,
+              visible: true,
+              publishedAt: new Date(),
+            },
+          ],
+        },
+      },
     },
   });
 
-  const prisma7 = await prisma.technology.upsert({
-    where: { slug: "prisma" },
-    update: {},
-    create: {
-      name: "Prisma ORM",
+  const prisma7 = await prisma.technology.create({
+    data: {
       slug: "prisma",
-      category: "DATABASE",
-      description: "Next-generation TypeScript database client.",
-      experienceLabel: "STRONG",
-      showInStack: true,
-      showInGame: true,
-      order: 2,
-      visible: true,
+      versions: {
+        createMany: {
+          data: [
+            {
+              state: "DRAFT",
+              name: "Prisma ORM",
+              category: "DATABASE",
+              description: "Next-generation TypeScript database client.",
+              experienceLabel: "STRONG",
+              showInStack: true,
+              showInGame: true,
+              showOnResume: true,
+              order: 2,
+              visible: true,
+            },
+            {
+              state: "PUBLISHED",
+              name: "Prisma ORM",
+              category: "DATABASE",
+              description: "Next-generation TypeScript database client.",
+              experienceLabel: "STRONG",
+              showInStack: true,
+              showInGame: true,
+              showOnResume: true,
+              order: 2,
+              visible: true,
+              publishedAt: new Date(),
+            },
+          ],
+        },
+      },
     },
   });
 
-  const postgres = await prisma.technology.upsert({
-    where: { slug: "postgresql" },
-    update: {},
-    create: {
-      name: "PostgreSQL",
+  const postgres = await prisma.technology.create({
+    data: {
       slug: "postgresql",
-      category: "DATABASE",
-      description: "Robust open-source relational database server.",
-      experienceLabel: "COMFORTABLE",
-      showInStack: true,
-      showInGame: true,
-      order: 3,
-      visible: true,
+      versions: {
+        createMany: {
+          data: [
+            {
+              state: "DRAFT",
+              name: "PostgreSQL",
+              category: "DATABASE",
+              description: "Robust open-source relational database server.",
+              experienceLabel: "COMFORTABLE",
+              showInStack: true,
+              showInGame: true,
+              showOnResume: true,
+              order: 3,
+              visible: true,
+            },
+            {
+              state: "PUBLISHED",
+              name: "PostgreSQL",
+              category: "DATABASE",
+              description: "Robust open-source relational database server.",
+              experienceLabel: "COMFORTABLE",
+              showInStack: true,
+              showInGame: true,
+              showOnResume: true,
+              order: 3,
+              visible: true,
+              publishedAt: new Date(),
+            },
+          ],
+        },
+      },
     },
   });
 
@@ -194,49 +259,71 @@ async function main() {
     }
   }
 
-  // 6. Seed Sample Projects & ProjectTechnology Links
+  // 6. Seed Sample Projects
   console.log("Creating Sample Projects...");
-  const sampleProject = await prisma.project.upsert({
-    where: { slug: "visual-cms-portfolio" },
-    update: {},
-    create: {
-      title: "Visual CMS & Portfolio Builder",
+  await prisma.project.deleteMany(); // clean for seeding
+
+  const sampleProject = await prisma.project.create({
+    data: {
       slug: "visual-cms-portfolio",
-      summary: "A robust portfolio and visual layout manager utilizing Next.js 15, Prisma 7, and R3F interactive systems.",
-      fullDescription: "Built to demonstrate clean architecture layers and template styling separation on Next.js 15.",
-      category: "FULL_STACK",
-      startDate: new Date("2026-05-01"),
-      status: "COMPLETED",
-      problem: "Traditional developer portfolios are hardcoded static pages that are tedious to keep updated.",
-      solution: "Provide a visual editor workbench and version snapshots so portfolios can be managed safely without redeploying code.",
-      myRole: "Sole Architect and Developer",
-      mainFeatures: "Drag-and-drop page sections, template selector, custom keyframe animation engine.",
-      liveDemoUrl: "http://localhost:3000",
-      githubUrl: "https://github.com/test/portfolio",
-      featured: true,
-      showOnHomepage: true,
-      showOnTimeline: true,
-      visible: true,
-      publishState: "PUBLISHED",
+      versions: {
+        createMany: {
+          data: [
+            {
+              state: "DRAFT",
+              title: "Visual CMS & Portfolio Builder",
+              summary: "A robust portfolio and visual layout manager utilizing Next.js 15, Prisma 7, and R3F interactive systems.",
+              fullDescription: "Built to demonstrate clean architecture layers and template styling separation on Next.js 15.",
+              category: "FULL_STACK",
+              startDate: new Date("2026-05-01"),
+              status: "COMPLETED",
+              problem: "Traditional developer portfolios are hardcoded static pages that are tedious to keep updated.",
+              solution: "Provide a visual editor workbench and version snapshots so portfolios can be managed safely without redeploying code.",
+              myRole: "Sole Architect and Developer",
+              mainFeatures: "Drag-and-drop page sections, template selector, custom keyframe animation engine.",
+              liveDemoUrl: "http://localhost:3000",
+              githubUrl: "https://github.com/test/portfolio",
+              featured: true,
+              showOnHomepage: true,
+              showOnTimeline: true,
+              visible: true,
+            },
+            {
+              state: "PUBLISHED",
+              title: "Visual CMS & Portfolio Builder",
+              summary: "A robust portfolio and visual layout manager utilizing Next.js 15, Prisma 7, and R3F interactive systems.",
+              fullDescription: "Built to demonstrate clean architecture layers and template styling separation on Next.js 15.",
+              category: "FULL_STACK",
+              startDate: new Date("2026-05-01"),
+              status: "COMPLETED",
+              problem: "Traditional developer portfolios are hardcoded static pages that are tedious to keep updated.",
+              solution: "Provide a visual editor workbench and version snapshots so portfolios can be managed safely without redeploying code.",
+              myRole: "Sole Architect and Developer",
+              mainFeatures: "Drag-and-drop page sections, template selector, custom keyframe animation engine.",
+              liveDemoUrl: "http://localhost:3000",
+              githubUrl: "https://github.com/test/portfolio",
+              featured: true,
+              showOnHomepage: true,
+              showOnTimeline: true,
+              visible: true,
+              publishedAt: new Date(),
+            },
+          ],
+        },
+      },
     },
   });
 
   // Explicit Join Links for Technologies
   const techsToLink = [nextjs.id, prisma7.id, postgres.id];
   for (let i = 0; i < techsToLink.length; i++) {
-    const techId = techsToLink[i];
-    const existingLink = await prisma.projectTechnology.findFirst({
-      where: { projectId: sampleProject.id, technologyId: techId },
+    await prisma.projectTechnology.create({
+      data: {
+        projectId: sampleProject.id,
+        technologyId: techsToLink[i],
+        order: i + 1,
+      },
     });
-    if (!existingLink) {
-      await prisma.projectTechnology.create({
-        data: {
-          projectId: sampleProject.id,
-          technologyId: techId,
-          order: i + 1,
-        },
-      });
-    }
   }
 
   // 7. Seed Default Social Links
