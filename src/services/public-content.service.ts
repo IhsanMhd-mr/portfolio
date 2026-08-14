@@ -1,4 +1,5 @@
 import db from "@/lib/database";
+import { SectionGroupService } from "./section-group.service";
 
 /**
  * PublicContentService — the STABLE CORE of the public site.
@@ -31,6 +32,7 @@ export interface HomePageData {
   timelineEntries: any[];
   education: any[];
   experience: any[];
+  certifications: any[];
   gameSettings: any;
   templateKey: string;
 }
@@ -41,12 +43,17 @@ export class PublicContentService {
    * plus footer-visible social links, ordered.
    */
   static async getPublicChrome() {
-    const [profile, socialLinksRaw] = await Promise.all([
+    const [profile, socialLinksRaw, navItemsRaw] = await Promise.all([
       db.siteProfile.findFirst({
         include: { cvFile: true, logoImage: true },
       }),
       db.socialLink.findMany({
         where: { visible: true, showInFooter: true },
+        orderBy: { order: "asc" },
+      }),
+      // Empty result → Navbar falls back to its built-in default links.
+      db.navItem.findMany({
+        where: { enabled: true },
         orderBy: { order: "asc" },
       }),
     ]);
@@ -59,6 +66,7 @@ export class PublicContentService {
         label: s.label,
         url: s.url,
       })),
+      navLinks: navItemsRaw.map((n) => ({ label: n.label, href: n.target })),
     };
   }
 
@@ -76,6 +84,7 @@ export class PublicContentService {
       timelineEntriesRaw,
       educationRaw,
       experienceRaw,
+      certificationsRaw,
       gameSettings,
     ] = await Promise.all([
       db.siteProfile.findFirst({
@@ -128,6 +137,13 @@ export class PublicContentService {
             },
           },
         },
+      }),
+      // Certifications apply immediately (no draft state, like social links) —
+      // preview and published both see the same visible-filtered list.
+      db.certification.findMany({
+        where: isPreview ? undefined : { visible: true },
+        include: { media: true },
+        orderBy: { order: "asc" },
       }),
       db.gameSettings.findFirst(),
     ]);
@@ -185,27 +201,39 @@ export class PublicContentService {
       timelineEntries,
       education,
       experience,
+      certifications: certificationsRaw,
       gameSettings,
       templateKey,
     };
   }
 
-  /** Layout sections: draft rows in preview, active snapshot otherwise. */
+  /**
+   * Layout sections: draft (grouped) rows in preview, active snapshot
+   * otherwise. Ordering comes from SectionGroupService.flattenOrdered — the
+   * SAME algorithm the publish route uses to build the snapshot — so preview
+   * and published ordering can never diverge (Phase 5 §11/§18/§19). The
+   * array's own order IS the render order; it must never be re-sorted by a
+   * flat `order` field afterward, since that field is now scoped per
+   * container (per group, and separately for the ungrouped bucket) rather
+   * than page-wide.
+   */
   private static async resolveSections(isPreview: boolean): Promise<SectionData[]> {
     let sections: SectionData[] = [];
     try {
+      const page = await db.page.findUnique({
+        where: { key: "home" },
+        include: { versions: { where: { isActive: true }, take: 1 } },
+      });
+      if (!page) return [];
+
       if (isPreview) {
-        const page = await db.page.findUnique({
-          where: { key: "home" },
-          include: { sections: { orderBy: { order: "asc" } } },
-        });
-        sections = (page?.sections || []).map(PublicContentService.toSectionData);
+        // Hidden groups behave like hidden sections: dropped in preview too
+        // (the trailing .filter(s.visible) below already does this for
+        // individually-hidden sections — group visibility must be consistent).
+        const flattened = await SectionGroupService.flattenOrdered(page.id, { visibleGroupsOnly: true });
+        sections = flattened.map(PublicContentService.toSectionData);
       } else {
-        const page = await db.page.findUnique({
-          where: { key: "home" },
-          include: { versions: { where: { isActive: true }, take: 1 } },
-        });
-        const activeVersion = page?.versions?.[0];
+        const activeVersion = page.versions?.[0];
         if (activeVersion && activeVersion.snapshot) {
           const snapshot =
             typeof activeVersion.snapshot === "string"
@@ -213,19 +241,17 @@ export class PublicContentService {
               : activeVersion.snapshot;
           if (Array.isArray(snapshot)) sections = snapshot;
         } else {
-          // Fallback to draft sections if no published version exists
-          const draftSections = await db.pageSection.findMany({
-            where: { pageId: page?.id || "" },
-            orderBy: { order: "asc" },
-          });
-          sections = draftSections.map(PublicContentService.toSectionData);
+          // Fallback when no published version exists yet: use the same
+          // live-ordering algorithm as preview, filtered to visible groups.
+          const flattened = await SectionGroupService.flattenOrdered(page.id, { visibleGroupsOnly: true });
+          sections = flattened.map(PublicContentService.toSectionData);
         }
       }
     } catch (error) {
       console.error("Failed to load sections:", error);
     }
 
-    return sections.filter((s) => s.visible).sort((a, b) => a.order - b.order);
+    return sections.filter((s) => s.visible);
   }
 
   /** Active template: draft pointer in preview, published version key otherwise. */

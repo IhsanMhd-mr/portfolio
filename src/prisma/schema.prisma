@@ -88,6 +88,7 @@ enum SectionType {
   CONTACT
   CALL_TO_ACTION
   FOOTER_SPACER
+  CERTIFICATIONS
 }
 
 enum TemplateKey {
@@ -279,6 +280,7 @@ model MediaAsset {
   logoImage    SiteProfile[] @relation("LogoImage")
   faviconImage SiteProfile[] @relation("FaviconImage")
   cvFile       SiteProfile[] @relation("CvFile")
+  certificates Certification[]
 
   @@index([kind])
   @@index([deletedAt])
@@ -702,10 +704,36 @@ model Page {
 
   hasUnpublishedChanges Boolean @default(false) @map("has_unpublished_changes")
 
-  sections PageSection[]
-  versions PageVersion[]
+  sections      PageSection[]
+  versions      PageVersion[]
+  sectionGroups SectionGroup[]
 
   @@map("pages")
+}
+
+// ============================================================================
+//  SECTION GROUP  (Phase 5 — organizational container for the page builder)
+//  Purely organizational: groups order/compose modules, they carry no
+//  content/business logic of their own. groupId on PageSection is nullable —
+//  ungrouped sections remain fully valid and continue to render (see
+//  SectionGroupService.flattenOrdered for the deterministic render policy).
+// ============================================================================
+
+model SectionGroup {
+  id        String   @id @default(cuid())
+  pageId    String   @map("page_id")
+  page      Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  title     String
+  subtitle  String?
+  order     Int      @default(0)
+  visible   Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  sections PageSection[]
+
+  @@index([pageId, order])
+  @@map("section_groups")
 }
 
 model PageSection {
@@ -714,6 +742,8 @@ model PageSection {
   page         Page        @relation(fields: [pageId], references: [id], onDelete: Cascade)
   type         SectionType
   internalLabel String @map("internal_label")
+  groupId      String?      @map("group_id")
+  group        SectionGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
   order        Int         @default(0)
   visible      Boolean     @default(true)
   settings     Json        @default("{}")
@@ -785,6 +815,46 @@ model GameScore {
 // ============================================================================
 //  CONTACT MESSAGE  (guest-created; admin reads/updates status)
 // ============================================================================
+
+// ============================================================================
+//  CERTIFICATION  (Phase 4 — awards, certificates, achievements)
+// ============================================================================
+
+model Certification {
+  id            String      @id @default(cuid())
+  title         String
+  issuer        String
+  issueDate     DateTime?   @map("issue_date")
+  description   String?     @db.Text
+  credentialId  String?     @map("credential_id")
+  credentialUrl String?     @map("credential_url")
+  mediaId       String?     @map("media_id")
+  media         MediaAsset? @relation(fields: [mediaId], references: [id], onDelete: SetNull)
+  visible       Boolean     @default(true)
+  order         Int         @default(0)
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  @@index([order])
+  @@map("certifications")
+}
+
+// ============================================================================
+//  NAV ITEM  (Phase 4 — admin-configurable public navigation)
+// ============================================================================
+
+model NavItem {
+  id        String   @id @default(cuid())
+  label     String
+  target    String // route path ("/projects") or hash ("#contact")
+  enabled   Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([order])
+  @@map("nav_items")
+}
 
 model ContactMessage {
   id        String          @id @default(cuid())

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import db from "@/lib/database";
 import { notFound } from "next/navigation";
 import { headers, cookies } from "next/headers";
@@ -7,6 +8,47 @@ import { Github } from "@/components/public/Icons";
 
 interface ProjectDetailPageProps {
   params: Promise<{ slug: string }>;
+}
+
+export async function generateMetadata({ params }: ProjectDetailPageProps): Promise<Metadata> {
+  const { slug } = await params;
+
+  const cookiesList = await cookies();
+  const isPreview = cookiesList.get("portfolio_preview_mode")?.value === "true";
+  const state = isPreview ? "DRAFT" : "PUBLISHED";
+
+  // Mirrors the page body's lookup + visibility rules below (independent query —
+  // generateMetadata and the page component don't share request data in this app).
+  const project = await db.project.findUnique({
+    where: { slug },
+    include: { versions: { where: { state } } },
+  });
+
+  if (!project || project.deletedAt || !project.versions[0]) {
+    notFound();
+  }
+
+  const pub = project.versions[0];
+
+  if (pub.state === "DRAFT" && !isPreview) {
+    notFound();
+  }
+
+  const description = pub.summary || `Case study: ${pub.title}`;
+  const coverAsset = pub.coverImageId
+    ? await db.mediaAsset.findUnique({ where: { id: pub.coverImageId } })
+    : null;
+
+  return {
+    title: `${pub.title} — Project`,
+    description,
+    openGraph: {
+      title: pub.title,
+      description,
+      type: "article",
+      images: coverAsset?.url ? [{ url: coverAsset.url }] : undefined,
+    },
+  };
 }
 
 export default async function ProjectDetailPage({ params }: ProjectDetailPageProps) {
@@ -89,7 +131,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
 
   return (
     <div
-      className="flex-1 w-full px-[var(--gutter)] py-12 transition-colors duration-300 animate-fadeIn"
+      className="pm-case flex-1 w-full px-[var(--gutter)] py-12 transition-colors duration-300 animate-fadeIn"
       style={{
         backgroundColor: "var(--bg)",
         color: "var(--ink)",
@@ -122,7 +164,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
         </div>
 
         {/* 3. Date, Status, and Meta Row */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-6 p-5 border border-solid border-[var(--line)] rounded-[var(--radius-sm)] bg-[var(--bg-raised)] text-small text-[var(--ink-soft)]">
+        <div className="pm-case-meta grid grid-cols-2 md:grid-cols-3 gap-6 p-5 border border-solid border-[var(--line)] rounded-[var(--radius-sm)] bg-[var(--bg-raised)] text-small text-[var(--ink-soft)]">
           <div className="flex items-center gap-2">
             <Calendar size={16} className="text-[var(--accent)]" />
             <div>
@@ -152,7 +194,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
 
         {/* 4. Main Cover Image */}
         {coverAsset?.url && (
-          <div className="w-full aspect-video rounded-[var(--radius-md)] overflow-hidden border border-solid border-[var(--line)]">
+          <div className="pm-case-media w-full aspect-video rounded-[var(--radius-md)] overflow-hidden border border-solid border-[var(--line)]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img 
               src={coverAsset.url} 
@@ -183,7 +225,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
         )}
 
         {/* Dynamic content rendering for Case Study fields */}
-        <div className="space-y-10 pt-4">
+        <div className="pm-case-body space-y-10 pt-4">
           {pub.problem && (
             <section className="space-y-3">
               <h2 className="text-h3 font-semibold" style={{ fontFamily: "var(--font-display)" }}>The Problem</h2>

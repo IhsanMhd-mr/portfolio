@@ -80,6 +80,32 @@ export default function StackGameSection({
     canvas.addEventListener("mousedown", handleMouseDown);
     canvas.addEventListener("mouseup", handleMouseUp);
 
+    // Touch coordinate tracking — mirrors mouse handlers so the sphere/floating-balls
+    // modes rotate/repel on drag and the falling game responds to taps on touch devices.
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 0) return;
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const touch = e.touches[0];
+      mouse.x = touch.clientX - rect.left;
+      mouse.y = touch.clientY - rect.top;
+    };
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 0) return;
+      const rect = canvas.getBoundingClientRect();
+      const touch = e.touches[0];
+      mouse.x = touch.clientX - rect.left;
+      mouse.y = touch.clientY - rect.top;
+      mouse.isDown = true;
+    };
+    const handleTouchEnd = () => {
+      mouse.isDown = false;
+    };
+
+    canvas.addEventListener("touchmove", handleTouchMove, { passive: false });
+    canvas.addEventListener("touchstart", handleTouchStart, { passive: true });
+    canvas.addEventListener("touchend", handleTouchEnd, { passive: true });
+
     // Select technologies list
     const techList = technologies.filter(t => t.showInGame || t.showInStack).slice(0, ballCount);
     const fallbackTechs = ["React", "Prisma", "Postgres", "Next.js", "Docker", "CSS", "Tailwind", "Rust"];
@@ -386,6 +412,9 @@ export default function StackGameSection({
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("mousedown", handleMouseDown);
       canvas.removeEventListener("mouseup", handleMouseUp);
+      canvas.removeEventListener("touchmove", handleTouchMove);
+      canvas.removeEventListener("touchstart", handleTouchStart);
+      canvas.removeEventListener("touchend", handleTouchEnd);
       canvas.removeEventListener("click", handleClick);
     };
   }, [mode, ballCount, ballSize, fallingSpeed, technologies, gameStarted, score, resolvedTheme]);
@@ -402,7 +431,7 @@ export default function StackGameSection({
       <div className="max-w-[var(--w-content)] mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6 mb-12">
           <div>
-            <p className="text-mono-label mb-2 text-[var(--accent)]">// 07 — INTERACTION LAB</p>
+            <p className="pm-kicker text-mono-label mb-2 text-[var(--accent)]">// 07 — INTERACTION LAB</p>
             <h2 
               className="text-h2 text-[var(--ink)]" 
               style={{ fontFamily: "var(--font-display)" }}

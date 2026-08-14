@@ -1,15 +1,22 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { ArrowLeft, Laptop, Smartphone, Tablet, Upload } from "lucide-react";
 import { enablePreviewModeAction } from "./actions";
 
 type DeviceMode = "desktop" | "tablet" | "mobile";
 
+const DEVICE_PX = {
+  tablet: { width: 768, height: 1024 },
+  mobile: { width: 390, height: 844 },
+};
+
 export default function PreviewPage() {
   const [device, setDevice] = useState<DeviceMode>("desktop");
   const [cookieReady, setCookieReady] = useState(false);
+  const [scale, setScale] = useState(1);
+  const canvasRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     // Securely enable preview mode cookie
@@ -18,16 +25,43 @@ export default function PreviewPage() {
     });
   }, []);
 
+  // Scale the fixed-px device frame to fill the available canvas — like Chrome
+  // DevTools' device toolbar. The iframe's own CSS viewport stays at the real
+  // device width (390/768px) so the site's own responsive breakpoints still
+  // evaluate correctly; only the on-screen presentation is scaled up/down.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || device === "desktop") {
+      setScale(1);
+      return;
+    }
+
+    const CANVAS_PADDING = 32; // matches the canvas's own padding, kept clear of the frame
+    const target = DEVICE_PX[device];
+
+    const recompute = () => {
+      const availableWidth = canvas.clientWidth - CANVAS_PADDING * 2;
+      const availableHeight = canvas.clientHeight - CANVAS_PADDING * 2;
+      const next = Math.min(availableWidth / target.width, availableHeight / target.height, 1);
+      setScale(next > 0 ? next : 1);
+    };
+
+    recompute();
+    const observer = new ResizeObserver(recompute);
+    observer.observe(canvas);
+    return () => observer.disconnect();
+  }, [device]);
+
   const deviceWidths = {
     desktop: "100%",
-    tablet: "768px",
-    mobile: "390px",
+    tablet: `${DEVICE_PX.tablet.width}px`,
+    mobile: `${DEVICE_PX.mobile.width}px`,
   };
 
   const deviceHeights = {
     desktop: "100%",
-    tablet: "1024px",
-    mobile: "844px",
+    tablet: `${DEVICE_PX.tablet.height}px`,
+    mobile: `${DEVICE_PX.mobile.height}px`,
   };
 
   return (
@@ -98,17 +132,31 @@ export default function PreviewPage() {
       </header>
 
       {/* 2. Device preview canvas sandbox area */}
-      <div className="flex-1 bg-slate-950 flex justify-center items-center overflow-y-auto p-8 relative">
+      <div ref={canvasRef} className="flex-1 bg-slate-950 flex justify-center items-center overflow-y-auto p-4 md:p-8 relative">
         <div
           className="transition-all duration-400 ease-in-out flex justify-center"
-          style={{
-            width: deviceWidths[device],
-            height: deviceHeights[device],
-            maxWidth: "100%",
-            maxHeight: "100%",
-          }}
+          style={
+            device === "desktop"
+              ? { width: deviceWidths.desktop, height: deviceHeights.desktop, maxWidth: "100%", maxHeight: "100%" }
+              : {
+                  // Reserve only the visually-scaled footprint in the flex layout —
+                  // the real fixed-px frame lives inside, scaled via transform below.
+                  width: DEVICE_PX[device].width * scale,
+                  height: DEVICE_PX[device].height * scale,
+                }
+          }
         >
           <div
+            style={
+              device === "desktop"
+                ? undefined
+                : {
+                    width: DEVICE_PX[device].width,
+                    height: DEVICE_PX[device].height,
+                    transform: `scale(${scale})`,
+                    transformOrigin: "top left",
+                  }
+            }
             className={`w-full h-full bg-[#0a0f1e] overflow-hidden ${
               device !== "desktop"
                 ? "border-[12px] border-solid border-slate-800 rounded-[32px] shadow-2xl relative"

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { signIn } from "next-auth/react";
 import { Shield, Key, Link2, Link2Off, Monitor, Clock, LogOut, RefreshCw } from "lucide-react";
 
 interface LinkedAccount {
@@ -33,6 +34,7 @@ export default function SecuritySettingsPage() {
   const [pwStatus, setPwStatus] = useState<{ type: "success" | "error"; msg: string } | null>(null);
   const [revoking, setRevoking] = useState<string | null>(null);
   const [unlinking, setUnlinking] = useState<string | null>(null);
+  const [linking, setLinking] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -78,6 +80,20 @@ export default function SecuritySettingsPage() {
     });
     setRevoking(null);
     if (res.ok) load();
+  }
+
+  async function linkGoogle() {
+    setLinking(true);
+    try {
+      // Proper CSRF-protected sign-in flow (matches LoginForm.tsx). The current
+      // admin session cookie survives this whole redirect round trip, which is
+      // what lets auth.ts's signIn callback recognize this as a link attempt —
+      // a plain <a href="/api/auth/signin/google"> link does not go through the
+      // required CSRF POST and never actually reaches Google.
+      await signIn("google", { callbackUrl: "/admin/settings/security" });
+    } catch {
+      setLinking(false);
+    }
   }
 
   async function unlinkGoogle(accountId: string) {
@@ -165,12 +181,13 @@ export default function SecuritySettingsPage() {
       <section className="bg-[var(--a-surface)] border border-[var(--a-line)] rounded-[var(--a-r-md)] p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-[var(--a-ink)] flex items-center gap-2"><Link2 size={16} /> Linked Google Accounts</h2>
-          <a
-            href="/api/auth/signin/google?callbackUrl=/admin/settings/security"
-            className="text-xs font-semibold px-3 py-1.5 border border-[var(--a-line)] rounded-[var(--a-r-sm)] text-[var(--a-soft)] hover:text-[var(--a-ink)] hover:border-[var(--a-ink)] transition-colors"
+          <button
+            onClick={linkGoogle}
+            disabled={linking}
+            className="text-xs font-semibold px-3 py-1.5 border border-[var(--a-line)] rounded-[var(--a-r-sm)] text-[var(--a-soft)] hover:text-[var(--a-ink)] hover:border-[var(--a-ink)] transition-colors disabled:opacity-50 bg-transparent cursor-pointer"
           >
-            + Link Google Account
-          </a>
+            {linking ? "Redirecting…" : "+ Link Google Account"}
+          </button>
         </div>
         {loading ? (
           <p className="text-sm text-[var(--a-faint)]">Loading…</p>

@@ -40,8 +40,8 @@ export default function Footer({
 
   return (
     <footer
-      className="mt-auto border-t border-solid border-[var(--line)] py-12 px-[var(--gutter)] transition-colors duration-300"
-      style={{ backgroundColor: "var(--bg)", fontFamily: "var(--font-body)" }}
+      className="pm-footer mt-auto border-t border-solid border-[var(--line)] py-12 px-[var(--gutter)] transition-colors duration-300"
+      style={{ fontFamily: "var(--font-body)" }}
     >
       <div className="max-w-[var(--w-content)] mx-auto grid gap-8 md:grid-cols-3 mb-12">
         {/* Col 1: Identity */}

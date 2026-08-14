@@ -1,7 +1,20 @@
+import type { Metadata } from "next";
 import db from "@/lib/database";
 import ContactForm from "@/components/public/ContactForm";
 import { Mail, MapPin, Clock, MessageSquare } from "lucide-react";
 import { Github, Linkedin } from "@/components/public/Icons";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const profile = await db.siteProfile.findFirst();
+  const fullName = profile?.fullName || "Jane Doe";
+  const description = `Get in touch with ${fullName} for project inquiries, opportunities, or collaborations.`;
+
+  return {
+    title: `Contact — ${fullName}`,
+    description,
+    openGraph: { title: `Contact — ${fullName}`, description, type: "website" },
+  };
+}
 
 export default async function ContactPage() {
   const profile = await db.siteProfile.findFirst();

@@ -1,9 +1,35 @@
+import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { getValidatedOwner } from "@/lib/require-admin";
 import { PublicContentService } from "@/services/public-content.service";
 import ProfessionalMinimalTemplate from "@/components/templates/ProfessionalMinimalTemplate";
 import ModernGlassTemplate from "@/components/templates/ModernGlassTemplate";
 import Interactive3DTemplate from "@/components/templates/Interactive3DTemplate";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const cookiesList = await cookies();
+  const isPreview = cookiesList.get("portfolio_preview_mode")?.value === "true";
+  const { profile } = await PublicContentService.getHomePageData(isPreview);
+
+  const fullName = profile?.fullName || "Jane Doe";
+  const title = profile?.title || "Full-Stack Software Engineer";
+  const description =
+    profile?.tagline ||
+    profile?.heroIntro ||
+    "Full-stack developer portfolio with admin CMS, visual page builder, and three selectable templates.";
+  const pageTitle = `${fullName} — ${title}`;
+
+  return {
+    title: pageTitle,
+    description,
+    openGraph: {
+      title: pageTitle,
+      description,
+      type: "website",
+      images: profile?.profileImage?.url ? [{ url: profile.profileImage.url }] : undefined,
+    },
+  };
+}
 
 /**
  * Public homepage — thin route layer.

@@ -10,6 +10,7 @@ interface TemplateProps {
   timelineEntries: any[];
   education: any[];
   experience: any[];
+  certifications: any[];
   gameSettings: any;
   isPreview?: boolean;
   isOwner?: boolean;
@@ -23,6 +24,7 @@ export default function ProfessionalMinimalTemplate({
   timelineEntries,
   education,
   experience,
+  certifications,
   gameSettings,
   isPreview = false,
   isOwner = false,
@@ -80,6 +82,8 @@ export default function ProfessionalMinimalTemplate({
           } else if (registryKey === "stack-game") {
             props.technologies = technologies;
             props.gameSettings = gameSettings;
+          } else if (registryKey === "certifications") {
+            props.certifications = certifications;
           }
 
           return (

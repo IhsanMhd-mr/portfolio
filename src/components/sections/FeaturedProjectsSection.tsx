@@ -23,7 +23,7 @@ export default function FeaturedProjectsSection({ projects, settings, isPreview 
       <div className="max-w-[var(--w-content)] mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6 mb-12">
           <div>
-            <p className="text-mono-label mb-2 text-[var(--accent)]">// 03 — FEATURED WORKS</p>
+            <p className="pm-kicker text-mono-label mb-2 text-[var(--accent)]">// 03 — FEATURED WORKS</p>
             <h2 
               className="text-h2 text-[var(--ink)]" 
               style={{ fontFamily: "var(--font-display)" }}
@@ -48,7 +48,7 @@ export default function FeaturedProjectsSection({ projects, settings, isPreview 
             return (
               <div 
                 key={project.id}
-                className="group flex flex-col rounded-[var(--radius-md)] overflow-hidden border border-solid border-[var(--line)] bg-[var(--bg-raised, var(--bg))] transition-all duration-300 hover:-translate-y-1 hover:border-[var(--accent)]"
+                className="pm-project-card group flex flex-col rounded-[var(--radius-md)] overflow-hidden border border-solid border-[var(--line)] bg-[var(--bg-raised, var(--bg))] transition-all duration-300 hover:-translate-y-1 hover:border-[var(--accent)]"
                 style={{ boxShadow: "var(--shadow-card)" }}
               >
                 {/* Thumbnail image placeholder/image */}

@@ -109,7 +109,7 @@ export default function ContactForm() {
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full px-3 py-2 border border-solid border-[var(--line)] rounded-[var(--radius-xs)] bg-[var(--bg)] text-small text-[var(--ink)] focus:outline-none focus:border-[var(--accent)]"
+            className="pm-input w-full px-3 py-2 border border-solid border-[var(--line)] rounded-[var(--radius-xs)] bg-[var(--bg)] text-small text-[var(--ink)] focus:outline-none focus:border-[var(--accent)]"
             placeholder="Your name"
           />
         </div>
@@ -122,7 +122,7 @@ export default function ContactForm() {
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-3 py-2 border border-solid border-[var(--line)] rounded-[var(--radius-xs)] bg-[var(--bg)] text-small text-[var(--ink)] focus:outline-none focus:border-[var(--accent)]"
+            className="pm-input w-full px-3 py-2 border border-solid border-[var(--line)] rounded-[var(--radius-xs)] bg-[var(--bg)] text-small text-[var(--ink)] focus:outline-none focus:border-[var(--accent)]"
             placeholder="your.email@example.com"
           />
         </div>
@@ -137,7 +137,7 @@ export default function ContactForm() {
             required
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
-            className="w-full px-3 py-2 border border-solid border-[var(--line)] rounded-[var(--radius-xs)] bg-[var(--bg)] text-small text-[var(--ink)] focus:outline-none focus:border-[var(--accent)]"
+            className="pm-input w-full px-3 py-2 border border-solid border-[var(--line)] rounded-[var(--radius-xs)] bg-[var(--bg)] text-small text-[var(--ink)] focus:outline-none focus:border-[var(--accent)]"
             placeholder="Project proposal / Question"
           />
         </div>
@@ -148,7 +148,7 @@ export default function ContactForm() {
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="w-full px-3 py-2 border border-solid border-[var(--line)] rounded-[var(--radius-xs)] bg-[var(--bg)] text-small text-[var(--ink)] focus:outline-none focus:border-[var(--accent)]"
+            className="pm-input w-full px-3 py-2 border border-solid border-[var(--line)] rounded-[var(--radius-xs)] bg-[var(--bg)] text-small text-[var(--ink)] focus:outline-none focus:border-[var(--accent)]"
           >
             <option value="GENERAL">General Inquiry</option>
             <option value="OPPORTUNITY">Job / Contract Opportunity</option>
@@ -166,7 +166,7 @@ export default function ContactForm() {
           rows={5}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          className="w-full px-3 py-2 border border-solid border-[var(--line)] rounded-[var(--radius-xs)] bg-[var(--bg)] text-small text-[var(--ink)] focus:outline-none focus:border-[var(--accent)] resize-y"
+          className="pm-input w-full px-3 py-2 border border-solid border-[var(--line)] rounded-[var(--radius-xs)] bg-[var(--bg)] text-small text-[var(--ink)] focus:outline-none focus:border-[var(--accent)] resize-y"
           placeholder="Hi Jane, I would like to discuss..."
         />
       </div>

@@ -37,7 +37,7 @@ export default function ProjectTimelineSection({ timelineEntries, settings, isPr
       <div className="max-w-[var(--w-content)] mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6 mb-12">
           <div>
-            <p className="text-mono-label mb-2 text-[var(--accent)]">// 06 — CHRONOLOGY</p>
+            <p className="pm-kicker text-mono-label mb-2 text-[var(--accent)]">// 06 — CHRONOLOGY</p>
             <h2 
               className="text-h2 text-[var(--ink)]" 
               style={{ fontFamily: "var(--font-display)" }}

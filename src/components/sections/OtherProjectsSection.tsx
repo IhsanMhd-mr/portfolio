@@ -23,7 +23,7 @@ export default function OtherProjectsSection({ projects, settings, isPreview = f
     <section className="w-full py-20 px-[var(--gutter)] bg-[var(--bg)] border-t border-solid border-[var(--line)] transition-colors duration-300">
       <div className="max-w-[var(--w-content)] mx-auto">
         <div className="mb-12 text-center md:text-left">
-          <p className="text-mono-label mb-2 text-[var(--accent)]">// 05 — EXPERIMENTAL & UTILITY WORK</p>
+          <p className="pm-kicker text-mono-label mb-2 text-[var(--accent)]">// 05 — EXPERIMENTAL & UTILITY WORK</p>
           <h2 
             className="text-h2 text-[var(--ink)]" 
             style={{ fontFamily: "var(--font-display)" }}
@@ -39,7 +39,7 @@ export default function OtherProjectsSection({ projects, settings, isPreview = f
             return (
               <div 
                 key={project.id}
-                className="group flex flex-col justify-between p-6 rounded-[var(--radius-sm)] border border-solid border-[var(--line)] bg-[var(--bg-raised, var(--bg))] hover:border-[var(--accent)] transition-all duration-300"
+                className="pm-project-card group flex flex-col justify-between p-6 rounded-[var(--radius-sm)] border border-solid border-[var(--line)] bg-[var(--bg-raised, var(--bg))] hover:border-[var(--accent)] transition-all duration-300"
               >
                 <div className="space-y-3 mb-6">
                   <span className="text-[10px] text-[var(--accent)] font-semibold tracking-wider uppercase">

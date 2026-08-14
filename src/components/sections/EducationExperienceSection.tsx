@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { ArrowRight, Briefcase, GraduationCap, Calendar, MapPin } from "lucide-react";
+import { Calendar, MapPin } from "lucide-react";
 
 interface EducationExperienceSectionProps {
   education: any[];
@@ -45,19 +44,14 @@ export default function EducationExperienceSection({
       <div className="max-w-[var(--w-content)] mx-auto grid gap-12 md:grid-cols-2">
         {/* Left Column: Experience */}
         <div>
-          <div className="flex items-center gap-3 mb-8">
-            <div className="p-2 border border-solid border-[var(--line)] rounded-[var(--radius-sm)] text-[var(--accent)] bg-[var(--bg-raised)]">
-              <Briefcase size={20} />
-            </div>
-            <div>
-              <p className="text-mono-label text-[var(--accent)]" style={{ fontSize: "10px" }}>// PROFESSIONAL EXPERIENCE</p>
-              <h2 className="text-h3 text-[var(--ink)] font-semibold" style={{ fontFamily: "var(--font-display)" }}>
-                Employment History
-              </h2>
-            </div>
-          </div>
+          <header className="pm-section-header mb-8">
+            <span className="pm-kicker text-mono-label mb-2 text-[var(--accent)] block">// PROFESSIONAL EXPERIENCE</span>
+            <h2 className="text-h3 text-[var(--ink)]" style={{ fontFamily: "var(--font-display)" }}>
+              Employment History
+            </h2>
+          </header>
 
-          <div className="space-y-8 pl-4 relative before:content-[''] before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[1px] before:bg-[var(--line)]">
+          <div className="pm-timeline space-y-8 pl-4 relative before:content-[''] before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[1px] before:bg-[var(--line)]">
             {sortedExp.map((exp) => (
               <div key={exp.id} className="relative before:content-[''] before:absolute before:-left-[20px] before:top-2 before:w-2 before:h-2 before:rounded-full before:bg-[var(--accent)]">
                 <h3 className="font-semibold text-body text-[var(--ink)]" style={{ fontFamily: "var(--font-display)" }}>
@@ -86,26 +80,21 @@ export default function EducationExperienceSection({
               </div>
             ))}
             {sortedExp.length === 0 && (
-              <p className="text-small text-[var(--ink-faint)]">No employment history seeded.</p>
+              <div className="pm-empty">No experience entries available.</div>
             )}
           </div>
         </div>
 
         {/* Right Column: Education */}
         <div>
-          <div className="flex items-center gap-3 mb-8">
-            <div className="p-2 border border-solid border-[var(--line)] rounded-[var(--radius-sm)] text-[var(--accent)] bg-[var(--bg-raised)]">
-              <GraduationCap size={20} />
-            </div>
-            <div>
-              <p className="text-mono-label text-[var(--accent)]" style={{ fontSize: "10px" }}>// ACADEMIC EDUCATION</p>
-              <h2 className="text-h3 text-[var(--ink)] font-semibold" style={{ fontFamily: "var(--font-display)" }}>
-                Qualifications
-              </h2>
-            </div>
-          </div>
+          <header className="pm-section-header mb-8">
+            <span className="pm-kicker text-mono-label mb-2 text-[var(--accent)] block">// ACADEMIC EDUCATION</span>
+            <h2 className="text-h3 text-[var(--ink)]" style={{ fontFamily: "var(--font-display)" }}>
+              Qualifications
+            </h2>
+          </header>
 
-          <div className="space-y-8 pl-4 relative before:content-[''] before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[1px] before:bg-[var(--line)]">
+          <div className="pm-timeline space-y-8 pl-4 relative before:content-[''] before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[1px] before:bg-[var(--line)]">
             {sortedEdu.map((edu) => (
               <div key={edu.id} className="relative before:content-[''] before:absolute before:-left-[20px] before:top-2 before:w-2 before:h-2 before:rounded-full before:bg-[var(--accent)]">
                 <h3 className="font-semibold text-body text-[var(--ink)]" style={{ fontFamily: "var(--font-display)" }}>
@@ -133,7 +122,7 @@ export default function EducationExperienceSection({
               </div>
             ))}
             {sortedEdu.length === 0 && (
-              <p className="text-small text-[var(--ink-faint)]">No education entries seeded.</p>
+              <div className="pm-empty">No education information available.</div>
             )}
           </div>
         </div>

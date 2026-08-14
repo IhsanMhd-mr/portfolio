@@ -60,7 +60,7 @@ export default function TechnologyStackSection({ technologies, settings, isPrevi
     <section className="w-full py-20 px-[var(--gutter)] bg-[var(--bg)] border-t border-solid border-[var(--line)] transition-colors duration-300">
       <div className="max-w-[var(--w-content)] mx-auto">
         <div className="mb-12 text-center md:text-left">
-          <p className="text-mono-label mb-2 text-[var(--accent)]">// 02 — CAPABILITIES</p>
+          <p className="pm-kicker text-mono-label mb-2 text-[var(--accent)]">// 02 — CAPABILITIES</p>
           <h2 
             className="text-h2 text-[var(--ink)]" 
             style={{ fontFamily: "var(--font-display)" }}

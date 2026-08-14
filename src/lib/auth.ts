@@ -13,6 +13,7 @@
  */
 
 import NextAuth, { CredentialsSignin } from "next-auth";
+import { getToken } from "next-auth/jwt";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
@@ -65,6 +66,43 @@ function getTrustedClientIp(request: Request | undefined): string {
   const realIp = request.headers.get("x-real-ip");
   if (realIp) return realIp.trim();
   return "unknown";
+}
+
+// ─── Current-session lookup (used to detect a genuine Google account-link attempt) ─
+
+/**
+ * Reads the session cookie straight off the incoming OAuth-callback request and,
+ * if it decodes to a still-valid TrackedSession, returns that user's id.
+ *
+ * This is what lets "+ Link Google Account" work: the browser completing the
+ * OAuth round trip still carries the admin's existing session cookie the whole
+ * time (same browser, same site), so we can recognize "the owner is currently
+ * logged in and is deliberately linking a new account" without any custom
+ * state/token machinery — Auth.js's own OAuth `state` param is not usable for
+ * this (it's always overwritten with Auth.js's internal CSRF value).
+ */
+async function getValidAdminUserIdFromRequest(request: Request | undefined): Promise<string | null> {
+  if (!request) return null;
+
+  const secret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
+  if (!secret) return null;
+
+  const token = await getToken({
+    req: request,
+    secret,
+    secureCookie: process.env.NODE_ENV === "production",
+  });
+  const sid = token?.sid as string | undefined;
+  const userId = token?.userId as string | undefined;
+  if (!sid || !userId) return null;
+
+  const tracked = await db.trackedSession.findUnique({ where: { sid } });
+  if (!tracked || tracked.revokedAt || tracked.expiresAt < new Date()) return null;
+
+  const owner = await db.user.findUnique({ where: { id: userId } });
+  if (!owner) return null;
+
+  return owner.id;
 }
 
 // ─── Lazy NextAuth factory (captures the incoming Request for IP/UA) ──────────
@@ -161,12 +199,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth((request) => ({
   callbacks: {
     /**
      * signIn callback — only controls whether the sign-in is allowed.
-     * For Google: reject any providerAccountId not already linked to the owner.
-     * Auth.js adapter will create Account rows automatically for credentials logins.
+     *
+     * For Google, two cases are legitimate:
+     *  1. The providerAccountId is already linked to the owner (an ordinary
+     *     "Continue with Google" login by a previously-linked account).
+     *  2. There's no link yet, but the browser completing this OAuth round trip
+     *     already carries a VALID admin session cookie — i.e. the owner is
+     *     currently logged in and clicked "Link Google Account". Auth.js's
+     *     PrismaAdapter (see handleLoginOrRegister in @auth/core) natively
+     *     auto-links a new OAuth account to the CURRENT session's user when one
+     *     is present — no custom token/state plumbing needed or possible (Auth.js
+     *     always overwrites any custom `state` query param with its own CSRF
+     *     value before redirecting to the provider, so passing a link token
+     *     through `state` cannot work).
+     *
+     * Anything else — an unlinked Google account with no current admin session —
+     * is an unknown account trying to self-register as owner. Reject it.
      */
     async signIn({ user, account }) {
       if (account?.provider === "google") {
-        // Check that this exact Google subject is already linked to the canonical owner
         const linked = await db.account.findUnique({
           where: {
             provider_providerAccountId: {
@@ -175,16 +226,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth((request) => ({
             },
           },
         });
+
         if (!linked) {
-          // Unknown Google account — reject silently, log the attempt
-          const ip = getTrustedClientIp(request);
-          await recordAudit({
-            action: "LOGIN_FAILED",
-            entityType: "User",
-            summary: `Rejected unknown Google account: ${user.email ?? "unknown"} (sub: ${account.providerAccountId})`,
-            context: { ipAddress: ip, userAgent: request?.headers.get("user-agent") ?? null },
-          });
-          return false;
+          const currentAdminUserId = await getValidAdminUserIdFromRequest(request);
+          if (!currentAdminUserId) {
+            // Unknown Google account, no active admin session — reject silently, log the attempt
+            const ip = getTrustedClientIp(request);
+            await recordAudit({
+              action: "LOGIN_FAILED",
+              entityType: "User",
+              summary: `Rejected unknown Google account: ${user.email ?? "unknown"} (sub: ${account.providerAccountId})`,
+              context: { ipAddress: ip, userAgent: request?.headers.get("user-agent") ?? null },
+            });
+            return false;
+          }
+          // Valid admin session present — this is a genuine link attempt. Auth.js's
+          // adapter will auto-link this account to that same session's user.
         }
       }
       return true;

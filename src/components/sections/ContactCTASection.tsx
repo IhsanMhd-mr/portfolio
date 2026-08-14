@@ -23,7 +23,7 @@ export default function ContactCTASection({ settings, profile, isPreview = false
       />
 
       <div className="max-w-[var(--w-prose)] mx-auto text-center relative z-10 space-y-6">
-        <p className="text-mono-label text-[var(--accent)]">// 08 — CONNECT</p>
+        <p className="pm-kicker text-mono-label text-[var(--accent)]">// 08 — CONNECT</p>
         <h2 
           className="text-display" 
           style={{ fontFamily: "var(--font-display)", fontSize: "clamp(32px, 5vw, 48px)" }}

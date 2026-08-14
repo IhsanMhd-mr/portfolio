@@ -26,7 +26,7 @@ export default function ProjectGridSection({ projects, settings, isPreview = fal
     <section className="w-full py-20 px-[var(--gutter)] bg-[var(--bg)] border-t border-solid border-[var(--line)] transition-colors duration-300">
       <div className="max-w-[var(--w-content)] mx-auto">
         <div className="mb-12 text-center md:text-left">
-          <p className="text-mono-label mb-2 text-[var(--accent)]">// 04 — WORKS ARCHIVE</p>
+          <p className="pm-kicker text-mono-label mb-2 text-[var(--accent)]">// 04 — WORKS ARCHIVE</p>
           <h2 
             className="text-h2 text-[var(--ink)]" 
             style={{ fontFamily: "var(--font-display)" }}
@@ -43,7 +43,7 @@ export default function ProjectGridSection({ projects, settings, isPreview = fal
             return (
               <div 
                 key={project.id}
-                className="group flex flex-col rounded-[var(--radius-sm)] overflow-hidden border border-solid border-[var(--line)] bg-[var(--bg-raised, var(--bg))] hover:border-[var(--accent)] transition-all duration-300"
+                className="pm-project-card group flex flex-col rounded-[var(--radius-sm)] overflow-hidden border border-solid border-[var(--line)] bg-[var(--bg-raised, var(--bg))] hover:border-[var(--accent)] transition-all duration-300"
               >
                 <div className="relative aspect-video w-full overflow-hidden bg-slate-900 border-b border-solid border-[var(--line)]">
                   {thumbnail ? (

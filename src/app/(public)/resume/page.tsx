@@ -1,5 +1,19 @@
+import type { Metadata } from "next";
 import db from "@/lib/database";
 import { ArrowDownToLine, Mail, MapPin, Globe } from "lucide-react";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const profile = await db.siteProfile.findFirst();
+  const fullName = profile?.fullName || "Jane Doe";
+  const title = profile?.title || "Full-Stack Software Engineer";
+  const description = `Resume and curriculum vitae for ${fullName}, ${title.toLowerCase()}.`;
+
+  return {
+    title: `Resume — ${fullName}`,
+    description,
+    openGraph: { title: `Resume — ${fullName}`, description, type: "profile" },
+  };
+}
 
 export default async function ResumePage() {
   const [profile, educationRaw, experienceRaw, technologiesRaw] = await Promise.all([
