@@ -11,7 +11,7 @@ export default async function PublicLayout({
 }) {
   // Social links apply immediately (no draft state) — they are simple
   // metadata, not page content. Resolution lives in PublicContentService.
-  const { profile, socialLinks } = await PublicContentService.getPublicChrome();
+  const { profile, socialLinks, navLinks } = await PublicContentService.getPublicChrome();
 
   const session = await auth();
 
@@ -24,7 +24,7 @@ export default async function PublicLayout({
       <div className="public-cursor-zone min-h-screen flex flex-col transition-colors duration-300" style={{ backgroundColor: "var(--bg)" }}>
 
         {/* Dynamic Navbar */}
-        <Navbar logoText={logoText} cvUrl={cvUrl} />
+        <Navbar logoText={logoText} cvUrl={cvUrl} navLinks={navLinks} />
 
         {/* Main Content Area */}
         <main className="flex-1 flex flex-col pt-[68px]">{children}</main>

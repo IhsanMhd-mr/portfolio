@@ -8,12 +8,29 @@ import { useSession, signOut } from "next-auth/react";
 import AuthDialog from "../auth/AuthDialog";
 import ThemeToggle from "../theme/theme-toggle";
 
+const DEFAULT_NAV_LINKS = [
+  { label: "Home", href: "/" },
+  { label: "About", href: "/about" },
+  { label: "Projects", href: "/projects" },
+  { label: "Timeline", href: "/timeline" },
+  { label: "Contact", href: "/contact" },
+];
+
+export interface NavLinkItem {
+  label: string;
+  href: string;
+}
+
 export default function Navbar({
   logoText = "Jane Doe",
   cvUrl = "/resume",
+  navLinks: navLinksProp,
 }: {
   logoText?: string;
   cvUrl?: string;
+  /** Admin-configured items (NavItemService). Falls back to the built-in
+   *  default list when empty, so a fresh install never shows an empty nav. */
+  navLinks?: NavLinkItem[];
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -50,18 +67,12 @@ export default function Navbar({
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const navLinks = [
-    { label: "Home", href: "/" },
-    { label: "About", href: "/about" },
-    { label: "Projects", href: "/projects" },
-    { label: "Timeline", href: "/timeline" },
-    { label: "Contact", href: "/contact" },
-  ];
+  const navLinks = navLinksProp && navLinksProp.length > 0 ? navLinksProp : DEFAULT_NAV_LINKS;
 
   return (
     <>
       <header
-        className={`fixed top-0 left-0 right-0 h-[68px] z-[100] flex items-center justify-between px-[var(--gutter)] transition-all duration-250`}
+        className={`pm-nav fixed top-0 left-0 right-0 h-[68px] z-[100] flex items-center justify-between px-[var(--gutter)] transition-all duration-250`}
         style={{
           backgroundColor: isScrolled
             ? "var(--glass-strong, var(--bg-raised))"

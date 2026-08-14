@@ -4,15 +4,16 @@
   "private": true,
   "scripts": {
     "clean": "powershell -Command \"@(3000) | ForEach-Object { $port=$_; $procId=(Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue).OwningProcess; if($procId){Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue; Write-Host \\\"Killed port $port (PID $procId)\\\"} else {Write-Host \\\"Port $port is free\\\"} }\"",
-    "dev": "npm run clean && C:\\\\PROGRA~1\\\\PostgreSQL\\\\17\\\\bin\\\\pg_ctl.exe start -D C:\\\\PROGRA~1\\\\PostgreSQL\\\\17\\\\data & next dev",
+    "dev": "node --env-file=.env scripts/dev-start.js",
     "build": "next build",
     "start": "C:\\\\PROGRA~1\\\\PostgreSQL\\\\17\\\\bin\\\\pg_ctl.exe start -D C:\\\\PROGRA~1\\\\PostgreSQL\\\\17\\\\data & next start",
     "initialize": "node --env-file=.env scripts/initialize.js",
     "admin:init": "npm run initialize",
+    "seed": "node --env-file=.env scripts/seed-content.js",
     "db:setup": "node scripts/database-setup.js deploy",
     "db:migrate": "node scripts/database-setup.js migrate",
     "db:push": "node scripts/database-setup.js push",
-    "db:reset": "node scripts/database-setup.js reset",
+    "db:reset": "node scripts/database-setup.js reset --yes",
     "db:verify": "node --env-file=.env scripts/verify-initialization.js",
     "deploy:setup": "node scripts/database-setup.js deploy",
     "lint": "eslint"

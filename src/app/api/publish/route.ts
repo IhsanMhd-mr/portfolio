@@ -3,6 +3,7 @@ import db from "@/lib/database";
 import { safeRequireAdmin } from "@/lib/require-admin";
 import { recordAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
+import { SectionGroupService } from "@/services/section-group.service";
 
 // GET - Compile summary of differences between draft configuration and active live snapshot
 export async function GET(request: Request) {
@@ -14,7 +15,6 @@ export async function GET(request: Request) {
       where: { key: "home" },
       include: {
         draftTemplate: true,
-        sections: { orderBy: { order: "asc" } },
         versions: { where: { isActive: true }, take: 1 },
       },
     });
@@ -25,7 +25,10 @@ export async function GET(request: Request) {
 
     const draftTemplateName = page.draftTemplate?.name || "None";
     const draftTemplateKey = page.draftTemplate?.key || "MODERN_GLASS";
-    const draftSections = page.sections;
+    // Same ordering algorithm used for preview/publish (Phase 5) — includes
+    // hidden groups here since this is an admin-facing diff summary, not
+    // the public render path.
+    const draftSections = await SectionGroupService.flattenOrdered(page.id, { visibleGroupsOnly: false });
 
     const activeVersion = page.versions?.[0];
     let publishedTemplateKey = "None";
@@ -77,7 +80,7 @@ export async function POST(request: Request) {
   try {
     const page = await db.page.findUnique({
       where: { key: "home" },
-      include: { draftTemplate: true, sections: { orderBy: { order: "asc" } } },
+      include: { draftTemplate: true },
     });
 
     if (!page || !page.draftTemplate) {
@@ -90,11 +93,17 @@ export async function POST(request: Request) {
     });
     const nextVersionNumber = latestVersion ? latestVersion.versionNumber + 1 : 1;
 
-    const sectionsSnapshot = page.sections.map((s) => ({
+    // Bake the live grouped ordering into the snapshot at publish time, using
+    // the SAME algorithm preview uses (Phase 5 §11/§18/§19) — hidden groups
+    // excluded here, matching how individually-hidden sections have always
+    // been excluded from what actually ships (their own `visible` flag is
+    // still carried per-entry for the admin diff view / potential rollback).
+    const orderedSections = await SectionGroupService.flattenOrdered(page.id, { visibleGroupsOnly: true });
+    const sectionsSnapshot = orderedSections.map((s, index) => ({
       id: s.id,
       type: s.type,
       internalLabel: s.internalLabel,
-      order: s.order,
+      order: index, // final render position — array order is authoritative, not the per-container DB value
       visible: s.visible,
       settings: typeof s.settings === "string" ? JSON.parse(s.settings) : s.settings || {},
       animationPresetSlug: s.animationPresetSlug,

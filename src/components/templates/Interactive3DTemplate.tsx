@@ -10,6 +10,7 @@ interface TemplateProps {
   timelineEntries: any[];
   education: any[];
   experience: any[];
+  certifications: any[];
   gameSettings: any;
   isPreview?: boolean;
   isOwner?: boolean;
@@ -23,6 +24,7 @@ export default function Interactive3DTemplate({
   timelineEntries,
   education,
   experience,
+  certifications,
   gameSettings,
   isPreview = false,
   isOwner = false,
@@ -89,6 +91,8 @@ export default function Interactive3DTemplate({
           } else if (registryKey === "stack-game") {
             props.technologies = technologies;
             props.gameSettings = gameSettings;
+          } else if (registryKey === "certifications") {
+            props.certifications = certifications;
           }
 
           return (

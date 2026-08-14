@@ -15,7 +15,7 @@ export default function CustomContentSection({ settings, isPreview = false }: Cu
     <section className="w-full py-20 px-[var(--gutter)] bg-[var(--bg)] border-t border-solid border-[var(--line)] transition-colors duration-300">
       <div className="max-w-[var(--w-content)] mx-auto">
         <div className={`max-w-2xl ${align === "center" ? "mx-auto text-center" : align === "right" ? "ml-auto text-right" : "text-left"}`}>
-          <p className="text-mono-label mb-2 text-[var(--accent)]">// {subheading.toUpperCase()}</p>
+          <p className="pm-kicker text-mono-label mb-2 text-[var(--accent)]">// {subheading.toUpperCase()}</p>
           <h2 className="text-h2 mb-6 text-[var(--ink)]" style={{ fontFamily: "var(--font-display)" }}>
             {heading}
           </h2>

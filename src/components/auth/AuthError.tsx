@@ -35,12 +35,15 @@ export default function AuthError({ errorType, countdown }: AuthErrorProps) {
       message = "An unexpected authentication error occurred.";
   }
 
+  // Inset banner, not a nested card — no border, just a tinted background and
+  // a left accent bar, so it reads as part of the surrounding card rather than
+  // a third stacked box.
   return (
     <div
-      className="p-3 mb-4 text-xs font-medium border border-solid rounded-[var(--radius-sm)] animate-fade-in"
+      className="px-3 py-2.5 mb-4 text-xs font-medium border-l-2 border-solid animate-fade-in"
       style={{
         backgroundColor: "rgba(239, 68, 68, 0.08)",
-        borderColor: "rgba(239, 68, 68, 0.2)",
+        borderColor: "var(--danger, #ef4444)",
         color: "var(--danger, #ef4444)",
       }}
       role="alert"

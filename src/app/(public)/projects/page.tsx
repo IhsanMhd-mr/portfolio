@@ -1,5 +1,19 @@
+import type { Metadata } from "next";
 import db from "@/lib/database";
 import ProjectsFilterWrapper from "@/components/public/ProjectsFilterWrapper";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const profile = await db.siteProfile.findFirst();
+  const fullName = profile?.fullName || "Jane Doe";
+  const description =
+    "A comprehensive list of engineering projects, case studies, academic milestones, and open-source contributions.";
+
+  return {
+    title: `Projects — ${fullName}`,
+    description,
+    openGraph: { title: `Projects — ${fullName}`, description, type: "website" },
+  };
+}
 
 export default async function ProjectsPage() {
   const [projectsRaw, technologiesRaw] = await Promise.all([

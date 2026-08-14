@@ -72,8 +72,21 @@ function main() {
     return;
   }
 
+  // Optional migration name (migrate only): --name <slug>, strictly validated
+  const prismaArgs = [...ALLOWED_OPERATIONS[op]];
+  const nameIdx = process.argv.indexOf("--name");
+  if (op === "migrate" && nameIdx !== -1) {
+    const name = process.argv[nameIdx + 1] || "";
+    if (!/^[a-z0-9_]{1,64}$/i.test(name)) {
+      console.error("Invalid migration name. Use letters, digits, underscore.");
+      process.exitCode = 1;
+      return;
+    }
+    prismaArgs.push("--name", name);
+  }
+
   // 1. Prisma operation
-  const prismaExit = run("prisma", "npx", ALLOWED_OPERATIONS[op]);
+  const prismaExit = run("prisma", "npx", prismaArgs);
   if (prismaExit !== 0) {
     console.error("\n[database-setup] Prisma operation failed. Initialization was NOT run.\n");
     process.exitCode = prismaExit;

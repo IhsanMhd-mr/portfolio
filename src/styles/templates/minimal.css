@@ -70,3 +70,444 @@
     --section-gap: 120px;
   }
 }
+
+/* ==========================================================================
+   Professional Minimal — Design System (redesign Phase 2)
+   Typography-first, one accent, generous whitespace. These tokens and
+   component classes are the single source of visual truth for the flagship
+   template: sections must compose these instead of ad-hoc utility stacks.
+   ========================================================================== */
+
+[data-template="minimal"] {
+  /* --- Type scale (major third-ish, rem-based) --- */
+  --pm-text-xs:      0.75rem;   /* meta, mono labels */
+  --pm-text-sm:      0.875rem;  /* secondary copy */
+  --pm-text-base:    1.0625rem; /* body — slightly large for readability */
+  --pm-text-lg:      1.25rem;   /* lead paragraphs */
+  --pm-text-xl:      1.5625rem; /* card titles */
+  --pm-text-2xl:     1.9375rem; /* section headings */
+  --pm-text-3xl:     2.4375rem; /* page headings */
+  --pm-display:      clamp(2.75rem, 6vw, 4.25rem); /* hero display */
+
+  --pm-leading-tight: 1.15;
+  --pm-leading-body:  1.65;
+  --pm-tracking-tight: -0.015em;
+  --pm-tracking-label: 0.08em;
+
+  /* --- Spacing scale --- */
+  --pm-space-1:  0.25rem;
+  --pm-space-2:  0.5rem;
+  --pm-space-3:  0.75rem;
+  --pm-space-4:  1rem;
+  --pm-space-6:  1.5rem;
+  --pm-space-8:  2rem;
+  --pm-space-12: 3rem;
+  --pm-space-16: 4rem;
+
+  /* --- Content measure --- */
+  --pm-measure:      68ch;   /* long-form text */
+  --pm-measure-wide: 78rem;  /* page container */
+}
+
+/* --- Section header: the one consistent way a section introduces itself --- */
+[data-template="minimal"] .pm-section-header {
+  margin-bottom: var(--pm-space-12);
+  max-width: var(--pm-measure);
+}
+[data-template="minimal"] .pm-section-header .pm-kicker {
+  font-family: var(--font-mono);
+  font-size: var(--pm-text-xs);
+  letter-spacing: var(--pm-tracking-label);
+  text-transform: uppercase;
+  color: var(--accent);
+  display: block;
+  margin-bottom: var(--pm-space-3);
+}
+[data-template="minimal"] .pm-section-header h2 {
+  font-family: var(--font-display);
+  font-size: var(--pm-text-2xl);
+  line-height: var(--pm-leading-tight);
+  letter-spacing: var(--pm-tracking-tight);
+  color: var(--ink);
+  margin: 0 0 var(--pm-space-3);
+}
+[data-template="minimal"] .pm-section-header p {
+  font-size: var(--pm-text-base);
+  line-height: var(--pm-leading-body);
+  color: var(--ink-soft);
+  margin: 0;
+}
+
+/* --- Card: single card treatment, hairline border, quiet elevation --- */
+[data-template="minimal"] .pm-card {
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-card);
+  transition: box-shadow var(--duration-default) var(--ease-default),
+              border-color var(--duration-default) var(--ease-default),
+              transform var(--duration-default) var(--ease-default);
+}
+[data-template="minimal"] .pm-card:hover {
+  box-shadow: var(--shadow-card-hover);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+  transform: translateY(-2px);
+}
+
+/* --- Buttons: primary (accent) and ghost (hairline) only --- */
+[data-template="minimal"] .pm-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pm-space-2);
+  font-family: var(--font-body);
+  font-size: var(--pm-text-sm);
+  font-weight: 600;
+  padding: 0.7rem 1.4rem;
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background var(--duration-default) var(--ease-default),
+              color var(--duration-default) var(--ease-default),
+              border-color var(--duration-default) var(--ease-default);
+}
+[data-template="minimal"] .pm-btn-primary {
+  background: var(--accent);
+  color: var(--bg-raised);
+}
+[data-template="minimal"] .pm-btn-primary:hover { background: var(--accent-hover); }
+[data-template="minimal"] .pm-btn-ghost {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--line);
+}
+[data-template="minimal"] .pm-btn-ghost:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* --- Badge: mono meta chip (tech tags, statuses) --- */
+[data-template="minimal"] .pm-badge {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: var(--pm-text-xs);
+  letter-spacing: 0.02em;
+  color: var(--ink-soft);
+  background: var(--bg-inset);
+  border: 1px solid var(--line);
+  border-radius: var(--r-full);
+  padding: 0.2rem 0.65rem;
+}
+
+/* --- Inputs (public contact form) --- */
+[data-template="minimal"] .pm-input {
+  width: 100%;
+  font-family: var(--font-body);
+  font-size: var(--pm-text-sm);
+  color: var(--ink);
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 0.7rem 0.9rem;
+  transition: border-color var(--duration-default) var(--ease-default);
+}
+[data-template="minimal"] .pm-input::placeholder { color: var(--ink-faint); }
+[data-template="minimal"] .pm-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* --- Empty state: graceful missing-content treatment --- */
+[data-template="minimal"] .pm-empty {
+  border: 1px dashed var(--line);
+  border-radius: var(--r-md);
+  padding: var(--pm-space-12) var(--pm-space-6);
+  text-align: center;
+  color: var(--ink-faint);
+  font-size: var(--pm-text-sm);
+}
+
+/* --- Focus visibility: consistent, accessible --- */
+[data-template="minimal"] :is(a, button, .pm-btn):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: var(--r-xs);
+}
+
+/* --- Body copy defaults inside the template --- */
+[data-template="minimal"] {
+  font-size: var(--pm-text-base);
+  line-height: var(--pm-leading-body);
+}
+
+/* ==========================================================================
+   Phase 3 — Public reconstruction layer
+   Re-typesets the shared utility classes and section patterns UNDER THE
+   MINIMAL SCOPE ONLY. Shared section components carry inert `pm-*` hook
+   classes; these rules give them their Minimal presentation. Glass/3D are
+   untouched by definition (every selector is scoped).
+   ========================================================================== */
+
+/* --- Utility re-typesetting: every section adopts the pm scale --- */
+[data-template="minimal"] .text-display {
+  font-size: var(--pm-display);
+  line-height: var(--pm-leading-tight);
+  letter-spacing: var(--pm-tracking-tight);
+  font-weight: 600; /* editorial serif reads better below 700 */
+}
+[data-template="minimal"] .text-h1 {
+  font-size: var(--pm-text-3xl);
+  line-height: var(--pm-leading-tight);
+  letter-spacing: var(--pm-tracking-tight);
+  font-weight: 600;
+}
+[data-template="minimal"] .text-h2 {
+  font-size: var(--pm-text-2xl);
+  line-height: var(--pm-leading-tight);
+  letter-spacing: var(--pm-tracking-tight);
+  font-weight: 600;
+}
+[data-template="minimal"] .text-h3 {
+  font-size: var(--pm-text-xl);
+  line-height: 1.3;
+  font-weight: 600;
+}
+[data-template="minimal"] .text-body-lg {
+  font-size: var(--pm-text-lg);
+  line-height: var(--pm-leading-body);
+}
+[data-template="minimal"] .text-body {
+  font-size: var(--pm-text-base);
+  line-height: var(--pm-leading-body);
+}
+[data-template="minimal"] .text-small {
+  font-size: var(--pm-text-sm);
+  line-height: 1.6;
+}
+[data-template="minimal"] .text-mono-label {
+  font-size: var(--pm-text-xs);
+  letter-spacing: var(--pm-tracking-label);
+  font-weight: 500;
+}
+
+/* --- Section rhythm: one vertical cadence for every homepage section --- */
+[data-template="minimal"] main section {
+  padding-block: clamp(4rem, 9vw, 7.5rem);
+}
+
+/* --- Hero: quiet, typography-first; no decorative aura in Minimal --- */
+[data-template="minimal"] .pm-hero-aura {
+  display: none;
+}
+[data-template="minimal"] .pm-hero h1 {
+  max-width: 18ch;
+}
+[data-template="minimal"] .pm-hero p {
+  max-width: var(--pm-measure);
+}
+
+/* --- Project cards: hairline lift, accent only on interaction --- */
+[data-template="minimal"] .pm-project-card {
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-card);
+  transition: box-shadow var(--duration-default) var(--ease-default),
+              border-color var(--duration-default) var(--ease-default),
+              transform var(--duration-default) var(--ease-default);
+}
+[data-template="minimal"] .pm-project-card:hover {
+  box-shadow: var(--shadow-card-hover);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+}
+
+/* --- Navigation: existing scroll behavior already resolves correctly here
+   (glass-strong falls back to --bg-raised, blur fallback applies); no
+   override needed — the .pm-nav hook is reserved for later refinement. --- */
+
+/* --- Footer: restrained, editorial --- */
+[data-template="minimal"] .pm-footer {
+  background: var(--bg-inset);
+}
+
+/* --- Timeline (experience/education): pm scale for entries --- */
+[data-template="minimal"] .pm-timeline h3 {
+  font-size: var(--pm-text-base);
+}
+
+/* --- Reduced motion: kill lifts and reveals in Minimal --- */
+@media (prefers-reduced-motion: reduce) {
+  [data-template="minimal"] .pm-project-card,
+  [data-template="minimal"] .pm-card {
+    transition: none;
+  }
+  [data-template="minimal"] .pm-project-card:hover,
+  [data-template="minimal"] .pm-card:hover {
+    transform: none;
+  }
+}
+
+/* --- Mobile intent: tighter display type, stacked CTAs, readable measures --- */
+@media (max-width: 640px) {
+  [data-template="minimal"] {
+    --pm-display: 2.375rem;
+    --pm-text-2xl: 1.625rem;
+  }
+  [data-template="minimal"] main section {
+    padding-block: 3.5rem;
+  }
+  [data-template="minimal"] .pm-hero .flex.flex-wrap.gap-4 {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  [data-template="minimal"] .pm-hero .flex.flex-wrap.gap-4 a {
+    justify-content: center;
+  }
+}
+
+/* ==========================================================================
+   Phase 3.1 — Project detail as editorial case study (Minimal only)
+   ========================================================================== */
+
+/* Meta strip: hairline band, not a floating card */
+[data-template="minimal"] .pm-case-meta {
+  background: transparent;
+  border-left: none;
+  border-right: none;
+  border-radius: 0;
+  padding-inline: 0;
+  padding-block: var(--pm-space-6);
+}
+
+/* Hero media breaks out of the prose column for editorial contrast */
+@media (min-width: 1024px) {
+  [data-template="minimal"] .pm-case-media {
+    position: relative;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(88vw, 64rem);
+  }
+}
+
+/* Case sections: hairline-separated chapters with serif headings */
+[data-template="minimal"] .pm-case-body > section {
+  border-top: 1px solid var(--line);
+  padding-top: var(--pm-space-8);
+  padding-block: var(--pm-space-8) 0; /* sections carry their own rhythm */
+}
+[data-template="minimal"] .pm-case-body > section:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+[data-template="minimal"] .pm-case-body > section h2 {
+  font-size: var(--pm-text-xl);
+  letter-spacing: var(--pm-tracking-tight);
+  margin-bottom: var(--pm-space-4);
+}
+[data-template="minimal"] .pm-case-body p {
+  font-size: var(--pm-text-base);
+  line-height: var(--pm-leading-body);
+  max-width: var(--pm-measure);
+}
+
+/* Case page title: full display treatment */
+[data-template="minimal"] .pm-case h1 {
+  font-size: var(--pm-text-3xl) !important;
+  line-height: var(--pm-leading-tight);
+  letter-spacing: var(--pm-tracking-tight);
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   Phase 3.1 — About: editorial profile (Minimal only)
+   Narrative + supporting-meta composition; hairline hierarchy, no card stack.
+   ========================================================================== */
+
+[data-template="minimal"] .pm-about-narrative p {
+  max-width: var(--pm-measure);
+}
+
+/* Meta column: definition-list feel — single column, hairline-separated */
+[data-template="minimal"] .pm-about-meta {
+  grid-template-columns: 1fr;
+  gap: 0;
+  align-content: start;
+  border-top: 1px solid var(--line);
+}
+[data-template="minimal"] .pm-about-meta-item {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  box-shadow: none !important;
+  padding: var(--pm-space-6) 0;
+}
+[data-template="minimal"] .pm-about-meta-item > div {
+  margin-bottom: var(--pm-space-2);
+}
+[data-template="minimal"] .pm-about-meta-item h3 {
+  font-family: var(--font-mono);
+  font-size: var(--pm-text-xs);
+  letter-spacing: var(--pm-tracking-label);
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--ink-faint);
+}
+[data-template="minimal"] .pm-about-meta-item svg {
+  display: none; /* typography carries the hierarchy, not icon chips */
+}
+[data-template="minimal"] .pm-about-meta-item p {
+  font-size: var(--pm-text-sm);
+  color: var(--ink-soft);
+}
+
+/* Desktop: wider narrative, narrower meta rail */
+@media (min-width: 768px) {
+  [data-template="minimal"] .pm-about > div {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 4fr);
+    column-gap: var(--pm-space-16);
+  }
+  [data-template="minimal"] .pm-about-narrative,
+  [data-template="minimal"] .pm-about-meta {
+    grid-column: auto; /* neutralize md:col-span-6 on the new ratio */
+  }
+}
+
+/* Mobile: narrative first, meta below with comfortable rhythm */
+@media (max-width: 767px) {
+  [data-template="minimal"] .pm-about-meta {
+    margin-top: var(--pm-space-4);
+  }
+}
+
+/* ==========================================================================
+   Phase 3.1 — Section-header markup contract binding
+   All section intros now carry .pm-kicker. Their existing wrapper elements
+   compose the .pm-section-header contract via :has() — one styling system,
+   no duplicate rules, zero effect on Glass/3D (scoped) or card-internal
+   mono labels (which have no .pm-kicker).
+   ========================================================================== */
+[data-template="minimal"] :is(div, header):has(> .pm-kicker) {
+  margin-bottom: var(--pm-space-8);
+}
+[data-template="minimal"] .pm-kicker {
+  font-size: var(--pm-text-xs);
+  letter-spacing: var(--pm-tracking-label);
+}
+[data-template="minimal"] :is(div, header):has(> .pm-kicker) > h2 {
+  font-family: var(--font-display);
+  letter-spacing: var(--pm-tracking-tight);
+}
+
+/* --- Phase 3.1: contact form states (fields carry .pm-input) --- */
+[data-template="minimal"] .pm-input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: var(--bg-inset);
+}
+[data-template="minimal"] .pm-input:user-invalid {
+  border-color: var(--danger);
+}
+[data-template="minimal"] .pm-input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-tint);
+}

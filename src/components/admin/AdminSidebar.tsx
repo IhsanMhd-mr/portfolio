@@ -1,8 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Award,
+  Navigation,
   Briefcase,
   Clock,
   Columns3,
@@ -14,15 +17,23 @@ import {
   Inbox,
   LayoutDashboard,
   LogOut,
+  Menu,
   Milestone,
   Palette,
   ScrollText,
   Sliders,
   User,
+  X,
 } from "lucide-react";
 
 export default function AdminSidebar() {
   const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+
+  // Close the mobile drawer on route change (e.g. after tapping a nav link).
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
 
   const menuItems = [
     { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
@@ -34,6 +45,8 @@ export default function AdminSidebar() {
     { label: "Timeline", href: "/admin/timeline", icon: Milestone },
     { label: "Education", href: "/admin/education", icon: GraduationCap },
     { label: "Experience", href: "/admin/experience", icon: History },
+    { label: "Certifications", href: "/admin/certifications", icon: Award },
+    { label: "Navigation", href: "/admin/navigation", icon: Navigation },
     { label: "Media Library", href: "/admin/media", icon: Image },
     { label: "Messages", href: "/admin/messages", icon: Inbox },
     { label: "3D Game", href: "/admin/game", icon: Gamepad2 },
@@ -58,21 +71,50 @@ export default function AdminSidebar() {
   }
 
   return (
-    <aside
-      className="fixed left-0 top-0 bottom-0 z-[200] flex flex-col justify-between select-none"
-      style={{
-        width: "var(--a-sidebar-width)",
-        backgroundColor: "var(--a-sidebar)",
-        color: "var(--a-sidebar-text)",
-        fontFamily: "var(--a-font-body)",
-      }}
-    >
-      {/* Brand Logo Header */}
-      <div className="h-[60px] border-b border-solid border-slate-800 flex items-center px-6">
-        <Link href="/admin/dashboard" className="text-white font-bold tracking-tight text-lg">
-          Workbench <span className="text-[var(--a-primary)]">CMS</span>
-        </Link>
-      </div>
+    <>
+      {/* Mobile-only hamburger toggle — above the topbar, hidden at md+ where the
+          sidebar is always visible. */}
+      <button
+        onClick={() => setOpen(true)}
+        aria-label="Open navigation menu"
+        className="md:hidden fixed top-3 left-3 z-[210] p-2 rounded-[var(--a-r-sm)] bg-[var(--a-sidebar)] text-[var(--a-sidebar-text)] border-none cursor-pointer shadow-lg"
+      >
+        <Menu size={20} />
+      </button>
+
+      {/* Backdrop — mobile only, closes the drawer on click */}
+      {open && (
+        <div
+          onClick={() => setOpen(false)}
+          className="md:hidden fixed inset-0 z-[195] bg-black/50"
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={`fixed left-0 top-0 bottom-0 z-[200] flex flex-col justify-between select-none transition-transform duration-300 md:translate-x-0 ${
+          open ? "translate-x-0" : "-translate-x-full"
+        }`}
+        style={{
+          width: "var(--a-sidebar-width)",
+          backgroundColor: "var(--a-sidebar)",
+          color: "var(--a-sidebar-text)",
+          fontFamily: "var(--a-font-body)",
+        }}
+      >
+        {/* Brand Logo Header */}
+        <div className="h-[60px] border-b border-solid border-slate-800 flex items-center justify-between px-6">
+          <Link href="/admin/dashboard" className="text-white font-bold tracking-tight text-lg">
+            Workbench <span className="text-[var(--a-primary)]">CMS</span>
+          </Link>
+          <button
+            onClick={() => setOpen(false)}
+            aria-label="Close navigation menu"
+            className="md:hidden p-1 text-slate-400 hover:text-white bg-transparent border-none cursor-pointer"
+          >
+            <X size={20} />
+          </button>
+        </div>
 
       {/* Nav Menu */}
       <div className="flex-1 overflow-y-auto py-6 px-4">
@@ -120,7 +162,8 @@ export default function AdminSidebar() {
           <span>Logout</span>
         </button>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }
 

@@ -1,6 +1,19 @@
+import type { Metadata } from "next";
 import db from "@/lib/database";
 import Link from "next/link";
 import { Calendar, MapPin, Link2 } from "lucide-react";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const profile = await db.siteProfile.findFirst();
+  const fullName = profile?.fullName || "Jane Doe";
+  const description = `Career and project timeline for ${fullName} — milestones, roles, and journey over time.`;
+
+  return {
+    title: `Timeline — ${fullName}`,
+    description,
+    openGraph: { title: `Timeline — ${fullName}`, description, type: "website" },
+  };
+}
 
 export default async function TimelinePage() {
   const timelineEntriesRaw = await db.timelineEntry.findMany({

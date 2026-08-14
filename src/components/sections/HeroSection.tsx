@@ -18,10 +18,10 @@ export default function HeroSection({ profile, settings, isPreview = false }: He
   const cvUrl = profile?.cvFile?.url || "/resume";
 
   return (
-    <section className="w-full min-h-[80vh] flex flex-col justify-center items-center py-20 px-[var(--gutter)] relative overflow-hidden bg-[var(--bg)] transition-colors duration-300">
+    <section className="pm-hero w-full min-h-[80vh] flex flex-col justify-center items-center py-20 px-[var(--gutter)] relative overflow-hidden bg-[var(--bg)] transition-colors duration-300">
       {/* Decorative Aura background (visible primarily in Modern Glass theme), nudges toward the cursor */}
       <CursorAura
-        className="absolute top-1/2 left-1/2 w-[500px] h-[500px] rounded-full blur-[120px] opacity-15 pointer-events-none transition-transform duration-700 ease-out"
+        className="pm-hero-aura absolute top-1/2 left-1/2 w-[500px] h-[500px] rounded-full blur-[120px] opacity-15 pointer-events-none transition-transform duration-700 ease-out"
         style={{
           background: "var(--aurora, radial-gradient(circle, var(--accent) 0%, transparent 70%))",
           zIndex: 1,
