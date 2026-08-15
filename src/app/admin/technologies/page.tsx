@@ -1,6 +1,7 @@
 import db from "@/lib/database";
 import { revalidatePath } from "next/cache";
 import { Cpu, Plus, Trash2, Save, Eye, EyeOff, ArrowUp, ArrowDown, Image as ImageIcon } from "lucide-react";
+import AutoSubmitCheckbox from "@/components/admin/AutoSubmitCheckbox";
 import { 
   createTechnologyAction, 
   updateTechnologyAction, 
@@ -209,36 +210,18 @@ export default async function AdminTechnologiesPage(props: PageProps) {
 
                     <div className="flex gap-4">
                       {/* Show in Stack */}
-                      <form action={handleToggleFlag.bind(null, tech.id, "showInStack", draft.showInStack)} className="flex items-center gap-1.5">
-                        <input
-                          type="checkbox"
-                          checked={draft.showInStack}
-                          onChange={(e) => e.target.form?.requestSubmit()}
-                          className="cursor-pointer"
-                        />
-                        <span className="text-[10px] font-bold text-[var(--a-soft)] uppercase font-mono cursor-pointer">Stack</span>
+                      <form action={handleToggleFlag.bind(null, tech.id, "showInStack", draft.showInStack)}>
+                        <AutoSubmitCheckbox checked={draft.showInStack} label="Stack" />
                       </form>
 
                       {/* Show in Game */}
-                      <form action={handleToggleFlag.bind(null, tech.id, "showInGame", draft.showInGame)} className="flex items-center gap-1.5">
-                        <input
-                          type="checkbox"
-                          checked={draft.showInGame}
-                          onChange={(e) => e.target.form?.requestSubmit()}
-                          className="cursor-pointer"
-                        />
-                        <span className="text-[10px] font-bold text-[var(--a-soft)] uppercase font-mono cursor-pointer">Sandbox</span>
+                      <form action={handleToggleFlag.bind(null, tech.id, "showInGame", draft.showInGame)}>
+                        <AutoSubmitCheckbox checked={draft.showInGame} label="Sandbox" />
                       </form>
 
                       {/* Show on Resume */}
-                      <form action={handleToggleFlag.bind(null, tech.id, "showOnResume", draft.showOnResume)} className="flex items-center gap-1.5">
-                        <input
-                          type="checkbox"
-                          checked={draft.showOnResume}
-                          onChange={(e) => e.target.form?.requestSubmit()}
-                          className="cursor-pointer"
-                        />
-                        <span className="text-[10px] font-bold text-[var(--a-soft)] uppercase font-mono cursor-pointer">Resume</span>
+                      <form action={handleToggleFlag.bind(null, tech.id, "showOnResume", draft.showOnResume)}>
+                        <AutoSubmitCheckbox checked={draft.showOnResume} label="Resume" />
                       </form>
                     </div>
 

@@ -103,14 +103,14 @@ export default function AdminSidebar() {
         }}
       >
         {/* Brand Logo Header */}
-        <div className="h-[60px] border-b border-solid border-slate-800 flex items-center justify-between px-6">
-          <Link href="/admin/dashboard" className="text-white font-bold tracking-tight text-lg">
+        <div className="h-[60px] border-b border-solid border-[var(--a-sidebar-line)] flex items-center justify-between px-6">
+          <Link href="/admin/dashboard" className="text-[var(--a-sidebar-heading)] font-bold tracking-tight text-lg">
             Workbench <span className="text-[var(--a-primary)]">CMS</span>
           </Link>
           <button
             onClick={() => setOpen(false)}
             aria-label="Close navigation menu"
-            className="md:hidden p-1 text-slate-400 hover:text-white bg-transparent border-none cursor-pointer"
+            className="md:hidden p-1 text-[var(--a-sidebar-text)] hover:text-[var(--a-sidebar-heading)] bg-transparent border-none cursor-pointer"
           >
             <X size={20} />
           </button>
@@ -132,9 +132,9 @@ export default function AdminSidebar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex items-center gap-3 px-3 py-2 text-sm rounded-[var(--a-r-sm)] font-medium transition-all group relative"
+                className="flex items-center gap-3 px-3 py-2 text-sm rounded-[var(--a-r-sm)] font-medium transition-all group relative hover:bg-[var(--a-sidebar-hover)]"
                 style={{
-                  backgroundColor: isActive ? "rgba(46,91,255,0.15)" : "transparent",
+                  backgroundColor: isActive ? "var(--a-sidebar-active-bg)" : "transparent",
                   color: isActive ? "var(--a-sidebar-active)" : "inherit",
                 }}
               >
@@ -153,10 +153,10 @@ export default function AdminSidebar() {
       </div>
 
       {/* Footer / Logout */}
-      <div className="p-4 border-t border-solid border-slate-800">
+      <div className="p-4 border-t border-solid border-[var(--a-sidebar-line)]">
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 px-3 py-2 w-full text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-[var(--a-r-sm)] transition-colors cursor-pointer border-none"
+          className="flex items-center gap-3 px-3 py-2 w-full text-sm text-[var(--a-sidebar-danger)] hover:bg-[var(--a-danger-bg)] rounded-[var(--a-r-sm)] transition-colors cursor-pointer border-none"
         >
           <LogOut size={18} />
           <span>Logout</span>

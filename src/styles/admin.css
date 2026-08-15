@@ -24,16 +24,13 @@
   --a-danger:        #C2362B;
 
   /* --- Sidebar ---
-     The three live values below are UNCHANGED (still the dark navy rail), because
-     AdminSidebar.tsx already consumes them while still carrying hardcoded
-     literals (a `text-white` wordmark, slate borders, a red-400 logout). Flipping
-     the palette here alone would render an invisible wordmark on a white rail, so
-     the light-mode flip happens together with the component rewrite.
-     The remaining tokens are staged and currently unconsumed; their light values
-     are authored for the white rail that rewrite will introduce. */
-  --a-sidebar:           #101623;
-  --a-sidebar-text:      #C6CEDD;
-  --a-sidebar-active:    #2E5BFF;
+     Flipped to the white rail together with AdminSidebar.tsx's rewrite off its
+     hardcoded literals (a `text-white` wordmark, slate borders, a red-400 logout) —
+     flipping the palette alone first would have rendered an invisible wordmark on
+     a white rail before the component caught up. Both now match. */
+  --a-sidebar:           #FFFFFF;
+  --a-sidebar-text:      #4A5158;
+  --a-sidebar-active:    #2563EB;
 
   --a-sidebar-heading:   #111111;
   --a-sidebar-line:      #E0E0E5;
