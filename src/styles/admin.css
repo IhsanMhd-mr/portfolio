@@ -8,7 +8,11 @@
   /* --- Palette --- */
   --a-bg:            #F5F5F7;
   --a-surface:       #FFFFFF;
+  /* Recessed fields/wells on the white --a-surface. Previously defined only in
+     the dark block, so it resolved to nothing in light. */
+  --a-inset:         #F5F5F7;
   --a-line:          #E0E0E5;
+  --a-line-hover:    #C8C8D0;
   --a-ink:           #111111;
   --a-soft:          #555555;
   --a-faint:         #94A0AE;
@@ -18,9 +22,35 @@
   --a-success:       #17825B;
   --a-warn:          #B45309;
   --a-danger:        #C2362B;
-  --a-sidebar:       #101623;
-  --a-sidebar-text:  #C6CEDD;
-  --a-sidebar-active: #2E5BFF;
+
+  /* --- Sidebar ---
+     The three live values below are UNCHANGED (still the dark navy rail), because
+     AdminSidebar.tsx already consumes them while still carrying hardcoded
+     literals (a `text-white` wordmark, slate borders, a red-400 logout). Flipping
+     the palette here alone would render an invisible wordmark on a white rail, so
+     the light-mode flip happens together with the component rewrite.
+     The remaining tokens are staged and currently unconsumed; their light values
+     are authored for the white rail that rewrite will introduce. */
+  --a-sidebar:           #101623;
+  --a-sidebar-text:      #C6CEDD;
+  --a-sidebar-active:    #2E5BFF;
+
+  --a-sidebar-heading:   #111111;
+  --a-sidebar-line:      #E0E0E5;
+  --a-sidebar-hover:     rgba(37, 99, 235, 0.06);
+  --a-sidebar-active-bg: rgba(37, 99, 235, 0.10);
+  --a-sidebar-danger:    #C2362B;
+
+  /* --- Status pairs: ink + alpha fill. The fill is alpha rather than a fixed
+     wash so it tints whatever surface sits behind it in either theme. --- */
+  --a-success-ink: #17825B;
+  --a-success-bg:  rgba(23, 130, 91, 0.10);
+  --a-warn-ink:    #B45309;
+  --a-warn-bg:     rgba(180, 83, 9, 0.10);
+  --a-danger-ink:  #C2362B;
+  --a-danger-bg:   rgba(194, 54, 43, 0.10);
+  --a-info-ink:    #2563EB;
+  --a-info-bg:     rgba(37, 99, 235, 0.10);
 
   /* --- Admin font (always Figtree + IBM Plex Mono) --- */
   --a-font-body: var(--font-figtree);
@@ -62,9 +92,26 @@
   --a-success:       #34D399;
   --a-warn:          #FBBF24;
   --a-danger:        #F87171;
-  --a-sidebar:       #0A0A0C;
-  --a-sidebar-text:  #9C9CA8;
-  --a-sidebar-active: #818CF8;
+
+  /* --- Sidebar (dark) --- */
+  --a-sidebar:           #0A0A0C;
+  --a-sidebar-heading:   #F2F2F5;
+  --a-sidebar-text:      #9C9CA8;
+  --a-sidebar-line:      #2A2A31;
+  --a-sidebar-hover:     rgba(129, 140, 248, 0.08);
+  --a-sidebar-active:    #818CF8;
+  --a-sidebar-active-bg: rgba(129, 140, 248, 0.15);
+  --a-sidebar-danger:    #F87171;
+
+  /* --- Status pairs (dark) --- */
+  --a-success-ink: #34D399;
+  --a-success-bg:  rgba(52, 211, 153, 0.12);
+  --a-warn-ink:    #FBBF24;
+  --a-warn-bg:     rgba(251, 191, 36, 0.12);
+  --a-danger-ink:  #F87171;
+  --a-danger-bg:   rgba(248, 113, 113, 0.12);
+  --a-info-ink:    #818CF8;
+  --a-info-bg:     rgba(129, 140, 248, 0.12);
 
   --a-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
   --a-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);

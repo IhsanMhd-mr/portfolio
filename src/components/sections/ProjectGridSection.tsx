@@ -45,7 +45,7 @@ export default function ProjectGridSection({ projects, settings, isPreview = fal
                 key={project.id}
                 className="pm-project-card group flex flex-col rounded-[var(--radius-sm)] overflow-hidden border border-solid border-[var(--line)] bg-[var(--bg-raised, var(--bg))] hover:border-[var(--accent)] transition-all duration-300"
               >
-                <div className="relative aspect-video w-full overflow-hidden bg-slate-900 border-b border-solid border-[var(--line)]">
+                <div className="relative aspect-video w-full overflow-hidden bg-[var(--bg-inset)] border-b border-solid border-[var(--line)]">
                   {thumbnail ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img 

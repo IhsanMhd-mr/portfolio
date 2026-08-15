@@ -21,6 +21,7 @@
   --accent-tint:     rgba(99, 102, 241, 0.12);
   --ember:           linear-gradient(100deg, #6366F1, #818CF8);
   --violet-ambient:  rgba(99, 102, 241, 0.10);
+  --violet:          #7C5DFA;   /* secondary accent */
   --success:         #34D399;
   --warn:            #FBBF24;
   --danger:          #F87171;
@@ -79,6 +80,9 @@
   --accent-tint:     rgba(194, 94, 0, 0.10);
   --ember:           linear-gradient(100deg, #E08A1E, #E05A2B);
   --violet-ambient:  rgba(124, 93, 250, 0.08);
+  /* Secondary accent, darkened for contrast against white since this
+     template's light accent is amber. Same hue family as --violet-ambient. */
+  --violet:          #5B3FD1;
   --success:         #0E9F6E;
   --warn:            #B45309;
   --danger:          #DC2626;

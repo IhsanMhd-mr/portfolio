@@ -2,6 +2,7 @@
 
 import { X, Plus } from "lucide-react";
 import { sectionMeta } from "@/components/sections/registry";
+import { useBackdropDismiss } from "@/lib/use-backdrop-dismiss";
 
 interface AddModuleModalProps {
   onCancel: () => void;
@@ -11,10 +12,11 @@ interface AddModuleModalProps {
 
 export default function AddModuleModal({ onCancel, onAdd, isAdding }: AddModuleModalProps) {
   const types = Object.entries(sectionMeta);
+  const backdrop = useBackdropDismiss(onCancel);
 
   return (
-    <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onCancel} role="dialog" aria-modal="true">
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md max-h-[80vh] overflow-y-auto p-6 bg-[var(--a-surface)] border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] shadow-lg space-y-4">
+    <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" {...backdrop} role="dialog" aria-modal="true">
+      <div className="w-full max-w-md max-h-[80vh] overflow-y-auto p-6 bg-[var(--a-surface)] border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] shadow-lg space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-sm text-[var(--a-ink)]">Add Module</h3>
           <button type="button" onClick={onCancel} aria-label="Close" className="p-1 text-[var(--a-soft)] hover:text-[var(--a-ink)] cursor-pointer border-none bg-transparent">
