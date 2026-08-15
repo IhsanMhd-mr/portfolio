@@ -47,3 +47,10 @@ export async function reorderEducationAction(ids: string[]) {
   revalidatePath("/admin/education");
   return result;
 }
+
+export async function moveEducationOrderAction(id: string, direction: "up" | "down") {
+  const context = await getAuditContext();
+  const result = await EducationService.moveOrder(id, direction, context);
+  revalidatePath("/admin/education");
+  return result;
+}

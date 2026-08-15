@@ -263,4 +263,55 @@ export class TechnologyService {
       return true;
     });
   }
+
+  /**
+   * Move a technology's draft one position up/down by swapping `order` with its
+   * immediate neighbor. Unlike `reorderTechnologies`, this doesn't require the
+   * full ordered id list, so it stays correct under pagination (the caller may
+   * only have the current page's ids in memory).
+   */
+  static async moveOrder(
+    id: string,
+    direction: "up" | "down",
+    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+  ) {
+    return await db.$transaction(async (tx) => {
+      const tech = await tx.technology.findUnique({
+        where: { id },
+        include: { versions: { where: { state: "DRAFT" }, take: 1 } },
+      });
+      const current = tech?.versions[0];
+      if (!current) return false;
+
+      const neighbor = await tx.technologyVersion.findFirst({
+        where: {
+          state: "DRAFT",
+          order: direction === "up" ? { lt: current.order } : { gt: current.order },
+        },
+        orderBy: direction === "up"
+          ? [{ order: "desc" }, { id: "desc" }]
+          : [{ order: "asc" }, { id: "asc" }],
+      });
+      if (!neighbor) return false; // already at the boundary
+
+      await tx.technologyVersion.update({ where: { id: current.id }, data: { order: neighbor.order } });
+      await tx.technologyVersion.update({ where: { id: neighbor.id }, data: { order: current.order } });
+
+      await recordAudit({
+        action: "TECHNOLOGY_REORDERED",
+        entityType: "Technology",
+        entityId: id,
+        summary: `Moved a technology ${direction} in the visual positioning list.`,
+        context: auditContext,
+        tx,
+      });
+
+      await tx.page.update({
+        where: { key: "home" },
+        data: { hasUnpublishedChanges: true },
+      });
+
+      return true;
+    });
+  }
 }

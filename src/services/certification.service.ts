@@ -72,4 +72,29 @@ export class CertificationService {
       summary: "Reordered certifications", context: auditContext,
     });
   }
+
+  /** Swap a certification's `order` with its immediate neighbor — avoids refetching the full list. */
+  static async moveOrder(id: string, direction: "up" | "down", auditContext: AuditContext) {
+    return db.$transaction(async (tx) => {
+      const current = await tx.certification.findUnique({ where: { id } });
+      if (!current) return false;
+
+      const neighbor = await tx.certification.findFirst({
+        where: { order: direction === "up" ? { lt: current.order } : { gt: current.order } },
+        orderBy: direction === "up"
+          ? [{ order: "desc" }, { id: "desc" }]
+          : [{ order: "asc" }, { id: "asc" }],
+      });
+      if (!neighbor) return false;
+
+      await tx.certification.update({ where: { id: current.id }, data: { order: neighbor.order } });
+      await tx.certification.update({ where: { id: neighbor.id }, data: { order: current.order } });
+
+      await recordAudit({
+        action: "SETTINGS_UPDATED", entityType: "Certification", entityId: id,
+        summary: `Moved a certification ${direction} in the sequence`, context: auditContext, tx,
+      });
+      return true;
+    });
+  }
 }

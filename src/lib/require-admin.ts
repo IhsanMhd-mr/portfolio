@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { auth, clearAuthCookies } from "./auth";
 import { redirect } from "next/navigation";
 import db from "./database";
@@ -25,13 +26,21 @@ export interface AdminContext {
  *   6. Returns AdminContext for use by the caller.
  *
  * If any check fails it either redirects (server-side) or throws (API routes).
+ *
+ * Wrapped in React `cache()` so repeated calls with the same arguments within
+ * a single request (e.g. the admin layout and the page it wraps both calling
+ * this) resolve once instead of re-querying TrackedSession/User each time.
+ * The cache is strictly request-scoped (React's per-request cache() semantics)
+ * — it never persists across requests or users. `pathname` is a real argument
+ * (not folded into a shared options object) specifically so it stays part of
+ * the cache key, since it changes the mustChangePassword redirect behavior.
  */
-export async function requireAdmin(options?: {
+export const requireAdmin = cache(async function requireAdmin(
   /** Pass the current pathname so mustChangePassword redirect can be skipped on the password-change page itself. */
-  pathname?: string;
+  pathname?: string,
   /** When true, throws a Response instead of calling redirect() — suitable for Route Handlers. */
-  apiMode?: boolean;
-}): Promise<AdminContext> {
+  apiMode?: boolean
+): Promise<AdminContext> {
   const session = await auth();
   const token = (session as any)?._token ?? session;
   const sid: string | undefined = (session?.user as any)?.sid;
@@ -50,7 +59,7 @@ export async function requireAdmin(options?: {
    * clear the cookie before redirecting to /admin/login for real.
    */
   async function deny(reason: string): Promise<never> {
-    if (options?.apiMode) {
+    if (apiMode) {
       // Route Handlers/Server Actions CAN mutate cookies directly.
       await clearAuthCookies();
       throw new Response(JSON.stringify({ error: reason }), {
@@ -92,9 +101,9 @@ export async function requireAdmin(options?: {
 
   // mustChangePassword enforcement
   const changePwPath = "/admin/settings/security/change-password";
-  const currentPath = options?.pathname ?? "";
+  const currentPath = pathname ?? "";
   if (owner.mustChangePassword && currentPath !== changePwPath && currentPath !== "/api/auth/logout") {
-    if (options?.apiMode) {
+    if (apiMode) {
       throw new Response(JSON.stringify({ error: "must-change-password", redirect: changePwPath }), {
         status: 403,
         headers: { "Content-Type": "application/json" },
@@ -120,7 +129,7 @@ export async function requireAdmin(options?: {
     loginAccountId: tracked.accountId,
     mustChangePassword: owner.mustChangePassword,
   };
-}
+});
 
 /**
  * Non-throwing owner check for PUBLIC pages, where an unauthenticated guest is
@@ -172,7 +181,7 @@ export async function safeRequireAdmin(
   | { context: null; response: Response }
 > {
   try {
-    const context = await requireAdmin({ apiMode: true, pathname: options?.pathname });
+    const context = await requireAdmin(options?.pathname, true);
     return { context, response: null };
   } catch (e) {
     if (e instanceof Response) return { context: null, response: e };

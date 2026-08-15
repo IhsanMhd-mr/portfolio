@@ -1,15 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { User, Save, Image as ImageIcon, FileText } from "lucide-react";
+import dynamic from "next/dynamic";
+import { User, Save } from "lucide-react";
 import { updateProfileAction } from "@/app/admin/profile/actions";
 
-interface MediaAsset {
-  id: string;
-  filename: string;
-  mimeType: string | null;
-  kind: string;
-}
+const MediaPickerModal = dynamic(() => import("@/components/admin/MediaPickerModal"));
 
 interface ProfileFormProps {
   profile: {
@@ -19,23 +15,23 @@ interface ProfileFormProps {
     aboutBio: string;
     profileImageId: string | null;
     cvFileId: string | null;
+    profileImage: { filename: string; url: string } | null;
+    cvFile: { filename: string; url: string } | null;
   };
-  allMedia: MediaAsset[];
 }
 
-export default function ProfileForm({ profile, allMedia }: ProfileFormProps) {
+export default function ProfileForm({ profile }: ProfileFormProps) {
   const [fullName, setFullName] = useState(profile.fullName);
   const [tagline, setTagline] = useState(profile.tagline || "");
   const [aboutBio, setAboutBio] = useState(profile.aboutBio);
   const [profileImageId, setProfileImageId] = useState(profile.profileImageId || "");
+  const [profileImagePreview, setProfileImagePreview] = useState(profile.profileImage);
   const [cvFileId, setCvFileId] = useState(profile.cvFileId || "");
+  const [cvFilePreview, setCvFilePreview] = useState(profile.cvFile);
 
   const [isPending, startTransition] = useTransition();
   const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-
-  const images = allMedia.filter((m) => m.kind === "IMAGE" || m.kind === "LOGO");
-  const documents = allMedia.filter((m) => m.kind === "DOCUMENT");
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -127,46 +123,32 @@ export default function ProfileForm({ profile, allMedia }: ProfileFormProps) {
 
       <div className="grid gap-6 sm:grid-cols-2">
         <div className="space-y-2">
-          <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold flex items-center gap-1.5">
-            <ImageIcon size={12} />
-            Avatar (from Media Library)
-          </label>
-          <select
-            value={profileImageId}
-            onChange={(e) => setProfileImageId(e.target.value)}
-            disabled={isPending}
-            className={inputClass}
-          >
-            <option value="">-- No avatar selected --</option>
-            {images.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.filename}
-              </option>
-            ))}
-          </select>
+          <MediaPickerModal
+            mode="single"
+            label="Avatar (from Media Library)"
+            defaultValue={profileImageId || null}
+            defaultPreview={profileImagePreview}
+            onSelect={(id, preview) => {
+              setProfileImageId(id);
+              setProfileImagePreview(preview);
+            }}
+          />
           <p className="text-[10px] text-[var(--a-faint)]">
             Upload new images from the Media Library, then select one here.
           </p>
         </div>
 
         <div className="space-y-2">
-          <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold flex items-center gap-1.5">
-            <FileText size={12} />
-            Resume / CV (from Media Library)
-          </label>
-          <select
-            value={cvFileId}
-            onChange={(e) => setCvFileId(e.target.value)}
-            disabled={isPending}
-            className={inputClass}
-          >
-            <option value="">-- No resume selected --</option>
-            {documents.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.filename}
-              </option>
-            ))}
-          </select>
+          <MediaPickerModal
+            mode="single"
+            label="Resume / CV (from Media Library)"
+            defaultValue={cvFileId || null}
+            defaultPreview={cvFilePreview}
+            onSelect={(id, preview) => {
+              setCvFileId(id);
+              setCvFilePreview(preview);
+            }}
+          />
           <p className="text-[10px] text-[var(--a-faint)]">
             Upload a PDF as a Document in the Media Library, then select it here.
           </p>

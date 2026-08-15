@@ -47,3 +47,10 @@ export async function reorderTechnologiesAction(ids: string[]) {
   revalidatePath("/admin/technologies");
   return result;
 }
+
+export async function moveTechnologyOrderAction(id: string, direction: "up" | "down") {
+  const context = await getAuditContext();
+  const result = await TechnologyService.moveOrder(id, direction, context);
+  revalidatePath("/admin/technologies");
+  return result;
+}

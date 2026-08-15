@@ -1,37 +1,47 @@
 import db from "@/lib/database";
-import { GraduationCap, Plus, Trash2, Save, Eye, EyeOff, ArrowUp, ArrowDown } from "lucide-react";
-import { 
-  createEducationAction, 
-  updateEducationAction, 
-  deleteEducationAction, 
-  reorderEducationAction 
+import dynamic from "next/dynamic";
+import { GraduationCap, Trash2, Save, Eye, EyeOff, ArrowUp, ArrowDown } from "lucide-react";
+import Pagination from "@/components/admin/Pagination";
+import {
+  createEducationAction,
+  updateEducationAction,
+  deleteEducationAction,
+  moveEducationOrderAction,
 } from "./actions";
 
-export default async function AdminEducationPage() {
-  const [educationRaw, allMedia] = await Promise.all([
-    db.education.findMany({
-      where: { deletedAt: null },
-      include: { versions: true },
-    }),
-    db.mediaAsset.findMany({
-      where: { deletedAt: null },
-      orderBy: { createdAt: "desc" },
+const MediaPickerModal = dynamic(() => import("@/components/admin/MediaPickerModal"));
+const AddItemModal = dynamic(() => import("@/components/admin/AddItemModal"));
+
+const PAGE_SIZE = 20;
+
+interface PageProps {
+  searchParams: Promise<{ page?: string }>;
+}
+
+export default async function AdminEducationPage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const rawPage = parseInt(params.page ?? "1", 10);
+  const page = Number.isFinite(rawPage) && rawPage >= 1 ? rawPage : 1;
+
+  // Query EducationVersion (DRAFT) directly so `order` can be sorted/paginated
+  // at the database boundary — Prisma can't orderBy a to-many relation's field
+  // on the parent Education model.
+  const [total, draftVersions] = await Promise.all([
+    db.educationVersion.count({ where: { state: "DRAFT" } }),
+    db.educationVersion.findMany({
+      where: { state: "DRAFT" },
+      orderBy: [{ order: "asc" }, { id: "asc" }],
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+      include: { education: true, logo: { select: { url: true } } },
     }),
   ]);
 
-  // Resolve draft versions
-  const education = educationRaw.map((edu) => {
-    const draft = edu.versions.find((v) => v.state === "DRAFT");
-    const published = edu.versions.find((v) => v.state === "PUBLISHED");
-    return {
-      ...edu,
-      draft,
-      published,
-    };
-  });
-
-  // Sort by manualOrder of draft versions
-  education.sort((a, b) => (a.draft?.order || 0) - (b.draft?.order || 0));
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const education = draftVersions.map((draft) => ({
+    id: draft.education.id,
+    draft,
+  }));
 
   async function handleCreateEducation(formData: FormData) {
     "use server";
@@ -65,24 +75,9 @@ export default async function AdminEducationPage() {
     await deleteEducationAction(id);
   }
 
-  async function handleMoveUp(index: number) {
+  async function handleMove(id: string, direction: "up" | "down") {
     "use server";
-    if (index === 0) return;
-    const ids = education.map((e) => e.id);
-    const temp = ids[index];
-    ids[index] = ids[index - 1];
-    ids[index - 1] = temp;
-    await reorderEducationAction(ids);
-  }
-
-  async function handleMoveDown(index: number) {
-    "use server";
-    if (index === education.length - 1) return;
-    const ids = education.map((e) => e.id);
-    const temp = ids[index];
-    ids[index] = ids[index + 1];
-    ids[index + 1] = temp;
-    await reorderEducationAction(ids);
+    await moveEducationOrderAction(id, direction);
   }
 
   return (
@@ -99,24 +94,22 @@ export default async function AdminEducationPage() {
         <div className="lg:col-span-8 border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] bg-[var(--a-surface)] overflow-hidden" style={{ boxShadow: "var(--a-shadow)" }}>
           <div className="p-4 border-b border-solid border-[var(--a-line)] bg-[var(--a-inset)] flex items-center gap-2 text-xs font-mono text-[var(--a-faint)]">
             <GraduationCap size={14} />
-            <span>QUALIFICATIONS ({education.length})</span>
+            <span>QUALIFICATIONS ({total})</span>
           </div>
 
           <div className="divide-y divide-solid divide-[var(--a-line)] text-xs">
             {education.map((edu, idx) => {
               const draft = edu.draft;
-              if (!draft) return null;
-
-              // Find logo
-              const logoAsset = allMedia.find((m) => m.id === draft.logoId);
+              const isFirstOnPage = page === 1 && idx === 0;
+              const isLastOnPage = page === totalPages && idx === education.length - 1;
 
               return (
                 <div key={edu.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-[var(--a-inset)]/30">
                   <div className="flex items-start gap-3">
                     {/* Logo Display */}
                     <div className="w-8 h-8 rounded bg-[var(--a-inset)] border border-solid border-[var(--a-line)] overflow-hidden flex items-center justify-center flex-shrink-0">
-                      {logoAsset ? (
-                        <img src={logoAsset.url} alt={draft.institution} className="w-full h-full object-contain" />
+                      {draft.logo ? (
+                        <img src={draft.logo.url} alt={draft.institution} className="w-full h-full object-contain" />
                       ) : (
                         <GraduationCap size={14} className="text-[var(--a-faint)]" />
                       )}
@@ -139,19 +132,19 @@ export default async function AdminEducationPage() {
                   <div className="flex items-center gap-3">
                     {/* Shift order */}
                     <div className="flex items-center gap-0.5">
-                      <form action={handleMoveUp.bind(null, idx)}>
+                      <form action={handleMove.bind(null, edu.id, "up")}>
                         <button
                           type="submit"
-                          disabled={idx === 0}
+                          disabled={isFirstOnPage}
                           className="p-1 hover:bg-[var(--a-inset)] text-[var(--a-faint)] hover:text-[var(--a-soft)] disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
                         >
                           <ArrowUp size={12} />
                         </button>
                       </form>
-                      <form action={handleMoveDown.bind(null, idx)}>
+                      <form action={handleMove.bind(null, edu.id, "down")}>
                         <button
                           type="submit"
-                          disabled={idx === education.length - 1}
+                          disabled={isLastOnPage}
                           className="p-1 hover:bg-[var(--a-inset)] text-[var(--a-faint)] hover:text-[var(--a-soft)] disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
                         >
                           <ArrowDown size={12} />
@@ -187,15 +180,15 @@ export default async function AdminEducationPage() {
               <p className="text-center py-12 text-[var(--a-faint)] font-mono">// NO QUALIFICATIONS SEEDED</p>
             )}
           </div>
+
+          <div className="px-4 pb-4">
+            <Pagination currentPage={page} totalPages={totalPages} buildHref={(p) => `/admin/education?page=${p}`} />
+          </div>
         </div>
 
-        {/* Right Quick Add Form */}
-        <div className="lg:col-span-4 p-6 border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] bg-[var(--a-surface)] space-y-6" style={{ boxShadow: "var(--a-shadow)" }}>
-          <h3 className="font-bold text-sm text-[var(--a-ink)] border-b border-solid border-[var(--a-line)] pb-3 mb-2 flex items-center gap-2">
-            <Plus size={16} className="text-[var(--a-primary)]" />
-            Add Qualification
-          </h3>
-
+        {/* Right Quick Add */}
+        <div className="lg:col-span-4">
+          <AddItemModal triggerLabel="Add Qualification" title="Add Qualification">
           <form action={handleCreateEducation} className="space-y-4">
             <div className="space-y-1">
               <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Institution</label>
@@ -241,20 +234,7 @@ export default async function AdminEducationPage() {
               </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Institution Logo</label>
-              <select
-                name="logoId"
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-inset)] focus:outline-none focus:border-[var(--a-primary)]"
-              >
-                <option value="">-- No Logo Selected --</option>
-                {allMedia.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.filename}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <MediaPickerModal name="logoId" label="Institution Logo" mode="single" />
 
             <div className="space-y-1">
               <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Short Description</label>
@@ -274,6 +254,7 @@ export default async function AdminEducationPage() {
               Add Qualification
             </button>
           </form>
+          </AddItemModal>
         </div>
       </div>
     </div>

@@ -1,12 +1,16 @@
 import db from "@/lib/database";
+import dynamic from "next/dynamic";
 import { requireAdmin } from "@/lib/require-admin";
 import ProfileForm from "@/components/admin/profile/ProfileForm";
-import SocialHandlesManager from "@/components/admin/profile/SocialHandlesManager";
+
+// dnd-kit (used by the handle-reorder drag-and-drop) is only needed on this
+// route — dynamic() keeps it out of shared admin chunks/other pages' initial JS.
+const SocialHandlesManager = dynamic(() => import("@/components/admin/profile/SocialHandlesManager"));
 
 export const metadata = { title: "Profile & Social Handles — Admin" };
 
 export default async function AdminProfilePage() {
-  await requireAdmin({ pathname: "/admin/profile" });
+  await requireAdmin("/admin/profile");
 
   let profile = await db.siteProfile.findFirst({
     include: { profileImage: true, cvFile: true },
@@ -25,10 +29,7 @@ export default async function AdminProfilePage() {
     });
   }
 
-  const [allMedia, socialHandles] = await Promise.all([
-    db.mediaAsset.findMany({ where: { deletedAt: null }, orderBy: { createdAt: "desc" } }),
-    db.socialLink.findMany({ orderBy: { order: "asc" } }),
-  ]);
+  const socialHandles = await db.socialLink.findMany({ orderBy: { order: "asc" } });
 
   return (
     <div className="space-y-8 max-w-4xl">
@@ -39,7 +40,7 @@ export default async function AdminProfilePage() {
         </p>
       </div>
 
-      <ProfileForm profile={profile} allMedia={allMedia} />
+      <ProfileForm profile={profile} />
 
       <SocialHandlesManager initialHandles={socialHandles} />
     </div>

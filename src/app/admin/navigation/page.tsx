@@ -1,4 +1,5 @@
 import { requireAdmin, getValidatedOwner } from "@/lib/require-admin";
+import db from "@/lib/database";
 import { NavItemService } from "@/services/nav-item.service";
 import { revalidatePath } from "next/cache";
 import { Navigation, Plus, Trash2, Eye, EyeOff, ArrowUp, ArrowDown } from "lucide-react";
@@ -9,7 +10,7 @@ const inputCls =
   "w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-surface)] focus:outline-none focus:border-[var(--a-primary)]";
 
 export default async function AdminNavigationPage() {
-  await requireAdmin({ pathname: "/admin/navigation" });
+  await requireAdmin("/admin/navigation");
   const items = await NavItemService.list();
 
   async function createAction(formData: FormData) {
@@ -31,18 +32,15 @@ export default async function AdminNavigationPage() {
     const ctx = { actorId: owner.userId, loginMethod: owner.loginMethod, loginAccountId: owner.loginAccountId };
     const id = String(formData.get("id") || "");
     const op = String(formData.get("op") || "");
-    const all = await NavItemService.list();
-    const idx = all.findIndex((n) => n.id === id);
-    if (idx === -1) return;
 
-    if (op === "delete") await NavItemService.remove(id, ctx);
-    else if (op === "toggle") await NavItemService.update(id, { label: all[idx].label, target: all[idx].target, enabled: !all[idx].enabled }, ctx);
-    else if (op === "up" || op === "down") {
-      const swap = op === "up" ? idx - 1 : idx + 1;
-      if (swap < 0 || swap >= all.length) return;
-      const ids = all.map((n) => n.id);
-      [ids[idx], ids[swap]] = [ids[swap], ids[idx]];
-      await NavItemService.reorder(ids, ctx);
+    if (op === "delete") {
+      await NavItemService.remove(id, ctx);
+    } else if (op === "toggle") {
+      const current = await db.navItem.findUnique({ where: { id } });
+      if (!current) return;
+      await NavItemService.update(id, { label: current.label, target: current.target, enabled: !current.enabled }, ctx);
+    } else if (op === "up" || op === "down") {
+      await NavItemService.moveOrder(id, op, ctx);
     }
     revalidatePath("/admin/navigation");
     revalidatePath("/");

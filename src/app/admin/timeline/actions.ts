@@ -47,3 +47,10 @@ export async function reorderTimelineEntriesAction(ids: string[]) {
   revalidatePath("/admin/timeline");
   return result;
 }
+
+export async function moveTimelineEntryOrderAction(id: string, direction: "up" | "down") {
+  const context = await getAuditContext();
+  const result = await TimelineService.moveOrder(id, direction, context);
+  revalidatePath("/admin/timeline");
+  return result;
+}

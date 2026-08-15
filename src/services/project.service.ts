@@ -641,4 +641,54 @@ export class ProjectService {
       return true;
     });
   }
+
+  /**
+   * Move a project's draft one position up/down by swapping `manualOrder`
+   * with its immediate neighbor — correct under pagination, unlike
+   * `reorderProjects` which needs the full ordered id list.
+   */
+  static async moveOrder(
+    id: string,
+    direction: "up" | "down",
+    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+  ) {
+    return await db.$transaction(async (tx) => {
+      const project = await tx.project.findUnique({
+        where: { id },
+        include: { versions: { where: { state: "DRAFT" }, take: 1 } },
+      });
+      const current = project?.versions[0];
+      if (!current) return false;
+
+      const neighbor = await tx.projectVersion.findFirst({
+        where: {
+          state: "DRAFT",
+          manualOrder: direction === "up" ? { lt: current.manualOrder } : { gt: current.manualOrder },
+        },
+        orderBy: direction === "up"
+          ? [{ manualOrder: "desc" }, { id: "desc" }]
+          : [{ manualOrder: "asc" }, { id: "asc" }],
+      });
+      if (!neighbor) return false;
+
+      await tx.projectVersion.update({ where: { id: current.id }, data: { manualOrder: neighbor.manualOrder } });
+      await tx.projectVersion.update({ where: { id: neighbor.id }, data: { manualOrder: current.manualOrder } });
+
+      await recordAudit({
+        action: "PROJECT_REORDERED",
+        entityType: "Project",
+        entityId: id,
+        summary: `Moved a project ${direction} in the manual sequence.`,
+        context: auditContext,
+        tx,
+      });
+
+      await tx.page.update({
+        where: { key: "home" },
+        data: { hasUnpublishedChanges: true },
+      });
+
+      return true;
+    });
+  }
 }

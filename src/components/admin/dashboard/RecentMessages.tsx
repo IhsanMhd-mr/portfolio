@@ -66,7 +66,7 @@ export default function RecentMessages({ messages, onMarkRead }: MessagesProps) 
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-[var(--a-ink)]">{msg.name}</span>
                         {isUnread && (
-                          <span className="text-[9px] font-bold bg-[var(--a-warn-bg)]0 text-white px-1.5 py-0.5 rounded uppercase tracking-wider scale-90">
+                          <span className="text-[9px] font-bold bg-[var(--a-warn)] text-white px-1.5 py-0.5 rounded uppercase tracking-wider scale-90">
                             New
                           </span>
                         )}
