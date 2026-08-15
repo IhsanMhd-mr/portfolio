@@ -57,7 +57,7 @@ export default function ModernGlassTemplate({
           if (registryKey === "education-experience") {
             return (
               <ScrollReveal key={section.id} index={index}>
-                <div className="backdrop-blur-md bg-slate-900/5 p-8 rounded-2xl border border-solid border-white/10 shadow-lg">
+                <div className="transition-transform duration-300 hover:scale-[1.002]">
                   <SectionComponent
                     education={education}
                     experience={experience}
