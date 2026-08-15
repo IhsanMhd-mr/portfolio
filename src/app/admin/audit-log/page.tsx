@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Fragment } from "react";
 import { ClipboardList, ChevronDown, ChevronUp, Search, Filter } from "lucide-react";
 
 interface AuditEntry {
@@ -25,26 +25,26 @@ interface AuditResponse {
 }
 
 const ACTION_COLORS: Record<string, string> = {
-  LOGIN_SUCCESS: "text-emerald-600 bg-emerald-50",
-  LOGIN_FAILED: "text-red-600 bg-red-50",
-  LOGOUT: "text-slate-600 bg-slate-100",
-  PASSWORD_CHANGED: "text-amber-600 bg-amber-50",
-  GOOGLE_LINKED: "text-blue-600 bg-blue-50",
+  LOGIN_SUCCESS: "text-[var(--a-success-ink)] bg-[var(--a-success-bg)]",
+  LOGIN_FAILED: "text-[var(--a-danger-ink)] bg-[var(--a-danger-bg)]",
+  LOGOUT: "text-[var(--a-soft)] bg-[var(--a-inset)]",
+  PASSWORD_CHANGED: "text-[var(--a-warn-ink)] bg-[var(--a-warn-bg)]",
+  GOOGLE_LINKED: "text-[var(--a-info-ink)] bg-[var(--a-info-bg)]",
   GOOGLE_UNLINKED: "text-orange-600 bg-orange-50",
   SESSION_REVOKED: "text-purple-600 bg-purple-50",
   PROJECT_CREATED: "text-teal-600 bg-teal-50",
   PROJECT_UPDATED: "text-teal-600 bg-teal-50",
-  PROJECT_DELETED: "text-red-600 bg-red-50",
-  SECTION_ADDED: "text-blue-600 bg-blue-50",
-  SECTION_UPDATED: "text-blue-600 bg-blue-50",
-  SECTION_DELETED: "text-red-600 bg-red-50",
-  SECTION_REORDERED: "text-blue-500 bg-blue-50",
+  PROJECT_DELETED: "text-[var(--a-danger-ink)] bg-[var(--a-danger-bg)]",
+  SECTION_ADDED: "text-[var(--a-info-ink)] bg-[var(--a-info-bg)]",
+  SECTION_UPDATED: "text-[var(--a-info-ink)] bg-[var(--a-info-bg)]",
+  SECTION_DELETED: "text-[var(--a-danger-ink)] bg-[var(--a-danger-bg)]",
+  SECTION_REORDERED: "text-[var(--a-info-ink)] bg-[var(--a-info-bg)]",
   TEMPLATE_CHANGED: "text-violet-600 bg-violet-50",
-  PAGE_PUBLISHED: "text-green-700 bg-green-50",
+  PAGE_PUBLISHED: "text-[var(--a-success-ink)] bg-[var(--a-success-bg)]",
 };
 
 function ActionBadge({ action }: { action: string }) {
-  const cls = ACTION_COLORS[action] ?? "text-gray-600 bg-gray-100";
+  const cls = ACTION_COLORS[action] ?? "text-[var(--a-soft)] bg-[var(--a-inset)]";
   return (
     <span className={`text-xs font-mono font-semibold px-2 py-0.5 rounded ${cls}`}>
       {action}
@@ -152,7 +152,7 @@ export default function AuditLogPage() {
                 </tr>
               ) : (
                 data.entries.map((entry) => (
-                  <>
+                  <Fragment key={entry.id}>
                     <tr
                       key={entry.id}
                       className="hover:bg-[var(--a-bg)] transition-colors cursor-pointer"
@@ -179,7 +179,7 @@ export default function AuditLogPage() {
                         ) : null}
                       </td>
                     </tr>
-                    {expanded === entry.id && (entry.beforeJson || entry.afterJson) && (
+                    {expanded === entry.id && Boolean(entry.beforeJson || entry.afterJson) && (
                       <tr key={`${entry.id}-detail`}>
                         <td colSpan={6} className="px-6 py-4 bg-[var(--a-bg)]">
                           <div className="grid sm:grid-cols-2 gap-4">
@@ -189,7 +189,7 @@ export default function AuditLogPage() {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 ))
               )}
             </tbody>

@@ -1,7 +1,7 @@
 import db from "@/lib/database";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Save, Briefcase, Trash2, Eye, Star, Link as LinkIcon, FileText, Image as ImageIcon } from "lucide-react";
+import { ArrowLeft, Save, Briefcase, Eye, Star, Link as LinkIcon, FileText, Image as ImageIcon } from "lucide-react";
 import { updateProjectAction } from "../../actions";
 
 interface EditProjectPageProps {
@@ -153,7 +153,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
       <div className="flex items-center gap-4">
         <Link 
           href="/admin/projects"
-          className="p-2 border border-solid border-[var(--a-line)] hover:bg-slate-100 rounded-[var(--a-r-sm)] text-[var(--a-soft)]"
+          className="p-2 border border-solid border-[var(--a-line)] hover:bg-[var(--a-inset)] rounded-[var(--a-r-sm)] text-[var(--a-soft)]"
         >
           <ArrowLeft size={16} />
         </Link>
@@ -181,7 +181,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
                 name="title"
                 required
                 defaultValue={draft.title}
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)]"
               />
             </div>
             <div className="space-y-2">
@@ -191,7 +191,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
                 name="slug"
                 required
                 defaultValue={project.slug}
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)]"
               />
             </div>
           </div>
@@ -203,7 +203,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
               name="summary"
               required
               defaultValue={draft.summary}
-              className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50"
+              className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)]"
             />
           </div>
 
@@ -213,7 +213,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
               <select
                 name="category"
                 defaultValue={draft.category}
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-slate-50 focus:outline-none focus:border-[var(--a-primary)]"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-inset)] focus:outline-none focus:border-[var(--a-primary)]"
               >
                 <option value="WEB">Web Platform</option>
                 <option value="FULL_STACK">Full-Stack System</option>
@@ -229,7 +229,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
               <select
                 name="status"
                 defaultValue={draft.status}
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-slate-50 focus:outline-none focus:border-[var(--a-primary)]"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-inset)] focus:outline-none focus:border-[var(--a-primary)]"
               >
                 <option value="PLANNED">Planned</option>
                 <option value="IN_PROGRESS">In Progress</option>
@@ -245,7 +245,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
                 type="date"
                 name="startDate"
                 defaultValue={defaultStartDate}
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)]"
               />
             </div>
 
@@ -255,7 +255,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
                 type="date"
                 name="endDate"
                 defaultValue={defaultEndDate}
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)]"
               />
             </div>
           </div>
@@ -286,7 +286,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
               <select
                 name="thumbnailId"
                 defaultValue={draft.thumbnailId || ""}
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-slate-50 focus:outline-none"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-inset)] focus:outline-none"
               >
                 <option value="">-- No Thumbnail Selected --</option>
                 {allMedia.map((m) => (
@@ -303,7 +303,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
               <select
                 name="coverImageId"
                 defaultValue={draft.coverImageId || ""}
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-slate-50 focus:outline-none"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-inset)] focus:outline-none"
               >
                 <option value="">-- No Cover Selected --</option>
                 {allMedia.map((m) => (
@@ -320,7 +320,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
               <select
                 name="architectureImageId"
                 defaultValue={draft.architectureImageId || ""}
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-slate-50 focus:outline-none"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-inset)] focus:outline-none"
               >
                 <option value="">-- No Architecture Selected --</option>
                 {allMedia.map((m) => (
@@ -344,7 +344,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
               const name = tech.versions.find((v) => v.state === "DRAFT")?.name || tech.slug;
               const isLinked = project.technologies.some((t) => t.technologyId === tech.id);
               return (
-                <div key={tech.id} className="flex items-center gap-2 p-2 border border-solid border-slate-100 hover:bg-slate-50 rounded">
+                <div key={tech.id} className="flex items-center gap-2 p-2 border border-solid border-[var(--a-line)] hover:bg-[var(--a-inset)] rounded">
                   <input
                     type="checkbox"
                     id={`tech_${tech.id}`}
@@ -376,7 +376,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
                 name="myRole"
                 defaultValue={draft.myRole || ""}
                 placeholder="Sole Developer, Technical Lead, Architect"
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)]"
               />
             </div>
 
@@ -386,7 +386,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
                 name="problem"
                 rows={3}
                 defaultValue={draft.problem || ""}
-                className="w-full px-3 py-2 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50 resize-y"
+                className="w-full px-3 py-2 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)] resize-y"
               />
             </div>
 
@@ -396,7 +396,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
                 name="solution"
                 rows={3}
                 defaultValue={draft.solution || ""}
-                className="w-full px-3 py-2 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50 resize-y"
+                className="w-full px-3 py-2 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)] resize-y"
               />
             </div>
 
@@ -406,7 +406,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
                 name="mainFeatures"
                 rows={3}
                 defaultValue={draft.mainFeatures || ""}
-                className="w-full px-3 py-2 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50 resize-y"
+                className="w-full px-3 py-2 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)] resize-y"
               />
             </div>
 
@@ -416,7 +416,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
                 name="systemArchitecture"
                 rows={3}
                 defaultValue={draft.systemArchitecture || ""}
-                className="w-full px-3 py-2 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50 resize-y"
+                className="w-full px-3 py-2 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)] resize-y"
               />
             </div>
 
@@ -426,7 +426,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
                 name="developmentProcess"
                 rows={3}
                 defaultValue={draft.developmentProcess || ""}
-                className="w-full px-3 py-2 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50 resize-y"
+                className="w-full px-3 py-2 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)] resize-y"
               />
             </div>
 
@@ -437,7 +437,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
                   name="challenges"
                   rows={3}
                   defaultValue={draft.challenges || ""}
-                  className="w-full px-3 py-2 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50 resize-y"
+                  className="w-full px-3 py-2 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)] resize-y"
                 />
               </div>
               <div className="space-y-2">
@@ -446,7 +446,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
                   name="solutionsDetail"
                   rows={3}
                   defaultValue={draft.solutionsDetail || ""}
-                  className="w-full px-3 py-2 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50 resize-y"
+                  className="w-full px-3 py-2 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)] resize-y"
                 />
               </div>
             </div>
@@ -458,7 +458,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
                   name="testing"
                   rows={3}
                   defaultValue={draft.testing || ""}
-                  className="w-full px-3 py-2 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50 resize-y"
+                  className="w-full px-3 py-2 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)] resize-y"
                 />
               </div>
               <div className="space-y-2">
@@ -467,7 +467,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
                   name="results"
                   rows={3}
                   defaultValue={draft.results || ""}
-                  className="w-full px-3 py-2 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50 resize-y"
+                  className="w-full px-3 py-2 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)] resize-y"
                 />
               </div>
               <div className="space-y-2">
@@ -476,7 +476,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
                   name="lessonsLearned"
                   rows={3}
                   defaultValue={draft.lessonsLearned || ""}
-                  className="w-full px-3 py-2 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50 resize-y"
+                  className="w-full px-3 py-2 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)] resize-y"
                 />
               </div>
             </div>
@@ -498,7 +498,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
                 name="liveDemoUrl"
                 defaultValue={draft.liveDemoUrl || ""}
                 placeholder="https://example.com"
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)]"
               />
             </div>
             <div className="space-y-2">
@@ -508,7 +508,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
                 name="githubUrl"
                 defaultValue={draft.githubUrl || ""}
                 placeholder="https://github.com/owner/repo"
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)]"
               />
             </div>
             <div className="space-y-2">
@@ -518,7 +518,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
                 name="reportUrl"
                 defaultValue={draft.reportUrl || ""}
                 placeholder="/documents/report.pdf"
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)]"
               />
             </div>
             <div className="space-y-2">
@@ -528,7 +528,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
                 name="documentationUrl"
                 defaultValue={draft.documentationUrl || ""}
                 placeholder="https://docs.example.com"
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)]"
               />
             </div>
             <div className="space-y-2">
@@ -538,7 +538,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
                 name="videoUrl"
                 defaultValue={draft.videoUrl || ""}
                 placeholder="https://youtube.com/watch?v=..."
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)]"
               />
             </div>
             <div className="space-y-2">
@@ -548,7 +548,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
                 name="presentationUrl"
                 defaultValue={draft.presentationUrl || ""}
                 placeholder="https://slideshare.net/..."
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)]"
               />
             </div>
           </div>
@@ -569,7 +569,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
               const galleryItem = project.images.find((img) => img.mediaId === m.id);
               const isChecked = !!galleryItem;
               return (
-                <div key={m.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 border border-solid border-slate-100 rounded hover:bg-slate-50">
+                <div key={m.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 border border-solid border-[var(--a-line)] rounded hover:bg-[var(--a-inset)]">
                   <div className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -612,7 +612,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
                 name="seoTitle"
                 defaultValue={draft.seoTitle || ""}
                 placeholder="Alternative title tag..."
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)]"
               />
             </div>
             <div className="space-y-2">
@@ -622,7 +622,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
                 name="seoDescription"
                 defaultValue={draft.seoDescription || ""}
                 placeholder="Meta description content..."
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)]"
               />
             </div>
           </div>
@@ -639,7 +639,7 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
           </button>
           <Link
             href="/admin/projects"
-            className="flex items-center justify-center gap-2 px-6 py-2.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-[var(--a-soft)] hover:bg-slate-50 transition-colors text-xs font-semibold"
+            className="flex items-center justify-center gap-2 px-6 py-2.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-[var(--a-soft)] hover:bg-[var(--a-inset)] transition-colors text-xs font-semibold"
           >
             Cancel
           </Link>

@@ -164,7 +164,7 @@ export default function SecuritySettingsPage() {
             </div>
           </div>
           {pwStatus && (
-            <p className={`text-sm ${pwStatus.type === "success" ? "text-green-600" : "text-red-500"}`}>
+            <p className={`text-sm ${pwStatus.type === "success" ? "text-[var(--a-success-ink)]" : "text-[var(--a-danger-ink)]"}`}>
               {pwStatus.msg}
             </p>
           )}
@@ -204,7 +204,7 @@ export default function SecuritySettingsPage() {
                 <button
                   onClick={() => unlinkGoogle(acc.id)}
                   disabled={unlinking === acc.id}
-                  className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 font-medium transition-colors disabled:opacity-50 bg-transparent border-none cursor-pointer"
+                  className="flex items-center gap-1 text-xs text-[var(--a-danger-ink)] hover:text-[var(--a-danger-ink)] font-medium transition-colors disabled:opacity-50 bg-transparent border-none cursor-pointer"
                 >
                   <Link2Off size={13} />
                   {unlinking === acc.id ? "Unlinking…" : "Unlink"}
@@ -237,7 +237,7 @@ export default function SecuritySettingsPage() {
                       {s.loginMethod === "LOCAL" ? "Username / Password" : "Google"}
                     </span>
                     {s.isCurrent && (
-                      <span className="text-xs px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded font-medium">Current</span>
+                      <span className="text-xs px-1.5 py-0.5 bg-[var(--a-success-bg)] text-[var(--a-success-ink)] rounded font-medium">Current</span>
                     )}
                   </div>
                   <p className="text-xs text-[var(--a-soft)]">IP: {s.ipAddress ?? "unknown"}</p>
@@ -249,7 +249,7 @@ export default function SecuritySettingsPage() {
                   <button
                     onClick={() => revokeSession(s.sid)}
                     disabled={revoking === s.sid}
-                    className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 font-medium transition-colors disabled:opacity-50 shrink-0 bg-transparent border-none cursor-pointer"
+                    className="flex items-center gap-1 text-xs text-[var(--a-danger-ink)] hover:text-[var(--a-danger-ink)] font-medium transition-colors disabled:opacity-50 shrink-0 bg-transparent border-none cursor-pointer"
                   >
                     <LogOut size={13} />
                     {revoking === s.sid ? "Revoking…" : "Revoke"}

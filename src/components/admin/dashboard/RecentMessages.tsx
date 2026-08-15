@@ -57,7 +57,7 @@ export default function RecentMessages({ messages, onMarkRead }: MessagesProps) 
                   key={msg.id}
                   className={`p-3 border border-solid rounded-[var(--a-r-sm)] text-xs relative ${
                     isUnread
-                      ? "border-amber-500 bg-amber-500/5"
+                      ? "border-[var(--a-warn)] bg-[var(--a-warn-bg)]"
                       : "border-[var(--a-line)] bg-[var(--a-surface)]"
                   }`}
                 >
@@ -66,7 +66,7 @@ export default function RecentMessages({ messages, onMarkRead }: MessagesProps) 
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-[var(--a-ink)]">{msg.name}</span>
                         {isUnread && (
-                          <span className="text-[9px] font-bold bg-amber-500 text-white px-1.5 py-0.5 rounded uppercase tracking-wider scale-90">
+                          <span className="text-[9px] font-bold bg-[var(--a-warn-bg)]0 text-white px-1.5 py-0.5 rounded uppercase tracking-wider scale-90">
                             New
                           </span>
                         )}
@@ -94,7 +94,7 @@ export default function RecentMessages({ messages, onMarkRead }: MessagesProps) 
                     {isUnread && (
                       <button
                         onClick={(e) => markAsRead(msg.id, e)}
-                        className="text-[9px] font-bold text-[var(--a-soft)] hover:text-emerald-600 flex items-center gap-1 bg-transparent border-none cursor-pointer"
+                        className="text-[9px] font-bold text-[var(--a-soft)] hover:text-[var(--a-success-ink)] flex items-center gap-1 bg-transparent border-none cursor-pointer"
                       >
                         <CheckCircle2 size={10} /> Mark Read
                       </button>

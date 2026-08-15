@@ -1,8 +1,8 @@
 import db from "@/lib/database";
 import Link from "next/link";
-import { 
-  Briefcase, Plus, Trash2, Eye, EyeOff, Check, Edit, 
-  Copy, RefreshCw, Star, ArrowUp, ArrowDown, Search, Filter 
+import {
+  Briefcase, Plus, Trash2, Eye, EyeOff, Edit,
+  Copy, Star, ArrowUp, ArrowDown, Search
 } from "lucide-react";
 import { 
   toggleProjectVisibilityAction, 
@@ -213,13 +213,13 @@ export default async function AdminProjectsPage(props: PageProps) {
         <form method="GET" className="grid gap-4 sm:grid-cols-5">
           {/* Search */}
           <div className="relative col-span-2">
-            <Search className="absolute left-3 top-2.5 text-slate-400" size={14} />
+            <Search className="absolute left-3 top-2.5 text-[var(--a-faint)]" size={14} />
             <input
               type="text"
               name="q"
               defaultValue={q}
               placeholder="Search by title..."
-              className="w-full pl-9 pr-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50"
+              className="w-full pl-9 pr-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)]"
             />
           </div>
 
@@ -228,7 +228,7 @@ export default async function AdminProjectsPage(props: PageProps) {
             <select
               name="category"
               defaultValue={categoryFilter}
-              className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-slate-50 focus:outline-none focus:border-[var(--a-primary)]"
+              className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-inset)] focus:outline-none focus:border-[var(--a-primary)]"
             >
               <option value="">All Categories</option>
               <option value="WEB">Web Platform</option>
@@ -245,7 +245,7 @@ export default async function AdminProjectsPage(props: PageProps) {
             <select
               name="status"
               defaultValue={statusFilter}
-              className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-slate-50 focus:outline-none focus:border-[var(--a-primary)]"
+              className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-inset)] focus:outline-none focus:border-[var(--a-primary)]"
             >
               <option value="">All Statuses</option>
               <option value="PLANNED">Planned</option>
@@ -261,7 +261,7 @@ export default async function AdminProjectsPage(props: PageProps) {
             <select
               name="tech"
               defaultValue={techFilter}
-              className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-slate-50 focus:outline-none focus:border-[var(--a-primary)]"
+              className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-inset)] focus:outline-none focus:border-[var(--a-primary)]"
             >
               <option value="">All Technologies</option>
               {allTechs.map((t) => (
@@ -279,11 +279,11 @@ export default async function AdminProjectsPage(props: PageProps) {
         </form>
 
         {/* Tab Selection */}
-        <div className="flex flex-wrap items-center gap-1.5 mt-4 pt-4 border-t border-solid border-[var(--a-line)] text-[11px] font-semibold text-slate-500">
+        <div className="flex flex-wrap items-center gap-1.5 mt-4 pt-4 border-t border-solid border-[var(--a-line)] text-[11px] font-semibold text-[var(--a-faint)]">
           <Link
             href={`/admin/projects?filter=all&q=${q}&category=${categoryFilter}&status=${statusFilter}&tech=${techFilter}`}
             className={`px-3 py-1 rounded-[var(--a-r-sm)] transition-colors ${
-              filter === "all" ? "bg-[var(--a-primary)] text-white" : "hover:bg-slate-100"
+              filter === "all" ? "bg-[var(--a-primary)] text-white" : "hover:bg-[var(--a-inset)]"
             }`}
           >
             All
@@ -291,7 +291,7 @@ export default async function AdminProjectsPage(props: PageProps) {
           <Link
             href={`/admin/projects?filter=published&q=${q}&category=${categoryFilter}&status=${statusFilter}&tech=${techFilter}`}
             className={`px-3 py-1 rounded-[var(--a-r-sm)] transition-colors ${
-              filter === "published" ? "bg-[var(--a-primary)] text-white" : "hover:bg-slate-100"
+              filter === "published" ? "bg-[var(--a-primary)] text-white" : "hover:bg-[var(--a-inset)]"
             }`}
           >
             Published
@@ -299,7 +299,7 @@ export default async function AdminProjectsPage(props: PageProps) {
           <Link
             href={`/admin/projects?filter=draft&q=${q}&category=${categoryFilter}&status=${statusFilter}&tech=${techFilter}`}
             className={`px-3 py-1 rounded-[var(--a-r-sm)] transition-colors ${
-              filter === "draft" ? "bg-[var(--a-primary)] text-white" : "hover:bg-slate-100"
+              filter === "draft" ? "bg-[var(--a-primary)] text-white" : "hover:bg-[var(--a-inset)]"
             }`}
           >
             Draft Changes
@@ -307,7 +307,7 @@ export default async function AdminProjectsPage(props: PageProps) {
           <Link
             href={`/admin/projects?filter=featured&q=${q}&category=${categoryFilter}&status=${statusFilter}&tech=${techFilter}`}
             className={`px-3 py-1 rounded-[var(--a-r-sm)] transition-colors ${
-              filter === "featured" ? "bg-[var(--a-primary)] text-white" : "hover:bg-slate-100"
+              filter === "featured" ? "bg-[var(--a-primary)] text-white" : "hover:bg-[var(--a-inset)]"
             }`}
           >
             Featured
@@ -315,7 +315,7 @@ export default async function AdminProjectsPage(props: PageProps) {
           <Link
             href={`/admin/projects?filter=hidden&q=${q}&category=${categoryFilter}&status=${statusFilter}&tech=${techFilter}`}
             className={`px-3 py-1 rounded-[var(--a-r-sm)] transition-colors ${
-              filter === "hidden" ? "bg-[var(--a-primary)] text-white" : "hover:bg-slate-100"
+              filter === "hidden" ? "bg-[var(--a-primary)] text-white" : "hover:bg-[var(--a-inset)]"
             }`}
           >
             Hidden
@@ -323,7 +323,7 @@ export default async function AdminProjectsPage(props: PageProps) {
           <Link
             href={`/admin/projects?filter=archived&q=${q}&category=${categoryFilter}&status=${statusFilter}&tech=${techFilter}`}
             className={`px-3 py-1 rounded-[var(--a-r-sm)] transition-colors ${
-              filter === "archived" ? "bg-[var(--a-primary)] text-white" : "hover:bg-slate-100"
+              filter === "archived" ? "bg-[var(--a-primary)] text-white" : "hover:bg-[var(--a-inset)]"
             }`}
           >
             Archived
@@ -331,7 +331,7 @@ export default async function AdminProjectsPage(props: PageProps) {
           <Link
             href={`/admin/projects?filter=trash&q=${q}&category=${categoryFilter}&status=${statusFilter}&tech=${techFilter}`}
             className={`px-3 py-1 rounded-[var(--a-r-sm)] transition-colors ${
-              filter === "trash" ? "bg-[var(--a-primary)] text-white" : "hover:bg-slate-100"
+              filter === "trash" ? "bg-[var(--a-primary)] text-white" : "hover:bg-[var(--a-inset)]"
             }`}
           >
             Trash Bin
@@ -341,7 +341,7 @@ export default async function AdminProjectsPage(props: PageProps) {
 
       {/* Projects List Card Container */}
       <div className="border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] bg-[var(--a-surface)] overflow-hidden" style={{ boxShadow: "var(--a-shadow)" }}>
-        <div className="p-4 border-b border-solid border-[var(--a-line)] bg-slate-50 flex items-center gap-2 text-xs font-mono text-[var(--a-faint)]">
+        <div className="p-4 border-b border-solid border-[var(--a-line)] bg-[var(--a-inset)] flex items-center gap-2 text-xs font-mono text-[var(--a-faint)]">
           <Briefcase size={14} />
           <span>PROJECTS REGISTRY ({filteredProjects.length})</span>
         </div>
@@ -351,20 +351,18 @@ export default async function AdminProjectsPage(props: PageProps) {
             const draft = proj.draft;
             if (!draft) return null;
 
-            const isPublished = !!proj.published;
-
             return (
-              <div key={proj.id} className="p-5 hover:bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div key={proj.id} className="p-5 hover:bg-[var(--a-inset)]/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 {/* Info block */}
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-bold text-sm text-[var(--a-ink)]">{draft.title}</span>
                     {proj.published && proj.published.title !== draft.title && (
-                      <span className="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-solid border-amber-200">
+                      <span className="text-[10px] text-[var(--a-warn-ink)] bg-[var(--a-warn-bg)] px-1.5 py-0.5 rounded border border-solid border-[var(--a-warn-ink)]/20">
                         Live: {proj.published.title}
                       </span>
                     )}
-                    <span className="text-[9px] font-mono text-[var(--a-faint)] uppercase bg-slate-100 px-2 py-0.5 rounded">
+                    <span className="text-[9px] font-mono text-[var(--a-faint)] uppercase bg-[var(--a-inset)] px-2 py-0.5 rounded">
                       {draft.category}
                     </span>
                     <span className="text-[9px] font-mono text-blue-600 bg-blue-50 px-2 py-0.5 rounded uppercase">
@@ -373,7 +371,7 @@ export default async function AdminProjectsPage(props: PageProps) {
 
                     {/* Change Indicator */}
                     {proj.changeState === "DRAFT_ONLY" && (
-                      <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-amber-100 text-amber-800 uppercase tracking-wide">
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-[var(--a-warn-bg)] text-[var(--a-warn-ink)] uppercase tracking-wide">
                         Draft Only
                       </span>
                     )}
@@ -383,7 +381,7 @@ export default async function AdminProjectsPage(props: PageProps) {
                       </span>
                     )}
                     {proj.changeState === "SYNC" && (
-                      <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-green-100 text-green-800 uppercase tracking-wide">
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-[var(--a-success-bg)] text-[var(--a-success-ink)] uppercase tracking-wide">
                         In Sync
                       </span>
                     )}
@@ -395,12 +393,12 @@ export default async function AdminProjectsPage(props: PageProps) {
                     <span>Technologies: {proj.technologies.length}</span>
                     <span>Gallery: {proj.images.length}</span>
                     {draft.featured && (
-                      <span className="flex items-center gap-0.5 text-amber-500 font-bold">
+                      <span className="flex items-center gap-0.5 text-[var(--a-warn-ink)] font-bold">
                         <Star size={10} fill="currentColor" /> Featured
                       </span>
                     )}
                   </div>
-                  <div className="text-[9px] text-slate-400 flex gap-4 pt-1">
+                  <div className="text-[9px] text-[var(--a-faint)] flex gap-4 pt-1">
                     <span>Modified: {new Date(proj.updatedAt).toLocaleString()}</span>
                     {proj.published?.publishedAt && (
                       <span>Published: {new Date(proj.published.publishedAt).toLocaleString()}</span>
@@ -417,7 +415,7 @@ export default async function AdminProjectsPage(props: PageProps) {
                         <button
                           type="submit"
                           disabled={idx === 0}
-                          className="p-1 hover:bg-slate-100 text-slate-400 hover:text-slate-600 disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
+                          className="p-1 hover:bg-[var(--a-inset)] text-[var(--a-faint)] hover:text-[var(--a-soft)] disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
                         >
                           <ArrowUp size={12} />
                         </button>
@@ -426,7 +424,7 @@ export default async function AdminProjectsPage(props: PageProps) {
                         <button
                           type="submit"
                           disabled={idx === filteredProjects.length - 1}
-                          className="p-1 hover:bg-slate-100 text-slate-400 hover:text-slate-600 disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
+                          className="p-1 hover:bg-[var(--a-inset)] text-[var(--a-faint)] hover:text-[var(--a-soft)] disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
                         >
                           <ArrowDown size={12} />
                         </button>
@@ -440,10 +438,10 @@ export default async function AdminProjectsPage(props: PageProps) {
                       <form action={handleToggleVisibility.bind(null, proj.id, draft.visible)}>
                         <button
                           type="submit"
-                          className="p-2 hover:bg-slate-100 text-[var(--a-soft)] rounded-[var(--a-r-sm)] cursor-pointer border-none bg-transparent"
+                          className="p-2 hover:bg-[var(--a-inset)] text-[var(--a-soft)] rounded-[var(--a-r-sm)] cursor-pointer border-none bg-transparent"
                           title={draft.visible ? "Hide project draft" : "Show project draft"}
                         >
-                          {draft.visible ? <Eye size={14} /> : <EyeOff size={14} className="text-red-400" />}
+                          {draft.visible ? <Eye size={14} /> : <EyeOff size={14} className="text-[var(--a-danger-ink)]" />}
                         </button>
                       </form>
 
@@ -451,7 +449,7 @@ export default async function AdminProjectsPage(props: PageProps) {
                       <form action={handleDuplicate.bind(null, proj.id)}>
                         <button
                           type="submit"
-                          className="p-2 hover:bg-slate-100 text-[var(--a-soft)] rounded-[var(--a-r-sm)] cursor-pointer border-none bg-transparent"
+                          className="p-2 hover:bg-[var(--a-inset)] text-[var(--a-soft)] rounded-[var(--a-r-sm)] cursor-pointer border-none bg-transparent"
                           title="Duplicate project draft configuration"
                         >
                           <Copy size={14} />
@@ -461,7 +459,7 @@ export default async function AdminProjectsPage(props: PageProps) {
                       {/* Edit */}
                       <Link
                         href={`/admin/projects/${proj.id}/edit`}
-                        className="p-2 hover:bg-slate-100 text-[var(--a-soft)] rounded-[var(--a-r-sm)] border border-solid border-transparent bg-transparent block"
+                        className="p-2 hover:bg-[var(--a-inset)] text-[var(--a-soft)] rounded-[var(--a-r-sm)] border border-solid border-transparent bg-transparent block"
                         title="Edit detailed case study"
                       >
                         <Edit size={14} />
@@ -471,7 +469,7 @@ export default async function AdminProjectsPage(props: PageProps) {
                       <form action={handleSoftDelete.bind(null, proj.id)}>
                         <button
                           type="submit"
-                          className="p-2 hover:bg-red-50 text-red-500 rounded-[var(--a-r-sm)] cursor-pointer border-none bg-transparent"
+                          className="p-2 hover:bg-[var(--a-danger-bg)] text-[var(--a-danger-ink)] rounded-[var(--a-r-sm)] cursor-pointer border-none bg-transparent"
                           title="Move project to trash"
                         >
                           <Trash2 size={14} />
@@ -484,7 +482,7 @@ export default async function AdminProjectsPage(props: PageProps) {
                       <form action={handleRestore.bind(null, proj.id)}>
                         <button
                           type="submit"
-                          className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white text-[10px] font-bold rounded cursor-pointer border-none"
+                          className="px-3 py-1 bg-[var(--a-success)] hover:opacity-90 text-white text-[10px] font-bold rounded cursor-pointer border-none"
                         >
                           Restore
                         </button>
@@ -501,7 +499,7 @@ export default async function AdminProjectsPage(props: PageProps) {
                       >
                         <button
                           type="submit"
-                          className="p-2 hover:bg-red-50 text-red-600 rounded-[var(--a-r-sm)] cursor-pointer border-none bg-transparent"
+                          className="p-2 hover:bg-[var(--a-danger-bg)] text-[var(--a-danger-ink)] rounded-[var(--a-r-sm)] cursor-pointer border-none bg-transparent"
                           title="Permanently delete project"
                         >
                           <Trash2 size={14} />

@@ -1,6 +1,6 @@
 import db from "@/lib/database";
 import { revalidatePath } from "next/cache";
-import { Cpu, Plus, Trash2, Save, Eye, EyeOff, ArrowUp, ArrowDown, Image as ImageIcon } from "lucide-react";
+import { Cpu, Plus, Trash2, Save, Eye, EyeOff, ArrowUp, ArrowDown } from "lucide-react";
 import AutoSubmitCheckbox from "@/components/admin/AutoSubmitCheckbox";
 import { 
   createTechnologyAction, 
@@ -131,7 +131,7 @@ export default async function AdminTechnologiesPage(props: PageProps) {
       </div>
 
       {error && (
-        <div className="p-4 border border-solid border-red-200 bg-red-50 text-red-700 text-xs font-mono rounded-[var(--a-r-sm)] white-space-pre-wrap">
+        <div className="p-4 border border-solid border-[var(--a-danger-ink)]/20 bg-[var(--a-danger-bg)] text-[var(--a-danger-ink)] text-xs font-mono rounded-[var(--a-r-sm)] white-space-pre-wrap">
           ⚠️ {decodeURIComponent(error)}
         </div>
       )}
@@ -139,7 +139,7 @@ export default async function AdminTechnologiesPage(props: PageProps) {
       <div className="grid gap-8 lg:grid-cols-12 items-start">
         {/* Left: Technologies List Grid */}
         <div className="lg:col-span-8 border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] bg-[var(--a-surface)] overflow-hidden" style={{ boxShadow: "var(--a-shadow)" }}>
-          <div className="p-4 border-b border-solid border-[var(--a-line)] bg-slate-50 flex items-center gap-2 text-xs font-mono text-[var(--a-faint)]">
+          <div className="p-4 border-b border-solid border-[var(--a-line)] bg-[var(--a-inset)] flex items-center gap-2 text-xs font-mono text-[var(--a-faint)]">
             <Cpu size={14} />
             <span>TECHNOLOGIES STACK ({technologies.length})</span>
           </div>
@@ -153,22 +153,21 @@ export default async function AdminTechnologiesPage(props: PageProps) {
               const logoAsset = allMedia.find((m) => m.id === draft.logoId);
 
               return (
-                <div key={tech.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/30">
+                <div key={tech.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-[var(--a-inset)]/30">
                   <div className="flex items-start gap-3">
                     {/* Logo display */}
-                    <div className="w-8 h-8 rounded bg-slate-100 border border-solid border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
+                    <div className="w-8 h-8 rounded bg-[var(--a-inset)] border border-solid border-[var(--a-line)] overflow-hidden flex items-center justify-center flex-shrink-0">
                       {logoAsset ? (
-                        // eslint-disable-next-line @next/next/no-img-element
                         <img src={logoAsset.url} alt={draft.name} className="w-full h-full object-contain" />
                       ) : (
-                        <Cpu size={14} className="text-slate-400" />
+                        <Cpu size={14} className="text-[var(--a-faint)]" />
                       )}
                     </div>
 
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-sm text-[var(--a-ink)]">{draft.name}</span>
-                        <span className="bg-slate-100 text-[8px] font-mono font-bold tracking-wider px-2 py-0.5 rounded text-[var(--a-faint)]">
+                        <span className="bg-[var(--a-inset)] text-[8px] font-mono font-bold tracking-wider px-2 py-0.5 rounded text-[var(--a-faint)]">
                           {draft.category}
                         </span>
                       </div>
@@ -192,7 +191,7 @@ export default async function AdminTechnologiesPage(props: PageProps) {
                         <button
                           type="submit"
                           disabled={idx === 0}
-                          className="p-1 hover:bg-slate-100 text-slate-400 hover:text-slate-600 disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
+                          className="p-1 hover:bg-[var(--a-inset)] text-[var(--a-faint)] hover:text-[var(--a-soft)] disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
                         >
                           <ArrowUp size={12} />
                         </button>
@@ -201,7 +200,7 @@ export default async function AdminTechnologiesPage(props: PageProps) {
                         <button
                           type="submit"
                           disabled={idx === technologies.length - 1}
-                          className="p-1 hover:bg-slate-100 text-slate-400 hover:text-slate-600 disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
+                          className="p-1 hover:bg-[var(--a-inset)] text-[var(--a-faint)] hover:text-[var(--a-soft)] disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
                         >
                           <ArrowDown size={12} />
                         </button>
@@ -229,9 +228,9 @@ export default async function AdminTechnologiesPage(props: PageProps) {
                     <form action={handleToggleFlag.bind(null, tech.id, "visible", draft.visible)}>
                       <button
                         type="submit"
-                        className="p-1 hover:bg-slate-100 rounded text-[var(--a-soft)] cursor-pointer border-none bg-transparent"
+                        className="p-1 hover:bg-[var(--a-inset)] rounded text-[var(--a-soft)] cursor-pointer border-none bg-transparent"
                       >
-                        {draft.visible ? <Eye size={14} /> : <EyeOff size={14} className="text-red-400" />}
+                        {draft.visible ? <Eye size={14} /> : <EyeOff size={14} className="text-[var(--a-danger-ink)]" />}
                       </button>
                     </form>
 
@@ -239,7 +238,7 @@ export default async function AdminTechnologiesPage(props: PageProps) {
                     <form action={handleDelete.bind(null, tech.id)}>
                       <button
                         type="submit"
-                        className="p-1 hover:bg-red-50 text-red-500 rounded cursor-pointer border-none bg-transparent"
+                        className="p-1 hover:bg-[var(--a-danger-bg)] text-[var(--a-danger-ink)] rounded cursor-pointer border-none bg-transparent"
                       >
                         <Trash2 size={14} />
                       </button>
@@ -270,7 +269,7 @@ export default async function AdminTechnologiesPage(props: PageProps) {
                 name="name"
                 required
                 placeholder="e.g. Next.js, Rust"
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)]"
               />
             </div>
 
@@ -278,7 +277,7 @@ export default async function AdminTechnologiesPage(props: PageProps) {
               <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Category</label>
               <select
                 name="category"
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-slate-50 focus:outline-none focus:border-[var(--a-primary)]"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-inset)] focus:outline-none focus:border-[var(--a-primary)]"
               >
                 <option value="FRONTEND">Frontend Development</option>
                 <option value="BACKEND">Backend & APIs</option>
@@ -295,7 +294,7 @@ export default async function AdminTechnologiesPage(props: PageProps) {
               <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Comfort Level</label>
               <select
                 name="experienceLabel"
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-slate-50 focus:outline-none focus:border-[var(--a-primary)]"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-inset)] focus:outline-none focus:border-[var(--a-primary)]"
               >
                 <option value="STRONG">Strong expertise (comfortable to lead)</option>
                 <option value="COMFORTABLE">Comfortable (independent work)</option>
@@ -308,7 +307,7 @@ export default async function AdminTechnologiesPage(props: PageProps) {
               <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Tech Logo Asset</label>
               <select
                 name="logoId"
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-slate-50 focus:outline-none focus:border-[var(--a-primary)]"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-inset)] focus:outline-none focus:border-[var(--a-primary)]"
               >
                 <option value="">-- No Logo Selected --</option>
                 {allMedia.map((m) => (
@@ -325,7 +324,7 @@ export default async function AdminTechnologiesPage(props: PageProps) {
                 name="description"
                 rows={2}
                 placeholder="Brief summary of usage"
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50 resize-y"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)] resize-y"
               />
             </div>
 

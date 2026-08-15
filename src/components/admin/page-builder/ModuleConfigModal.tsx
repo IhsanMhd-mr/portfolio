@@ -111,7 +111,7 @@ export default function ModuleConfigModal({ module, groups, onCancel, onSave, on
           </button>
         </div>
 
-        {error && <div role="alert" className="text-xs text-[var(--a-danger)] bg-red-500/10 border border-solid border-red-500/30 rounded-[var(--a-r-sm)] px-3 py-2">{error}</div>}
+        {error && <div role="alert" className="text-xs text-[var(--a-danger)] bg-[var(--a-danger-bg)] border border-solid border-[var(--a-danger-ink)]/20 rounded-[var(--a-r-sm)] px-3 py-2">{error}</div>}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">

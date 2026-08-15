@@ -34,7 +34,7 @@ export default function SystemStatus({ status }: StatusProps) {
             <span className="text-[var(--a-soft)] font-medium">{it.label}</span>
             <span
               className={`font-semibold ${
-                it.ok ? "text-emerald-600" : "text-amber-600"
+                it.ok ? "text-[var(--a-success-ink)]" : "text-[var(--a-warn-ink)]"
               }`}
             >
               {it.val}

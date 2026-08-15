@@ -1,6 +1,5 @@
 import db from "@/lib/database";
-import { revalidatePath } from "next/cache";
-import { GraduationCap, Plus, Trash2, Save, Eye, EyeOff, ArrowUp, ArrowDown, Image as ImageIcon } from "lucide-react";
+import { GraduationCap, Plus, Trash2, Save, Eye, EyeOff, ArrowUp, ArrowDown } from "lucide-react";
 import { 
   createEducationAction, 
   updateEducationAction, 
@@ -98,7 +97,7 @@ export default async function AdminEducationPage() {
       <div className="grid gap-8 lg:grid-cols-12 items-start">
         {/* Left List Grid */}
         <div className="lg:col-span-8 border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] bg-[var(--a-surface)] overflow-hidden" style={{ boxShadow: "var(--a-shadow)" }}>
-          <div className="p-4 border-b border-solid border-[var(--a-line)] bg-slate-50 flex items-center gap-2 text-xs font-mono text-[var(--a-faint)]">
+          <div className="p-4 border-b border-solid border-[var(--a-line)] bg-[var(--a-inset)] flex items-center gap-2 text-xs font-mono text-[var(--a-faint)]">
             <GraduationCap size={14} />
             <span>QUALIFICATIONS ({education.length})</span>
           </div>
@@ -112,15 +111,14 @@ export default async function AdminEducationPage() {
               const logoAsset = allMedia.find((m) => m.id === draft.logoId);
 
               return (
-                <div key={edu.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/30">
+                <div key={edu.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-[var(--a-inset)]/30">
                   <div className="flex items-start gap-3">
                     {/* Logo Display */}
-                    <div className="w-8 h-8 rounded bg-slate-100 border border-solid border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
+                    <div className="w-8 h-8 rounded bg-[var(--a-inset)] border border-solid border-[var(--a-line)] overflow-hidden flex items-center justify-center flex-shrink-0">
                       {logoAsset ? (
-                        // eslint-disable-next-line @next/next/no-img-element
                         <img src={logoAsset.url} alt={draft.institution} className="w-full h-full object-contain" />
                       ) : (
-                        <GraduationCap size={14} className="text-slate-400" />
+                        <GraduationCap size={14} className="text-[var(--a-faint)]" />
                       )}
                     </div>
 
@@ -128,7 +126,7 @@ export default async function AdminEducationPage() {
                       <h3 className="font-bold text-sm text-[var(--a-ink)]">{draft.qualification}</h3>
                       <p className="text-xs text-[var(--a-primary)] font-medium mt-0.5">{draft.institution}</p>
                       {draft.grade && (
-                        <span className="inline-block bg-slate-100 text-[9px] font-mono px-2 py-0.5 rounded text-[var(--a-soft)] mt-1">
+                        <span className="inline-block bg-[var(--a-inset)] text-[9px] font-mono px-2 py-0.5 rounded text-[var(--a-soft)] mt-1">
                           Grade: {draft.grade}
                         </span>
                       )}
@@ -145,7 +143,7 @@ export default async function AdminEducationPage() {
                         <button
                           type="submit"
                           disabled={idx === 0}
-                          className="p-1 hover:bg-slate-100 text-slate-400 hover:text-slate-600 disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
+                          className="p-1 hover:bg-[var(--a-inset)] text-[var(--a-faint)] hover:text-[var(--a-soft)] disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
                         >
                           <ArrowUp size={12} />
                         </button>
@@ -154,7 +152,7 @@ export default async function AdminEducationPage() {
                         <button
                           type="submit"
                           disabled={idx === education.length - 1}
-                          className="p-1 hover:bg-slate-100 text-slate-400 hover:text-slate-600 disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
+                          className="p-1 hover:bg-[var(--a-inset)] text-[var(--a-faint)] hover:text-[var(--a-soft)] disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
                         >
                           <ArrowDown size={12} />
                         </button>
@@ -165,9 +163,9 @@ export default async function AdminEducationPage() {
                     <form action={handleToggleVisibility.bind(null, edu.id, draft.visible)}>
                       <button
                         type="submit"
-                        className="p-1.5 hover:bg-slate-100 rounded text-[var(--a-soft)] cursor-pointer border-none bg-transparent"
+                        className="p-1.5 hover:bg-[var(--a-inset)] rounded text-[var(--a-soft)] cursor-pointer border-none bg-transparent"
                       >
-                        {draft.visible ? <Eye size={14} /> : <EyeOff size={14} className="text-red-400" />}
+                        {draft.visible ? <Eye size={14} /> : <EyeOff size={14} className="text-[var(--a-danger-ink)]" />}
                       </button>
                     </form>
 
@@ -175,7 +173,7 @@ export default async function AdminEducationPage() {
                     <form action={handleDelete.bind(null, edu.id)}>
                       <button
                         type="submit"
-                        className="p-1.5 hover:bg-red-50 text-red-500 rounded cursor-pointer border-none bg-transparent"
+                        className="p-1.5 hover:bg-[var(--a-danger-bg)] text-[var(--a-danger-ink)] rounded cursor-pointer border-none bg-transparent"
                       >
                         <Trash2 size={14} />
                       </button>
@@ -206,7 +204,7 @@ export default async function AdminEducationPage() {
                 name="institution"
                 required
                 placeholder="e.g. Stanford University"
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)]"
               />
             </div>
 
@@ -217,7 +215,7 @@ export default async function AdminEducationPage() {
                 name="qualification"
                 required
                 placeholder="e.g. B.Sc. in Computer Science"
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)]"
               />
             </div>
 
@@ -228,7 +226,7 @@ export default async function AdminEducationPage() {
                   type="date"
                   name="startDate"
                   required
-                  className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50"
+                  className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)]"
                 />
               </div>
 
@@ -238,7 +236,7 @@ export default async function AdminEducationPage() {
                   type="text"
                   name="grade"
                   placeholder="e.g. First Class, 3.8"
-                  className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50"
+                  className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)]"
                 />
               </div>
             </div>
@@ -247,7 +245,7 @@ export default async function AdminEducationPage() {
               <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Institution Logo</label>
               <select
                 name="logoId"
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-slate-50 focus:outline-none focus:border-[var(--a-primary)]"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-inset)] focus:outline-none focus:border-[var(--a-primary)]"
               >
                 <option value="">-- No Logo Selected --</option>
                 {allMedia.map((m) => (
@@ -264,7 +262,7 @@ export default async function AdminEducationPage() {
                 name="description"
                 rows={3}
                 placeholder="Courses, honors, extra curriculars..."
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50 resize-y"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)] resize-y"
               />
             </div>
 

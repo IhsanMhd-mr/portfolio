@@ -85,7 +85,7 @@ export default function SocialHandleModal({ initial, onCancel, onSubmit, existin
         </div>
 
         {error && (
-          <div role="alert" className="text-xs text-[var(--a-danger)] bg-red-500/10 border border-solid border-red-500/30 rounded-[var(--a-r-sm)] px-3 py-2">
+          <div role="alert" className="text-xs text-[var(--a-danger)] bg-[var(--a-danger-bg)] border border-solid border-[var(--a-danger-ink)]/20 rounded-[var(--a-r-sm)] px-3 py-2">
             {error}
           </div>
         )}

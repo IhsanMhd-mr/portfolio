@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { Palette, Eye } from "lucide-react";
+import { Palette } from "lucide-react";
 
 interface TemplateProps {
   activeTemplate: { name: string; key: string } | null;
@@ -40,8 +40,8 @@ export default function TemplateSummary({
         </div>
 
         {draftTemplate && draftTemplate.key !== activeKey && (
-          <div className="text-[10px] bg-amber-500/5 border border-solid border-amber-500/20 rounded p-2.5">
-            <span className="font-semibold text-amber-600 block">Draft Template Pending:</span>
+          <div className="text-[10px] bg-[var(--a-warn-bg)] border border-solid border-[var(--a-warn-ink)]/20 rounded p-2.5">
+            <span className="font-semibold text-[var(--a-warn-ink)] block">Draft Template Pending:</span>
             <span className="text-[var(--a-soft)] mt-0.5 block">{draftTemplate.name}</span>
           </div>
         )}

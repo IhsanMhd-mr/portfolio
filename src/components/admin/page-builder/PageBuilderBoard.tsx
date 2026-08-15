@@ -317,7 +317,7 @@ export default function PageBuilderBoard({ initialGroups, initialUngrouped }: Pa
   return (
     <div className="space-y-4">
       {globalError && (
-        <div role="alert" className="text-xs text-[var(--a-danger)] bg-red-500/10 border border-solid border-red-500/30 rounded-[var(--a-r-sm)] px-3 py-2 flex items-center justify-between">
+        <div role="alert" className="text-xs text-[var(--a-danger)] bg-[var(--a-danger-bg)] border border-solid border-[var(--a-danger-ink)]/20 rounded-[var(--a-r-sm)] px-3 py-2 flex items-center justify-between">
           <span>{globalError}</span>
           <button type="button" onClick={() => setGlobalError(null)} className="text-[var(--a-danger)] border-none bg-transparent cursor-pointer text-xs font-bold">×</button>
         </div>
@@ -445,7 +445,7 @@ function GroupEditModal({ group, onCancel, onSave }: { group: GroupData; onCance
     <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" {...backdrop} role="dialog" aria-modal="true">
       <div className="w-full max-w-sm p-6 bg-[var(--a-surface)] border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] shadow-lg space-y-4">
         <h3 className="font-bold text-sm text-[var(--a-ink)]">Edit Group</h3>
-        {error && <div role="alert" className="text-xs text-[var(--a-danger)] bg-red-500/10 border border-solid border-red-500/30 rounded-[var(--a-r-sm)] px-3 py-2">{error}</div>}
+        {error && <div role="alert" className="text-xs text-[var(--a-danger)] bg-[var(--a-danger-bg)] border border-solid border-[var(--a-danger-ink)]/20 rounded-[var(--a-r-sm)] px-3 py-2">{error}</div>}
         <form onSubmit={handleSubmit} className="space-y-3">
           <input type="text" required value={title} onChange={(e) => setTitle(e.target.value)} className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-surface)] focus:outline-none focus:border-[var(--a-primary)]" />
           <input type="text" placeholder="Subtitle (optional)" value={subtitle} onChange={(e) => setSubtitle(e.target.value)} className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-surface)] focus:outline-none focus:border-[var(--a-primary)]" />

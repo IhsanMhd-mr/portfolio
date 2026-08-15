@@ -7,7 +7,6 @@ import {
   Award,
   Navigation,
   Briefcase,
-  Clock,
   Columns3,
   Cpu,
   Gamepad2,

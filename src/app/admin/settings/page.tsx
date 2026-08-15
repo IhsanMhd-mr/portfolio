@@ -33,6 +33,7 @@ export default async function AdminSettingsPage() {
     const technicalInterests = formData.get("technicalInterests") as string;
     const developmentApproach = formData.get("developmentApproach") as string;
     const currentGoals = formData.get("currentGoals") as string;
+    const defaultTheme = formData.get("defaultTheme") as string;
 
     await db.siteProfile.update({
       where: { id },
@@ -49,6 +50,7 @@ export default async function AdminSettingsPage() {
         technicalInterests,
         developmentApproach,
         currentGoals,
+        defaultTheme,
       },
     });
 
@@ -223,6 +225,28 @@ export default async function AdminSettingsPage() {
               className="w-full px-3 py-2 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] resize-y"
             />
           </div>
+        </div>
+
+        <h3 className="font-bold text-sm text-[var(--a-ink)] border-b border-solid border-[var(--a-line)] pb-3 mb-2 flex items-center gap-2 pt-4">
+          <Settings size={16} className="text-[var(--a-primary)]" />
+          Appearance
+        </h3>
+
+        {/* Default Theme */}
+        <div className="space-y-2">
+          <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block">Default Theme</label>
+          <select
+            name="defaultTheme"
+            defaultValue={profile.defaultTheme}
+            className="w-full sm:w-64 px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-inset)] focus:outline-none focus:border-[var(--a-primary)]"
+          >
+            <option value="system">System (match device)</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+          <p className="text-[10px] text-[var(--a-faint)]">
+            Applied on a visitor&apos;s first visit, before they&apos;ve chosen a theme themselves.
+          </p>
         </div>
 
         {/* Submit */}

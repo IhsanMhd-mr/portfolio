@@ -49,11 +49,11 @@ export default function DashboardClientPage() {
 
   if (error) {
     return (
-      <div className="max-w-md mx-auto mt-20 p-6 border border-solid border-red-200 rounded-[var(--a-r-md)] bg-red-500/5 text-center space-y-4">
-        <p className="text-sm font-semibold text-red-600">{error}</p>
+      <div className="max-w-md mx-auto mt-20 p-6 border border-solid border-[var(--a-danger-ink)]/20 rounded-[var(--a-r-md)] bg-[var(--a-danger-bg)] text-center space-y-4">
+        <p className="text-sm font-semibold text-[var(--a-danger-ink)]">{error}</p>
         <button
           onClick={() => window.location.reload()}
-          className="text-xs font-bold px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors border-none cursor-pointer"
+          className="text-xs font-bold px-4 py-2 bg-[var(--a-danger)] text-white rounded hover:opacity-90 transition-colors border-none cursor-pointer"
         >
           Try Again
         </button>
@@ -157,6 +157,16 @@ export default function DashboardClientPage() {
 
       {/* 6. Homepage Structure */}
       <HomepageStructurePreview sections={data.homepageSections} />
+
+      {/* 7. Content Overview */}
+      <ContentOverview
+        projects={data.projectCounts}
+        technologies={data.technologyCount}
+        timeline={data.timelineCount}
+        education={data.educationCount}
+        experience={data.experienceCount}
+        media={data.mediaCount}
+      />
     </div>
   );
 }

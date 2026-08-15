@@ -1,6 +1,5 @@
 import db from "@/lib/database";
-import { revalidatePath } from "next/cache";
-import { Briefcase, Plus, Trash2, Save, Eye, EyeOff, ArrowUp, ArrowDown, Image as ImageIcon } from "lucide-react";
+import { Briefcase, Plus, Trash2, Save, Eye, EyeOff, ArrowUp, ArrowDown } from "lucide-react";
 import { 
   createExperienceAction, 
   updateExperienceAction, 
@@ -124,7 +123,7 @@ export default async function AdminExperiencePage() {
       <div className="grid gap-8 lg:grid-cols-12 items-start">
         {/* Left List Grid */}
         <div className="lg:col-span-8 border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] bg-[var(--a-surface)] overflow-hidden" style={{ boxShadow: "var(--a-shadow)" }}>
-          <div className="p-4 border-b border-solid border-[var(--a-line)] bg-slate-50 flex items-center gap-2 text-xs font-mono text-[var(--a-faint)]">
+          <div className="p-4 border-b border-solid border-[var(--a-line)] bg-[var(--a-inset)] flex items-center gap-2 text-xs font-mono text-[var(--a-faint)]">
             <Briefcase size={14} />
             <span>EMPLOYERS LIST ({experiences.length})</span>
           </div>
@@ -143,15 +142,14 @@ export default async function AdminExperiencePage() {
               );
 
               return (
-                <div key={exp.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/30">
+                <div key={exp.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-[var(--a-inset)]/30">
                   <div className="flex items-start gap-3">
                     {/* Logo display */}
-                    <div className="w-8 h-8 rounded bg-slate-100 border border-solid border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
+                    <div className="w-8 h-8 rounded bg-[var(--a-inset)] border border-solid border-[var(--a-line)] overflow-hidden flex items-center justify-center flex-shrink-0">
                       {logoAsset ? (
-                        // eslint-disable-next-line @next/next/no-img-element
                         <img src={logoAsset.url} alt={draft.organization} className="w-full h-full object-contain" />
                       ) : (
-                        <Briefcase size={14} className="text-slate-400" />
+                        <Briefcase size={14} className="text-[var(--a-faint)]" />
                       )}
                     </div>
 
@@ -162,7 +160,7 @@ export default async function AdminExperiencePage() {
                         <p className="text-[10px] text-[var(--a-soft)] mt-0.5">Location: {draft.locationText} ({draft.workType})</p>
                       )}
                       {linkedTechNames.length > 0 && (
-                        <p className="text-[9px] font-mono text-slate-500">Skills: {linkedTechNames.join(", ")}</p>
+                        <p className="text-[9px] font-mono text-[var(--a-faint)]">Skills: {linkedTechNames.join(", ")}</p>
                       )}
                       <p className="text-[10px] text-[var(--a-faint)] mt-1">
                         Started: {new Date(draft.startDate).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
@@ -177,7 +175,7 @@ export default async function AdminExperiencePage() {
                         <button
                           type="submit"
                           disabled={idx === 0}
-                          className="p-1 hover:bg-slate-100 text-slate-400 hover:text-slate-600 disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
+                          className="p-1 hover:bg-[var(--a-inset)] text-[var(--a-faint)] hover:text-[var(--a-soft)] disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
                         >
                           <ArrowUp size={12} />
                         </button>
@@ -186,7 +184,7 @@ export default async function AdminExperiencePage() {
                         <button
                           type="submit"
                           disabled={idx === experiences.length - 1}
-                          className="p-1 hover:bg-slate-100 text-slate-400 hover:text-slate-600 disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
+                          className="p-1 hover:bg-[var(--a-inset)] text-[var(--a-faint)] hover:text-[var(--a-soft)] disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
                         >
                           <ArrowDown size={12} />
                         </button>
@@ -197,9 +195,9 @@ export default async function AdminExperiencePage() {
                     <form action={handleToggleVisibility.bind(null, exp.id, draft.visible)}>
                       <button
                         type="submit"
-                        className="p-1.5 hover:bg-slate-100 rounded text-[var(--a-soft)] cursor-pointer border-none bg-transparent"
+                        className="p-1.5 hover:bg-[var(--a-inset)] rounded text-[var(--a-soft)] cursor-pointer border-none bg-transparent"
                       >
-                        {draft.visible ? <Eye size={14} /> : <EyeOff size={14} className="text-red-400" />}
+                        {draft.visible ? <Eye size={14} /> : <EyeOff size={14} className="text-[var(--a-danger-ink)]" />}
                       </button>
                     </form>
 
@@ -207,7 +205,7 @@ export default async function AdminExperiencePage() {
                     <form action={handleDelete.bind(null, exp.id)}>
                       <button
                         type="submit"
-                        className="p-1.5 hover:bg-red-50 text-red-500 rounded cursor-pointer border-none bg-transparent"
+                        className="p-1.5 hover:bg-[var(--a-danger-bg)] text-[var(--a-danger-ink)] rounded cursor-pointer border-none bg-transparent"
                       >
                         <Trash2 size={14} />
                       </button>
@@ -238,7 +236,7 @@ export default async function AdminExperiencePage() {
                 name="organization"
                 required
                 placeholder="e.g. Acme Corporation"
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)]"
               />
             </div>
 
@@ -249,7 +247,7 @@ export default async function AdminExperiencePage() {
                 name="role"
                 required
                 placeholder="e.g. Software Engineer Intern"
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)]"
               />
             </div>
 
@@ -260,7 +258,7 @@ export default async function AdminExperiencePage() {
                   type="date"
                   name="startDate"
                   required
-                  className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50"
+                  className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)]"
                 />
               </div>
 
@@ -270,7 +268,7 @@ export default async function AdminExperiencePage() {
                   type="text"
                   name="locationText"
                   placeholder="e.g. London, Remote"
-                  className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50"
+                  className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)]"
                 />
               </div>
             </div>
@@ -280,7 +278,7 @@ export default async function AdminExperiencePage() {
                 <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Work Type</label>
                 <select
                   name="workType"
-                  className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-slate-50 focus:outline-none"
+                  className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-inset)] focus:outline-none"
                 >
                   <option value="ON_SITE">On Site</option>
                   <option value="HYBRID">Hybrid</option>
@@ -292,7 +290,7 @@ export default async function AdminExperiencePage() {
                 <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Company Logo</label>
                 <select
                   name="logoId"
-                  className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-slate-50 focus:outline-none"
+                  className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-inset)] focus:outline-none"
                 >
                   <option value="">-- No Logo --</option>
                   {allMedia.map((m) => (
@@ -307,13 +305,13 @@ export default async function AdminExperiencePage() {
             {/* Tech tag choices */}
             <div className="space-y-1">
               <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Skills / Tech Used</label>
-              <div className="p-2.5 border border-solid border-slate-100 rounded bg-slate-50/50 max-h-28 overflow-y-auto grid grid-cols-2 gap-1.5">
+              <div className="p-2.5 border border-solid border-[var(--a-line)] rounded bg-[var(--a-inset)]/50 max-h-28 overflow-y-auto grid grid-cols-2 gap-1.5">
                 {allTechs.map((tech) => {
                   const name = tech.versions.find((v) => v.state === "DRAFT")?.name || tech.slug;
                   return (
                     <div key={tech.id} className="flex items-center gap-1.5">
                       <input type="checkbox" name={`tech_${tech.id}`} id={`tech_${tech.id}`} className="cursor-pointer" />
-                      <label htmlFor={`tech_${tech.id}`} className="text-[10px] text-slate-700 truncate cursor-pointer">{name}</label>
+                      <label htmlFor={`tech_${tech.id}`} className="text-[10px] text-[var(--a-ink)] truncate cursor-pointer">{name}</label>
                     </div>
                   );
                 })}
@@ -326,7 +324,7 @@ export default async function AdminExperiencePage() {
                 name="description"
                 rows={3}
                 placeholder="Developed features, led stack, optimized page speeds..."
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-slate-50 resize-y"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)] bg-[var(--a-inset)] resize-y"
               />
             </div>
 
