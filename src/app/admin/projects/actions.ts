@@ -79,3 +79,10 @@ export async function reorderProjectsAction(orderedIds: string[]) {
   revalidatePath("/admin/projects");
   return result;
 }
+
+export async function moveProjectOrderAction(id: string, direction: "up" | "down") {
+  const context = await getAuditContext();
+  const result = await ProjectService.moveOrder(id, direction, context);
+  revalidatePath("/admin/projects");
+  return result;
+}

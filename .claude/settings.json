@@ -52,7 +52,9 @@
       "Bash(python \"C:/Users/ihsan/AppData/Local/Temp/claude/c--Users-ihsan-Documents-GitHub-portfolio/119c31ba-09b3-413a-8e75-b466045bbc6a/scratchpad/checksel.py\")",
       "Bash(timeout 180 npx next build)",
       "Bash(git stash *)",
-      "Bash(echo \"EXIT:$?\")"
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(git mv *)",
+      "Bash(mv src/components/admin/dashboard/DashboardLoading.tsx src/app/admin/dashboard/loading.tsx)"
     ]
   }
 }

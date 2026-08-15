@@ -1,52 +1,67 @@
 import db from "@/lib/database";
-import { Briefcase, Plus, Trash2, Save, Eye, EyeOff, ArrowUp, ArrowDown } from "lucide-react";
-import { 
-  createExperienceAction, 
-  updateExperienceAction, 
-  deleteExperienceAction, 
-  reorderExperienceAction 
+import dynamic from "next/dynamic";
+import { Briefcase, Trash2, Save, Eye, EyeOff, ArrowUp, ArrowDown } from "lucide-react";
+import Pagination from "@/components/admin/Pagination";
+import {
+  createExperienceAction,
+  updateExperienceAction,
+  deleteExperienceAction,
+  moveExperienceOrderAction,
 } from "./actions";
 
-export default async function AdminExperiencePage() {
-  const [experiencesRaw, allMedia, allTechs] = await Promise.all([
-    db.experience.findMany({
-      where: { deletedAt: null },
+const MediaPickerModal = dynamic(() => import("@/components/admin/MediaPickerModal"));
+const AddItemModal = dynamic(() => import("@/components/admin/AddItemModal"));
+
+const PAGE_SIZE = 20;
+
+interface PageProps {
+  searchParams: Promise<{ page?: string }>;
+}
+
+export default async function AdminExperiencePage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const rawPage = parseInt(params.page ?? "1", 10);
+  const page = Number.isFinite(rawPage) && rawPage >= 1 ? rawPage : 1;
+
+  // Query ExperienceVersion (DRAFT) directly so `order` can be sorted/paginated
+  // at the database boundary — Prisma can't orderBy a to-many relation's field
+  // on the parent Experience model.
+  const [total, draftVersions, allTechs] = await Promise.all([
+    db.experienceVersion.count({ where: { state: "DRAFT" } }),
+    db.experienceVersion.findMany({
+      where: { state: "DRAFT" },
+      orderBy: [{ order: "asc" }, { id: "asc" }],
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
       include: {
-        versions: true,
-        technologies: {
+        logo: { select: { url: true } },
+        experience: {
           include: {
-            technology: {
+            technologies: {
               include: {
-                versions: { where: { state: "DRAFT" }, take: 1 },
+                technology: {
+                  include: {
+                    versions: { where: { state: "DRAFT" }, take: 1 },
+                  },
+                },
               },
             },
           },
         },
       },
     }),
-    db.mediaAsset.findMany({
-      where: { deletedAt: null },
-      orderBy: { createdAt: "desc" },
-    }),
     db.technology.findMany({
       where: { deletedAt: null },
-      include: { versions: { where: { state: "DRAFT" }, take: 1 } },
+      include: { versions: { where: { state: "DRAFT" }, take: 1, orderBy: { createdAt: "desc" } } },
     }),
   ]);
 
-  // Resolve draft versions
-  const experiences = experiencesRaw.map((exp) => {
-    const draft = exp.versions.find((v) => v.state === "DRAFT");
-    const published = exp.versions.find((v) => v.state === "PUBLISHED");
-    return {
-      ...exp,
-      draft,
-      published,
-    };
-  });
-
-  // Sort by manualOrder of draft versions
-  experiences.sort((a, b) => (a.draft?.order || 0) - (b.draft?.order || 0));
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const experiences = draftVersions.map((draft) => ({
+    id: draft.experience.id,
+    draft,
+    technologies: draft.experience.technologies,
+  }));
 
   async function handleCreateExperience(formData: FormData) {
     "use server";
@@ -91,24 +106,9 @@ export default async function AdminExperiencePage() {
     await deleteExperienceAction(id);
   }
 
-  async function handleMoveUp(index: number) {
+  async function handleMove(id: string, direction: "up" | "down") {
     "use server";
-    if (index === 0) return;
-    const ids = experiences.map((e) => e.id);
-    const temp = ids[index];
-    ids[index] = ids[index - 1];
-    ids[index - 1] = temp;
-    await reorderExperienceAction(ids);
-  }
-
-  async function handleMoveDown(index: number) {
-    "use server";
-    if (index === experiences.length - 1) return;
-    const ids = experiences.map((e) => e.id);
-    const temp = ids[index];
-    ids[index] = ids[index + 1];
-    ids[index + 1] = temp;
-    await reorderExperienceAction(ids);
+    await moveExperienceOrderAction(id, direction);
   }
 
   return (
@@ -125,16 +125,14 @@ export default async function AdminExperiencePage() {
         <div className="lg:col-span-8 border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] bg-[var(--a-surface)] overflow-hidden" style={{ boxShadow: "var(--a-shadow)" }}>
           <div className="p-4 border-b border-solid border-[var(--a-line)] bg-[var(--a-inset)] flex items-center gap-2 text-xs font-mono text-[var(--a-faint)]">
             <Briefcase size={14} />
-            <span>EMPLOYERS LIST ({experiences.length})</span>
+            <span>EMPLOYERS LIST ({total})</span>
           </div>
 
           <div className="divide-y divide-solid divide-[var(--a-line)] text-xs">
             {experiences.map((exp, idx) => {
               const draft = exp.draft;
-              if (!draft) return null;
-
-              // Find logo
-              const logoAsset = allMedia.find((m) => m.id === draft.logoId);
+              const isFirstOnPage = page === 1 && idx === 0;
+              const isLastOnPage = page === totalPages && idx === experiences.length - 1;
 
               // Technologies linked
               const linkedTechNames = exp.technologies.map(
@@ -146,8 +144,8 @@ export default async function AdminExperiencePage() {
                   <div className="flex items-start gap-3">
                     {/* Logo display */}
                     <div className="w-8 h-8 rounded bg-[var(--a-inset)] border border-solid border-[var(--a-line)] overflow-hidden flex items-center justify-center flex-shrink-0">
-                      {logoAsset ? (
-                        <img src={logoAsset.url} alt={draft.organization} className="w-full h-full object-contain" />
+                      {draft.logo ? (
+                        <img src={draft.logo.url} alt={draft.organization} className="w-full h-full object-contain" />
                       ) : (
                         <Briefcase size={14} className="text-[var(--a-faint)]" />
                       )}
@@ -171,19 +169,19 @@ export default async function AdminExperiencePage() {
                   <div className="flex items-center gap-3">
                     {/* Shift order */}
                     <div className="flex items-center gap-0.5">
-                      <form action={handleMoveUp.bind(null, idx)}>
+                      <form action={handleMove.bind(null, exp.id, "up")}>
                         <button
                           type="submit"
-                          disabled={idx === 0}
+                          disabled={isFirstOnPage}
                           className="p-1 hover:bg-[var(--a-inset)] text-[var(--a-faint)] hover:text-[var(--a-soft)] disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
                         >
                           <ArrowUp size={12} />
                         </button>
                       </form>
-                      <form action={handleMoveDown.bind(null, idx)}>
+                      <form action={handleMove.bind(null, exp.id, "down")}>
                         <button
                           type="submit"
-                          disabled={idx === experiences.length - 1}
+                          disabled={isLastOnPage}
                           className="p-1 hover:bg-[var(--a-inset)] text-[var(--a-faint)] hover:text-[var(--a-soft)] disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
                         >
                           <ArrowDown size={12} />
@@ -219,15 +217,15 @@ export default async function AdminExperiencePage() {
               <p className="text-center py-12 text-[var(--a-faint)] font-mono">// NO EXPERIENCE ENTRIES SEEDED</p>
             )}
           </div>
+
+          <div className="px-4 pb-4">
+            <Pagination currentPage={page} totalPages={totalPages} buildHref={(p) => `/admin/experience?page=${p}`} />
+          </div>
         </div>
 
-        {/* Right Quick Add Form */}
-        <div className="lg:col-span-4 p-6 border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] bg-[var(--a-surface)] space-y-6" style={{ boxShadow: "var(--a-shadow)" }}>
-          <h3 className="font-bold text-sm text-[var(--a-ink)] border-b border-solid border-[var(--a-line)] pb-3 mb-2 flex items-center gap-2">
-            <Plus size={16} className="text-[var(--a-primary)]" />
-            Add Experience
-          </h3>
-
+        {/* Right Quick Add */}
+        <div className="lg:col-span-4">
+          <AddItemModal triggerLabel="Add Experience" title="Add Experience">
           <form action={handleCreateExperience} className="space-y-4">
             <div className="space-y-1">
               <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Organization</label>
@@ -286,20 +284,7 @@ export default async function AdminExperiencePage() {
                 </select>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Company Logo</label>
-                <select
-                  name="logoId"
-                  className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-inset)] focus:outline-none"
-                >
-                  <option value="">-- No Logo --</option>
-                  {allMedia.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.filename}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <MediaPickerModal name="logoId" label="Company Logo" mode="single" />
             </div>
 
             {/* Tech tag choices */}
@@ -336,6 +321,7 @@ export default async function AdminExperiencePage() {
               Add Experience
             </button>
           </form>
+          </AddItemModal>
         </div>
       </div>
     </div>

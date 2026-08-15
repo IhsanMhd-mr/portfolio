@@ -6,6 +6,7 @@ import {
   Upload, Check, AlertTriangle, RefreshCw
 } from "lucide-react";
 import { deleteMediaAction, updateMediaMetadataAction } from "@/app/admin/media/actions";
+import Pagination from "@/components/admin/Pagination";
 
 interface MediaAsset {
   id: string;
@@ -20,9 +21,12 @@ interface MediaAsset {
 
 interface MediaLibraryClientProps {
   mediaAssets: MediaAsset[];
+  total: number;
+  page: number;
+  totalPages: number;
 }
 
-export default function MediaLibraryClient({ mediaAssets }: MediaLibraryClientProps) {
+export default function MediaLibraryClient({ mediaAssets, total, page, totalPages }: MediaLibraryClientProps) {
   const [assets] = useState<MediaAsset[]>(mediaAssets);
   const [uploading, setUploading] = useState(false);
   const [replacingId, setReplacingId] = useState<string | null>(null);
@@ -160,7 +164,7 @@ export default function MediaLibraryClient({ mediaAssets }: MediaLibraryClientPr
         <div className="lg:col-span-8 border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] bg-[var(--a-surface)] overflow-hidden" style={{ boxShadow: "var(--a-shadow)" }}>
           <div className="p-4 border-b border-solid border-[var(--a-line)] bg-[var(--a-inset)] flex items-center gap-2 text-xs font-mono text-[var(--a-faint)]">
             <ImageIcon size={14} />
-            <span>LIBRARY ASSETS ({assets.length})</span>
+            <span>LIBRARY ASSETS ({total})</span>
           </div>
 
           <div className="p-6 grid gap-6 grid-cols-2 sm:grid-cols-3 md:grid-cols-4">
@@ -276,6 +280,10 @@ export default function MediaLibraryClient({ mediaAssets }: MediaLibraryClientPr
             {assets.length === 0 && (
               <div className="col-span-full text-center py-12 text-[var(--a-faint)] font-mono">// NO LIBRARY ASSETS RECORDED</div>
             )}
+          </div>
+
+          <div className="px-4 pb-4">
+            <Pagination currentPage={page} totalPages={totalPages} buildHref={(p) => `/admin/media?page=${p}`} />
           </div>
         </div>
 

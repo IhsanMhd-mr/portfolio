@@ -47,3 +47,10 @@ export async function reorderExperienceAction(ids: string[]) {
   revalidatePath("/admin/experience");
   return result;
 }
+
+export async function moveExperienceOrderAction(id: string, direction: "up" | "down") {
+  const context = await getAuditContext();
+  const result = await ExperienceService.moveOrder(id, direction, context);
+  revalidatePath("/admin/experience");
+  return result;
+}

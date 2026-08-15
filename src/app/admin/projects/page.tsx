@@ -4,15 +4,25 @@ import {
   Briefcase, Plus, Trash2, Eye, EyeOff, Edit,
   Copy, Star, ArrowUp, ArrowDown, Search
 } from "lucide-react";
-import { 
-  toggleProjectVisibilityAction, 
-  softDeleteProjectAction, 
-  restoreProjectAction, 
-  permanentlyDeleteProjectAction, 
-  createProjectAction, 
+import Pagination from "@/components/admin/Pagination";
+import {
+  toggleProjectVisibilityAction,
+  softDeleteProjectAction,
+  restoreProjectAction,
+  permanentlyDeleteProjectAction,
+  createProjectAction,
   duplicateProjectAction,
-  reorderProjectsAction
+  moveProjectOrderAction
 } from "./actions";
+
+const PAGE_SIZE = 20;
+// "Draft Changes" detection requires diffing ~30 fields (including long-form
+// Text/Json columns) between the draft and published version — not something
+// that can be expressed as a Prisma `where` clause, so it can't be paginated
+// at the database boundary like the other filter tabs. We instead scan a
+// capped window (large enough to cover realistic project counts) and paginate
+// the filtered result in memory. All other tabs paginate normally.
+const DRAFT_FILTER_SCAN_LIMIT = 500;
 
 interface PageProps {
   searchParams: Promise<{
@@ -21,6 +31,7 @@ interface PageProps {
     category?: string;
     status?: string;
     tech?: string;
+    page?: string;
   }>;
 }
 
@@ -31,102 +42,129 @@ export default async function AdminProjectsPage(props: PageProps) {
   const categoryFilter = params.category || "";
   const statusFilter = params.status || "";
   const techFilter = params.tech || "";
+  const rawPage = parseInt(params.page ?? "1", 10);
+  const page = Number.isFinite(rawPage) && rawPage >= 1 ? rawPage : 1;
+  const needsInMemoryDiff = filter === "draft";
 
-  // Fetch technologies for filter dropdown
-  const allTechs = await db.technology.findMany({
+  // Compute changeState (requires full draft+published field diffing) for one project.
+  function computeChangeState(draft: any, published: any): "SYNC" | "DRAFT_ONLY" | "DRAFT_CHANGES" {
+    if (!published) return "DRAFT_ONLY";
+    if (!draft) return "SYNC";
+    const fields = [
+      "title", "summary", "fullDescription", "category", "status",
+      "startDate", "endDate", "featured", "visible", "myRole",
+      "problem", "solution", "mainFeatures", "systemArchitecture",
+      "developmentProcess", "challenges", "solutionsDetail", "testing",
+      "results", "lessonsLearned", "liveDemoUrl", "githubUrl",
+      "reportUrl", "documentationUrl", "videoUrl", "presentationUrl",
+      "seoTitle", "seoDescription", "thumbnailId", "coverImageId",
+      "architectureImageId"
+    ];
+    const hasDiff = fields.some((f) => {
+      const val1 = draft[f];
+      const val2 = published[f];
+      if (val1 instanceof Date || val2 instanceof Date) {
+        return new Date(val1).getTime() !== new Date(val2).getTime();
+      }
+      return val1 !== val2;
+    });
+    return hasDiff ? "DRAFT_CHANGES" : "SYNC";
+  }
+
+  const allTechsPromise = db.technology.findMany({
     where: { deletedAt: null },
-    include: { versions: { where: { state: "DRAFT" } } },
+    include: { versions: { where: { state: "DRAFT" }, take: 1, orderBy: { createdAt: "desc" } } },
   });
 
-  // Query database
-  const projectsRaw = await db.project.findMany({
-    where: {
-      deletedAt: filter === "trash" ? { not: null } : null,
-      versions: {
-        some: {
-          state: "DRAFT",
-          title: q ? { contains: q, mode: "insensitive" } : undefined,
-          category: categoryFilter ? (categoryFilter as any) : undefined,
-          status: filter === "archived" ? "ARCHIVED" : (statusFilter ? (statusFilter as any) : undefined),
-          featured: filter === "featured" ? true : undefined,
-          visible: filter === "hidden" ? false : (filter === "visible" ? true : undefined),
+  let filteredProjects: Array<{ id: string; slug: string; updatedAt: Date; _count: { technologies: number; images: number }; draft: any; published: any; changeState: "SYNC" | "DRAFT_ONLY" | "DRAFT_CHANGES" }>;
+  let totalCount: number;
+  let totalPages: number;
+  let allTechs: Awaited<typeof allTechsPromise>;
+
+  if (needsInMemoryDiff) {
+    // "Draft Changes" requires the full draft+published field diff, which can't be
+    // expressed as a `where` clause — scan a capped window and paginate in memory.
+    const [allTechsResult, projectsRaw] = await Promise.all([
+      allTechsPromise,
+      db.project.findMany({
+        where: {
+          deletedAt: null,
+          versions: { some: { state: "DRAFT" } },
+          technologies: techFilter ? { some: { technologyId: techFilter } } : undefined,
         },
-      },
-      technologies: techFilter ? {
-        some: {
-          technologyId: techFilter,
-        },
-      } : undefined,
-    },
-    include: {
-      versions: true,
-      technologies: {
         include: {
-          technology: {
+          versions: true,
+          _count: { select: { technologies: true, images: true } },
+        },
+        take: DRAFT_FILTER_SCAN_LIMIT,
+      }),
+    ]);
+    allTechs = allTechsResult;
+
+    const allMatching = projectsRaw
+      .map((proj) => {
+        const draft = proj.versions.find((v) => v.state === "DRAFT");
+        const published = proj.versions.find((v) => v.state === "PUBLISHED");
+        return { ...proj, draft, published, changeState: computeChangeState(draft, published) };
+      })
+      .filter((p) => p.changeState === "DRAFT_CHANGES" || p.changeState === "DRAFT_ONLY")
+      .sort((a, b) => (a.draft?.manualOrder || 0) - (b.draft?.manualOrder || 0));
+
+    totalCount = allMatching.length;
+    totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+    filteredProjects = allMatching.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  } else {
+    // All other tabs are fully expressible in a `where` clause — query
+    // ProjectVersion directly so `manualOrder` can be sorted/paginated at the
+    // database boundary (Prisma can't orderBy a to-many relation field on Project).
+    const versionWhere = {
+      state: "DRAFT" as const,
+      title: q ? { contains: q, mode: "insensitive" as const } : undefined,
+      category: categoryFilter ? (categoryFilter as any) : undefined,
+      status: filter === "archived" ? "ARCHIVED" as const : (statusFilter ? (statusFilter as any) : undefined),
+      featured: filter === "featured" ? true : undefined,
+      visible: filter === "hidden" ? false : (filter === "visible" ? true : undefined),
+      project: {
+        deletedAt: filter === "trash" ? { not: null } : null,
+        technologies: techFilter ? { some: { technologyId: techFilter } } : undefined,
+        versions: filter === "published" ? { some: { state: "PUBLISHED" as const } } : undefined,
+      },
+    };
+
+    const [allTechsResult, total, draftVersions] = await Promise.all([
+      allTechsPromise,
+      db.projectVersion.count({ where: versionWhere }),
+      db.projectVersion.findMany({
+        where: versionWhere,
+        orderBy: [{ manualOrder: "asc" }, { id: "asc" }],
+        skip: (page - 1) * PAGE_SIZE,
+        take: PAGE_SIZE,
+        include: {
+          project: {
             include: {
-              versions: { where: { state: "DRAFT" } },
+              versions: { where: { state: "PUBLISHED" }, take: 1 },
+              _count: { select: { technologies: true, images: true } },
             },
           },
         },
-      },
-      images: {
-        include: {
-          media: true,
-        },
-      },
-    },
-  });
+      }),
+    ]);
+    allTechs = allTechsResult;
 
-  // Map to find draft / published versions and detect changes
-  const projects = projectsRaw.map((proj) => {
-    const draft = proj.versions.find((v) => v.state === "DRAFT");
-    const published = proj.versions.find((v) => v.state === "PUBLISHED");
-
-    let changeState: "SYNC" | "DRAFT_ONLY" | "DRAFT_CHANGES" = "SYNC";
-    if (!published) {
-      changeState = "DRAFT_ONLY";
-    } else if (draft) {
-      // Check field differences
-      const fields = [
-        "title", "summary", "fullDescription", "category", "status",
-        "startDate", "endDate", "featured", "visible", "myRole",
-        "problem", "solution", "mainFeatures", "systemArchitecture",
-        "developmentProcess", "challenges", "solutionsDetail", "testing",
-        "results", "lessonsLearned", "liveDemoUrl", "githubUrl",
-        "reportUrl", "documentationUrl", "videoUrl", "presentationUrl",
-        "seoTitle", "seoDescription", "thumbnailId", "coverImageId",
-        "architectureImageId"
-      ];
-      const hasDiff = fields.some((f) => {
-        const val1 = (draft as any)[f];
-        const val2 = (published as any)[f];
-        if (val1 instanceof Date || val2 instanceof Date) {
-          return new Date(val1).getTime() !== new Date(val2).getTime();
-        }
-        return val1 !== val2;
-      });
-      if (hasDiff) {
-        changeState = "DRAFT_CHANGES";
-      }
-    }
-
-    return {
-      ...proj,
-      draft,
-      published,
-      changeState,
-    };
-  });
-
-  // Sort by manualOrder of draft version
-  projects.sort((a, b) => (a.draft?.manualOrder || 0) - (b.draft?.manualOrder || 0));
-
-  // Custom filters in memory if required
-  let filteredProjects = projects;
-  if (filter === "draft") {
-    filteredProjects = projects.filter((p) => p.changeState === "DRAFT_CHANGES" || p.changeState === "DRAFT_ONLY");
-  } else if (filter === "published") {
-    filteredProjects = projects.filter((p) => p.published);
+    totalCount = total;
+    totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    filteredProjects = draftVersions.map((draft) => {
+      const published = draft.project.versions[0];
+      return {
+        id: draft.project.id,
+        slug: draft.project.slug,
+        updatedAt: draft.project.updatedAt,
+        _count: draft.project._count,
+        draft,
+        published,
+        changeState: computeChangeState(draft, published),
+      };
+    });
   }
 
   // Create Project action
@@ -140,24 +178,9 @@ export default async function AdminProjectsPage(props: PageProps) {
   }
 
   // Manual reordering action
-  async function handleMoveUp(index: number) {
+  async function handleMove(id: string, direction: "up" | "down") {
     "use server";
-    if (index === 0) return;
-    const ids = filteredProjects.map((p) => p.id);
-    const temp = ids[index];
-    ids[index] = ids[index - 1];
-    ids[index - 1] = temp;
-    await reorderProjectsAction(ids);
-  }
-
-  async function handleMoveDown(index: number) {
-    "use server";
-    if (index === filteredProjects.length - 1) return;
-    const ids = filteredProjects.map((p) => p.id);
-    const temp = ids[index];
-    ids[index] = ids[index + 1];
-    ids[index + 1] = temp;
-    await reorderProjectsAction(ids);
+    await moveProjectOrderAction(id, direction);
   }
 
   // Wrapper local actions returning void to compile in React 19 forms
@@ -343,13 +366,15 @@ export default async function AdminProjectsPage(props: PageProps) {
       <div className="border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] bg-[var(--a-surface)] overflow-hidden" style={{ boxShadow: "var(--a-shadow)" }}>
         <div className="p-4 border-b border-solid border-[var(--a-line)] bg-[var(--a-inset)] flex items-center gap-2 text-xs font-mono text-[var(--a-faint)]">
           <Briefcase size={14} />
-          <span>PROJECTS REGISTRY ({filteredProjects.length})</span>
+          <span>PROJECTS REGISTRY ({totalCount})</span>
         </div>
 
         <div className="divide-y divide-solid divide-[var(--a-line)]">
           {filteredProjects.map((proj, idx) => {
             const draft = proj.draft;
             if (!draft) return null;
+            const isFirstOnPage = page === 1 && idx === 0;
+            const isLastOnPage = page === totalPages && idx === filteredProjects.length - 1;
 
             return (
               <div key={proj.id} className="p-5 hover:bg-[var(--a-inset)]/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -390,8 +415,8 @@ export default async function AdminProjectsPage(props: PageProps) {
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] font-mono text-[var(--a-faint)]">
                     <span>Slug: /{proj.slug}</span>
                     <span>Order: {draft.manualOrder}</span>
-                    <span>Technologies: {proj.technologies.length}</span>
-                    <span>Gallery: {proj.images.length}</span>
+                    <span>Technologies: {proj._count.technologies}</span>
+                    <span>Gallery: {proj._count.images}</span>
                     {draft.featured && (
                       <span className="flex items-center gap-0.5 text-[var(--a-warn-ink)] font-bold">
                         <Star size={10} fill="currentColor" /> Featured
@@ -411,19 +436,19 @@ export default async function AdminProjectsPage(props: PageProps) {
                   {/* manual order shift */}
                   {filter !== "trash" && (
                     <div className="flex flex-col gap-0.5">
-                      <form action={handleMoveUp.bind(null, idx)}>
+                      <form action={handleMove.bind(null, proj.id, "up")}>
                         <button
                           type="submit"
-                          disabled={idx === 0}
+                          disabled={isFirstOnPage}
                           className="p-1 hover:bg-[var(--a-inset)] text-[var(--a-faint)] hover:text-[var(--a-soft)] disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
                         >
                           <ArrowUp size={12} />
                         </button>
                       </form>
-                      <form action={handleMoveDown.bind(null, idx)}>
+                      <form action={handleMove.bind(null, proj.id, "down")}>
                         <button
                           type="submit"
-                          disabled={idx === filteredProjects.length - 1}
+                          disabled={isLastOnPage}
                           className="p-1 hover:bg-[var(--a-inset)] text-[var(--a-faint)] hover:text-[var(--a-soft)] disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
                         >
                           <ArrowDown size={12} />
@@ -515,6 +540,14 @@ export default async function AdminProjectsPage(props: PageProps) {
           {filteredProjects.length === 0 && (
             <div className="text-center py-20 text-xs font-mono text-[var(--a-faint)]">// NO PROJECTS MATCH FILTER</div>
           )}
+        </div>
+
+        <div className="px-4 pb-4">
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            buildHref={(p) => `/admin/projects?filter=${filter}&q=${q}&category=${categoryFilter}&status=${statusFilter}&tech=${techFilter}&page=${p}`}
+          />
         </div>
       </div>
     </div>

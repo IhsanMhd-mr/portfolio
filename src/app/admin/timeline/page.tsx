@@ -1,21 +1,47 @@
 import db from "@/lib/database";
-import { Milestone, Plus, Trash2, Save, Eye, EyeOff, ArrowUp, ArrowDown } from "lucide-react";
-import { 
-  createTimelineEntryAction, 
-  updateTimelineEntryAction, 
-  deleteTimelineEntryAction, 
-  reorderTimelineEntriesAction 
+import dynamic from "next/dynamic";
+import { Milestone, Trash2, Save, Eye, EyeOff, ArrowUp, ArrowDown } from "lucide-react";
+import Pagination from "@/components/admin/Pagination";
+import {
+  createTimelineEntryAction,
+  updateTimelineEntryAction,
+  deleteTimelineEntryAction,
+  moveTimelineEntryOrderAction,
 } from "./actions";
 
-export default async function AdminTimelinePage() {
-  const [entriesRaw, projects, allMedia] = await Promise.all([
-    db.timelineEntry.findMany({
-      where: { deletedAt: null },
+const MediaPickerModal = dynamic(() => import("@/components/admin/MediaPickerModal"));
+const AddItemModal = dynamic(() => import("@/components/admin/AddItemModal"));
+
+const PAGE_SIZE = 20;
+
+interface PageProps {
+  searchParams: Promise<{ page?: string }>;
+}
+
+export default async function AdminTimelinePage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const rawPage = parseInt(params.page ?? "1", 10);
+  const page = Number.isFinite(rawPage) && rawPage >= 1 ? rawPage : 1;
+
+  // Query TimelineEntryVersion (DRAFT) directly so `order` can be sorted/paginated
+  // at the database boundary — Prisma can't orderBy a to-many relation's field
+  // on the parent TimelineEntry model.
+  const [total, draftVersions, projects] = await Promise.all([
+    db.timelineEntryVersion.count({ where: { state: "DRAFT" } }),
+    db.timelineEntryVersion.findMany({
+      where: { state: "DRAFT" },
+      orderBy: [{ order: "asc" }, { id: "asc" }],
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
       include: {
-        versions: true,
-        linkedProject: {
+        image: { select: { url: true } },
+        timelineEntry: {
           include: {
-            versions: { where: { state: "DRAFT" }, take: 1 },
+            linkedProject: {
+              include: {
+                versions: { where: { state: "DRAFT" }, take: 1 },
+              },
+            },
           },
         },
       },
@@ -25,28 +51,18 @@ export default async function AdminTimelinePage() {
       include: { versions: { where: { state: "DRAFT" }, take: 1 } },
       orderBy: { slug: "asc" },
     }),
-    db.mediaAsset.findMany({
-      where: { deletedAt: null },
-      orderBy: { createdAt: "desc" },
-    }),
   ]);
 
-  // Resolve draft details
-  const entries = entriesRaw.map((entry) => {
-    const draft = entry.versions.find((v) => v.state === "DRAFT");
-    const published = entry.versions.find((v) => v.state === "PUBLISHED");
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const entries = draftVersions.map((draft) => {
+    const entry = draft.timelineEntry;
     const projectTitle = entry.linkedProject?.versions[0]?.title || entry.linkedProject?.slug || "";
-
     return {
-      ...entry,
+      id: entry.id,
       draft,
-      published,
       projectTitle,
     };
   });
-
-  // Sort by manualOrder of draft versions
-  entries.sort((a, b) => (a.draft?.order || 0) - (b.draft?.order || 0));
 
   async function handleCreateMilestone(formData: FormData) {
     "use server";
@@ -80,24 +96,9 @@ export default async function AdminTimelinePage() {
     await deleteTimelineEntryAction(id);
   }
 
-  async function handleMoveUp(index: number) {
+  async function handleMove(id: string, direction: "up" | "down") {
     "use server";
-    if (index === 0) return;
-    const ids = entries.map((e) => e.id);
-    const temp = ids[index];
-    ids[index] = ids[index - 1];
-    ids[index - 1] = temp;
-    await reorderTimelineEntriesAction(ids);
-  }
-
-  async function handleMoveDown(index: number) {
-    "use server";
-    if (index === entries.length - 1) return;
-    const ids = entries.map((e) => e.id);
-    const temp = ids[index];
-    ids[index] = ids[index + 1];
-    ids[index + 1] = temp;
-    await reorderTimelineEntriesAction(ids);
+    await moveTimelineEntryOrderAction(id, direction);
   }
 
   return (
@@ -114,23 +115,21 @@ export default async function AdminTimelinePage() {
         <div className="lg:col-span-8 border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] bg-[var(--a-surface)] overflow-hidden" style={{ boxShadow: "var(--a-shadow)" }}>
           <div className="p-4 border-b border-solid border-[var(--a-line)] bg-[var(--a-inset)] flex items-center gap-2 text-xs font-mono text-[var(--a-faint)]">
             <Milestone size={14} />
-            <span>TIMELINE EVENTS ({entries.length})</span>
+            <span>TIMELINE EVENTS ({total})</span>
           </div>
 
           <div className="divide-y divide-solid divide-[var(--a-line)] text-xs">
             {entries.map((entry, idx) => {
               const draft = entry.draft;
-              if (!draft) return null;
-
-              // Logo preview
-              const logoAsset = allMedia.find((m) => m.id === draft.imageId);
+              const isFirstOnPage = page === 1 && idx === 0;
+              const isLastOnPage = page === totalPages && idx === entries.length - 1;
 
               return (
                 <div key={entry.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-[var(--a-inset)]/30">
                   <div className="flex items-start gap-3">
                     <div className="w-8 h-8 rounded bg-[var(--a-inset)] border border-solid border-[var(--a-line)] overflow-hidden flex items-center justify-center flex-shrink-0">
-                      {logoAsset ? (
-                        <img src={logoAsset.url} alt={draft.title} className="w-full h-full object-contain" />
+                      {draft.image ? (
+                        <img src={draft.image.url} alt={draft.title} className="w-full h-full object-contain" />
                       ) : (
                         <Milestone size={14} className="text-[var(--a-faint)]" />
                       )}
@@ -156,19 +155,19 @@ export default async function AdminTimelinePage() {
                   <div className="flex items-center gap-3">
                     {/* Shift order */}
                     <div className="flex items-center gap-0.5">
-                      <form action={handleMoveUp.bind(null, idx)}>
+                      <form action={handleMove.bind(null, entry.id, "up")}>
                         <button
                           type="submit"
-                          disabled={idx === 0}
+                          disabled={isFirstOnPage}
                           className="p-1 hover:bg-[var(--a-inset)] text-[var(--a-faint)] hover:text-[var(--a-soft)] disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
                         >
                           <ArrowUp size={12} />
                         </button>
                       </form>
-                      <form action={handleMoveDown.bind(null, idx)}>
+                      <form action={handleMove.bind(null, entry.id, "down")}>
                         <button
                           type="submit"
-                          disabled={idx === entries.length - 1}
+                          disabled={isLastOnPage}
                           className="p-1 hover:bg-[var(--a-inset)] text-[var(--a-faint)] hover:text-[var(--a-soft)] disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
                         >
                           <ArrowDown size={12} />
@@ -204,15 +203,15 @@ export default async function AdminTimelinePage() {
               <p className="text-center py-12 text-[var(--a-faint)] font-mono">// NO TIMELINE EVENTS SEEDED</p>
             )}
           </div>
+
+          <div className="px-4 pb-4">
+            <Pagination currentPage={page} totalPages={totalPages} buildHref={(p) => `/admin/timeline?page=${p}`} />
+          </div>
         </div>
 
-        {/* Right Quick Add Form */}
-        <div className="lg:col-span-4 p-6 border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] bg-[var(--a-surface)] space-y-6" style={{ boxShadow: "var(--a-shadow)" }}>
-          <h3 className="font-bold text-sm text-[var(--a-ink)] border-b border-solid border-[var(--a-line)] pb-3 mb-2 flex items-center gap-2">
-            <Plus size={16} className="text-[var(--a-primary)]" />
-            Add Milestone
-          </h3>
-
+        {/* Right Quick Add */}
+        <div className="lg:col-span-4">
+          <AddItemModal triggerLabel="Add Milestone" title="Add Milestone">
           <form action={handleCreateMilestone} className="space-y-4">
             <div className="space-y-1">
               <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Title</label>
@@ -268,20 +267,7 @@ export default async function AdminTimelinePage() {
               </select>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Milestone Icon Asset</label>
-              <select
-                name="imageId"
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-inset)] focus:outline-none focus:border-[var(--a-primary)]"
-              >
-                <option value="">-- No Icon Selected --</option>
-                {allMedia.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.filename}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <MediaPickerModal name="imageId" label="Milestone Icon Asset" mode="single" />
 
             <div className="space-y-1">
               <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Short Description</label>
@@ -301,6 +287,7 @@ export default async function AdminTimelinePage() {
               Add Timeline Event
             </button>
           </form>
+          </AddItemModal>
         </div>
       </div>
     </div>

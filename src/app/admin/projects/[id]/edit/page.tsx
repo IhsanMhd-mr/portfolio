@@ -1,8 +1,12 @@
 import db from "@/lib/database";
+import dynamic from "next/dynamic";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Save, Briefcase, Eye, Star, Link as LinkIcon, FileText, Image as ImageIcon } from "lucide-react";
 import { updateProjectAction } from "../../actions";
+import GalleryManager from "@/components/admin/projects/GalleryManager";
+
+const MediaPickerModal = dynamic(() => import("@/components/admin/MediaPickerModal"));
 
 interface EditProjectPageProps {
   params: Promise<{ id: string }>;
@@ -11,15 +15,31 @@ interface EditProjectPageProps {
 export default async function EditProjectPage({ params }: EditProjectPageProps) {
   const { id } = await params;
 
-  // Load project with its DRAFT version and relations
-  const project = await db.project.findUnique({
-    where: { id },
-    include: {
-      versions: { where: { state: "DRAFT" }, take: 1 },
-      technologies: { orderBy: { order: "asc" } },
-      images: { include: { media: true }, orderBy: { order: "asc" } },
-    },
-  });
+  // Load project + technologies (for selector) concurrently — media is no
+  // longer fetched in full here; MediaPickerModal/GalleryManager fetch
+  // paginated/searchable results on demand instead.
+  const [project, allTechs] = await Promise.all([
+    db.project.findUnique({
+      where: { id },
+      include: {
+        versions: {
+          where: { state: "DRAFT" },
+          take: 1,
+          include: {
+            thumbnail: { select: { filename: true, url: true } },
+            coverImage: { select: { filename: true, url: true } },
+            architectureImage: { select: { filename: true, url: true } },
+          },
+        },
+        technologies: { orderBy: { order: "asc" } },
+        images: { include: { media: true }, orderBy: { order: "asc" } },
+      },
+    }),
+    db.technology.findMany({
+      where: { deletedAt: null },
+      include: { versions: { where: { state: "DRAFT" }, take: 1, orderBy: { createdAt: "desc" } } },
+    }),
+  ]);
 
   if (!project || project.deletedAt) {
     notFound();
@@ -29,18 +49,6 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
   if (!draft) {
     notFound();
   }
-
-  // Load technologies for selector
-  const allTechs = await db.technology.findMany({
-    where: { deletedAt: null },
-    include: { versions: { where: { state: "DRAFT" } } },
-  });
-
-  // Load media assets for media pickers
-  const allMedia = await db.mediaAsset.findMany({
-    where: { deletedAt: null },
-    orderBy: { createdAt: "desc" },
-  });
 
   // Server action handler inside compiler-friendly space
   async function updateProjectCaseStudy(formData: FormData) {
@@ -280,56 +288,9 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
           </h3>
 
           <div className="grid gap-6 sm:grid-cols-3">
-            {/* Thumbnail */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Thumbnail Asset</label>
-              <select
-                name="thumbnailId"
-                defaultValue={draft.thumbnailId || ""}
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-inset)] focus:outline-none"
-              >
-                <option value="">-- No Thumbnail Selected --</option>
-                {allMedia.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.filename} ({m.mimeType})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Cover */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Cover Image Asset</label>
-              <select
-                name="coverImageId"
-                defaultValue={draft.coverImageId || ""}
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-inset)] focus:outline-none"
-              >
-                <option value="">-- No Cover Selected --</option>
-                {allMedia.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.filename}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Architecture */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Architecture Image Asset</label>
-              <select
-                name="architectureImageId"
-                defaultValue={draft.architectureImageId || ""}
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-inset)] focus:outline-none"
-              >
-                <option value="">-- No Architecture Selected --</option>
-                {allMedia.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.filename}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <MediaPickerModal name="thumbnailId" label="Thumbnail Asset" mode="single" defaultValue={draft.thumbnailId} defaultPreview={draft.thumbnail} />
+            <MediaPickerModal name="coverImageId" label="Cover Image Asset" mode="single" defaultValue={draft.coverImageId} defaultPreview={draft.coverImage} />
+            <MediaPickerModal name="architectureImageId" label="Architecture Image Asset" mode="single" defaultValue={draft.architectureImageId} defaultPreview={draft.architectureImage} />
           </div>
         </div>
 
@@ -562,39 +523,14 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
           </h3>
           <p className="text-[11px] text-[var(--a-soft)] -mt-2">Select existing media assets to include in the visual gallery.</p>
 
-          <input type="hidden" name="gallery_count" value={allMedia.length} />
-
-          <div className="space-y-3">
-            {allMedia.map((m, idx) => {
-              const galleryItem = project.images.find((img) => img.mediaId === m.id);
-              const isChecked = !!galleryItem;
-              return (
-                <div key={m.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 border border-solid border-[var(--a-line)] rounded hover:bg-[var(--a-inset)]">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      name={`gallery_media_${idx}`}
-                      value={m.id}
-                      defaultChecked={isChecked}
-                      className="cursor-pointer"
-                    />
-                    <div className="space-y-0.5">
-                      <span className="text-xs font-semibold text-[var(--a-ink)]">{m.filename}</span>
-                      <span className="text-[10px] font-mono text-[var(--a-faint)] block">{m.mimeType} • {m.url}</span>
-                    </div>
-                  </div>
-
-                  <input
-                    type="text"
-                    name={`gallery_caption_${idx}`}
-                    defaultValue={galleryItem?.caption || ""}
-                    placeholder="Caption for this project image..."
-                    className="w-full sm:w-80 px-2 py-1 border border-solid border-[var(--a-line)] rounded text-xs focus:outline-none"
-                  />
-                </div>
-              );
-            })}
-          </div>
+          <GalleryManager
+            initialItems={project.images.map((img) => ({
+              mediaId: img.mediaId,
+              url: img.media.url,
+              filename: img.media.filename,
+              caption: img.caption || "",
+            }))}
+          />
         </div>
 
         {/* 7. SEO Configurations */}

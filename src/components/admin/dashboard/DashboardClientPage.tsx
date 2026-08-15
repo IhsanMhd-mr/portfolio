@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import DashboardHeader from "@/components/admin/dashboard/DashboardHeader";
 import StatCard from "@/components/admin/dashboard/StatCard";
 import WebsiteStatusCard from "@/components/admin/dashboard/WebsiteStatusCard";
@@ -12,32 +12,17 @@ import SecuritySummary from "@/components/admin/dashboard/SecuritySummary";
 import TemplateSummary from "@/components/admin/dashboard/TemplateSummary";
 import HomepageStructurePreview from "@/components/admin/dashboard/HomepageStructurePreview";
 import SystemStatus from "@/components/admin/dashboard/SystemStatus";
-import DashboardLoading from "@/components/admin/dashboard/DashboardLoading";
 import { Briefcase, FileEdit, Cpu, Inbox, List, Image } from "lucide-react";
 import { DashboardOverviewData } from "@/services/dashboard.service";
 
-export default function DashboardClientPage() {
-  const [data, setData] = useState<DashboardOverviewData | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const res = await fetch("/api/admin/dashboard");
-        if (!res.ok) {
-          throw new Error("Unable to load dashboard information.");
-        }
-        const json = await res.json();
-        setData(json);
-      } catch (err: any) {
-        setError(err.message || "Failed to load dashboard.");
-      }
-    }
-    loadData();
-  }, []);
+export default function DashboardClientPage({
+  initialData,
+}: {
+  initialData: DashboardOverviewData;
+}) {
+  const [data, setData] = useState<DashboardOverviewData>(initialData);
 
   function handleMarkRead(id: string) {
-    if (!data) return;
     setData({
       ...data,
       unreadMessageCount: Math.max(0, data.unreadMessageCount - 1),
@@ -45,24 +30,6 @@ export default function DashboardClientPage() {
         m.id === id ? { ...m, status: "READ" } : m
       ),
     });
-  }
-
-  if (error) {
-    return (
-      <div className="max-w-md mx-auto mt-20 p-6 border border-solid border-[var(--a-danger-ink)]/20 rounded-[var(--a-r-md)] bg-[var(--a-danger-bg)] text-center space-y-4">
-        <p className="text-sm font-semibold text-[var(--a-danger-ink)]">{error}</p>
-        <button
-          onClick={() => window.location.reload()}
-          className="text-xs font-bold px-4 py-2 bg-[var(--a-danger)] text-white rounded hover:opacity-90 transition-colors border-none cursor-pointer"
-        >
-          Try Again
-        </button>
-      </div>
-    );
-  }
-
-  if (!data) {
-    return <DashboardLoading />;
   }
 
   const lastPublishedStr = data.activeTemplate

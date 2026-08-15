@@ -1,8 +1,12 @@
 import { requireAdmin, getValidatedOwner } from "@/lib/require-admin";
 import { CertificationService } from "@/services/certification.service";
 import db from "@/lib/database";
+import dynamic from "next/dynamic";
 import { revalidatePath } from "next/cache";
-import { Award, Plus, Trash2, Eye, EyeOff, ArrowUp, ArrowDown } from "lucide-react";
+import { Award, Trash2, Eye, EyeOff, ArrowUp, ArrowDown } from "lucide-react";
+
+const MediaPickerModal = dynamic(() => import("@/components/admin/MediaPickerModal"));
+const AddItemModal = dynamic(() => import("@/components/admin/AddItemModal"));
 
 export const metadata = { title: "Certifications — Admin" };
 
@@ -10,12 +14,9 @@ const inputCls =
   "w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-surface)] focus:outline-none focus:border-[var(--a-primary)]";
 
 export default async function AdminCertificationsPage() {
-  await requireAdmin({ pathname: "/admin/certifications" });
+  await requireAdmin("/admin/certifications");
 
-  const [certs, media] = await Promise.all([
-    CertificationService.list(),
-    db.mediaAsset.findMany({ where: { deletedAt: null }, orderBy: { createdAt: "desc" } }),
-  ]);
+  const certs = await CertificationService.list();
 
   async function createAction(formData: FormData) {
     "use server";
@@ -48,19 +49,15 @@ export default async function AdminCertificationsPage() {
     const ctx = { actorId: owner.userId, loginMethod: owner.loginMethod, loginAccountId: owner.loginAccountId };
     const id = String(formData.get("id") || "");
     const op = String(formData.get("op") || "");
-    const all = await CertificationService.list();
-    const idx = all.findIndex((c) => c.id === id);
-    if (idx === -1) return;
 
-    if (op === "delete") await CertificationService.remove(id, ctx);
-    else if (op === "toggle")
-      await CertificationService.update(id, { title: all[idx].title, issuer: all[idx].issuer, visible: !all[idx].visible }, ctx);
-    else if (op === "up" || op === "down") {
-      const swap = op === "up" ? idx - 1 : idx + 1;
-      if (swap < 0 || swap >= all.length) return;
-      const ids = all.map((c) => c.id);
-      [ids[idx], ids[swap]] = [ids[swap], ids[idx]];
-      await CertificationService.reorder(ids, ctx);
+    if (op === "delete") {
+      await CertificationService.remove(id, ctx);
+    } else if (op === "toggle") {
+      const current = await db.certification.findUnique({ where: { id } });
+      if (!current) return;
+      await CertificationService.update(id, { title: current.title, issuer: current.issuer, visible: !current.visible }, ctx);
+    } else if (op === "up" || op === "down") {
+      await CertificationService.moveOrder(id, op, ctx);
     }
     revalidatePath("/admin/certifications");
     revalidatePath("/");
@@ -74,29 +71,22 @@ export default async function AdminCertificationsPage() {
       </div>
 
       {/* Add form */}
-      <form action={createAction} className="p-6 border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] bg-[var(--a-surface)] space-y-4" style={{ boxShadow: "var(--a-shadow)" }}>
-        <h3 className="font-bold text-sm text-[var(--a-ink)] border-b border-solid border-[var(--a-line)] pb-3 flex items-center gap-2">
-          <Plus size={16} className="text-[var(--a-primary)]" /> Add Certification
-        </h3>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="space-y-1.5"><label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block">Title *</label><input name="title" required className={inputCls} /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block">Issuer *</label><input name="issuer" required className={inputCls} /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block">Issue date</label><input name="issueDate" type="date" className={inputCls} /></div>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="space-y-1.5"><label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block">Credential ID</label><input name="credentialId" className={inputCls} /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block">Credential URL</label><input name="credentialUrl" type="url" className={inputCls} /></div>
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block">Certificate file (Media Library)</label>
-            <select name="mediaId" className={inputCls}>
-              <option value="">-- None --</option>
-              {media.map((m) => (<option key={m.id} value={m.id}>{m.filename}</option>))}
-            </select>
+      <AddItemModal triggerLabel="Add Certification" title="Add Certification">
+        <form action={createAction} className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-1.5"><label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block">Title *</label><input name="title" required className={inputCls} /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block">Issuer *</label><input name="issuer" required className={inputCls} /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block">Issue date</label><input name="issueDate" type="date" className={inputCls} /></div>
           </div>
-        </div>
-        <div className="space-y-1.5"><label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block">Description</label><textarea name="description" rows={2} className={`${inputCls} resize-y`} /></div>
-        <button type="submit" className="px-5 py-2 bg-[var(--a-primary)] hover:bg-[var(--a-primary-hover)] text-white text-xs font-semibold rounded-[var(--a-r-sm)] cursor-pointer border-none">Add Certification</button>
-      </form>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-1.5"><label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block">Credential ID</label><input name="credentialId" className={inputCls} /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block">Credential URL</label><input name="credentialUrl" type="url" className={inputCls} /></div>
+            <MediaPickerModal name="mediaId" label="Certificate file (Media Library)" mode="single" />
+          </div>
+          <div className="space-y-1.5"><label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block">Description</label><textarea name="description" rows={2} className={`${inputCls} resize-y`} /></div>
+          <button type="submit" className="px-5 py-2 bg-[var(--a-primary)] hover:bg-[var(--a-primary-hover)] text-white text-xs font-semibold rounded-[var(--a-r-sm)] cursor-pointer border-none">Add Certification</button>
+        </form>
+      </AddItemModal>
 
       {/* List */}
       <div className="p-6 border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] bg-[var(--a-surface)] space-y-2" style={{ boxShadow: "var(--a-shadow)" }}>

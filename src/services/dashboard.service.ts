@@ -91,6 +91,7 @@ export class DashboardService {
       linkedGoogleAccountCount,
       currentUser,
       recentFailedLoginCount,
+      currentSession,
     ] = await Promise.all([
       db.project.count({ where: { deletedAt: null } }),
       db.project.count({
@@ -120,7 +121,7 @@ export class DashboardService {
       db.page.findUnique({
         where: { key: "home" },
         include: {
-          draftTemplate: true,
+          draftTemplate: { select: { id: true, name: true, key: true } },
           sections: {
             orderBy: { order: "asc" },
           },
@@ -147,12 +148,17 @@ export class DashboardService {
       }),
       db.user.findUnique({
         where: { id: userId },
+        select: { username: true, lastLoginAt: true },
       }),
       db.loginAttempt.count({
         where: {
           success: false,
           createdAt: { gte: new Date(Date.now() - 15 * 60 * 1000) }, // last 15 mins
         },
+      }),
+      db.trackedSession.findUnique({
+        where: { sid: currentSid },
+        include: { account: true },
       }),
     ]);
 
@@ -185,11 +191,6 @@ export class DashboardService {
     const pendingChangeCount = pageDetails?.hasUnpublishedChanges ? 1 : 0; // standard indicator
 
     // 3. Security Summary details
-    const currentSession = await db.trackedSession.findUnique({
-      where: { sid: currentSid },
-      include: { account: true },
-    });
-
     const loginMethod = currentSession?.loginMethod || "LOCAL";
     const loginIdentity = loginMethod === "GOOGLE" && currentSession?.account?.email
       ? currentSession.account.email

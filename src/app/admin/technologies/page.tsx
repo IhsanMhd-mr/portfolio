@@ -1,16 +1,24 @@
 import db from "@/lib/database";
+import dynamic from "next/dynamic";
 import { revalidatePath } from "next/cache";
-import { Cpu, Plus, Trash2, Save, Eye, EyeOff, ArrowUp, ArrowDown } from "lucide-react";
+import { Cpu, Trash2, Save, Eye, EyeOff, ArrowUp, ArrowDown } from "lucide-react";
 import AutoSubmitCheckbox from "@/components/admin/AutoSubmitCheckbox";
-import { 
-  createTechnologyAction, 
-  updateTechnologyAction, 
-  deleteTechnologyAction, 
-  reorderTechnologiesAction 
+import Pagination from "@/components/admin/Pagination";
+
+const MediaPickerModal = dynamic(() => import("@/components/admin/MediaPickerModal"));
+const AddItemModal = dynamic(() => import("@/components/admin/AddItemModal"));
+import {
+  createTechnologyAction,
+  updateTechnologyAction,
+  deleteTechnologyAction,
+  moveTechnologyOrderAction,
 } from "./actions";
+
+const PAGE_SIZE = 20;
 
 interface SearchParams {
   error?: string;
+  page?: string;
 }
 
 interface PageProps {
@@ -20,44 +28,41 @@ interface PageProps {
 export default async function AdminTechnologiesPage(props: PageProps) {
   const params = await props.searchParams;
   const error = params.error || "";
+  const rawPage = parseInt(params.page ?? "1", 10);
+  const page = Number.isFinite(rawPage) && rawPage >= 1 ? rawPage : 1;
 
-  // Fetch technologies with draft version and project/experience usage links
-  const technologiesRaw = await db.technology.findMany({
-    where: { deletedAt: null },
-    include: {
-      versions: true,
-      projects: true,
-      experienceTech: true,
-      timelineTech: true,
-    },
-  });
+  // Query TechnologyVersion (DRAFT) directly so `order` can be sorted/paginated
+  // at the database boundary — Prisma can't orderBy a to-many relation's field
+  // on the parent Technology model. The logo relation is joined directly
+  // instead of fetching every MediaAsset just to resolve one URL per row.
+  const [total, draftVersions] = await Promise.all([
+    db.technologyVersion.count({ where: { state: "DRAFT" } }),
+    db.technologyVersion.findMany({
+      where: { state: "DRAFT" },
+      orderBy: [{ order: "asc" }, { id: "asc" }],
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+      include: {
+        logo: { select: { url: true } },
+        technology: {
+          include: {
+            _count: {
+              select: { projects: true, experienceTech: true, timelineTech: true },
+            },
+          },
+        },
+      },
+    }),
+  ]);
 
-  // Map to resolve draft and count usages
-  const technologies = technologiesRaw.map((tech) => {
-    const draft = tech.versions.find((v) => v.state === "DRAFT");
-    const published = tech.versions.find((v) => v.state === "PUBLISHED");
-    const projectCount = tech.projects.length;
-    const experienceCount = tech.experienceTech.length;
-    const timelineCount = tech.timelineTech.length;
-
-    return {
-      ...tech,
-      draft,
-      published,
-      projectCount,
-      experienceCount,
-      timelineCount,
-    };
-  });
-
-  // Sort by order of draft version
-  technologies.sort((a, b) => (a.draft?.order || 0) - (b.draft?.order || 0));
-
-  // Load media assets (for logo selector dropdown)
-  const allMedia = await db.mediaAsset.findMany({
-    where: { deletedAt: null },
-    orderBy: { createdAt: "desc" },
-  });
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const technologies = draftVersions.map((draft) => ({
+    id: draft.technology.id,
+    draft,
+    projectCount: draft.technology._count.projects,
+    experienceCount: draft.technology._count.experienceTech,
+    timelineCount: draft.technology._count.timelineTech,
+  }));
 
   // Server action triggers
   async function handleCreateTech(formData: FormData) {
@@ -101,24 +106,9 @@ export default async function AdminTechnologiesPage(props: PageProps) {
     }
   }
 
-  async function handleMoveUp(index: number) {
+  async function handleMove(id: string, direction: "up" | "down") {
     "use server";
-    if (index === 0) return;
-    const ids = technologies.map((t) => t.id);
-    const temp = ids[index];
-    ids[index] = ids[index - 1];
-    ids[index - 1] = temp;
-    await reorderTechnologiesAction(ids);
-  }
-
-  async function handleMoveDown(index: number) {
-    "use server";
-    if (index === technologies.length - 1) return;
-    const ids = technologies.map((t) => t.id);
-    const temp = ids[index];
-    ids[index] = ids[index + 1];
-    ids[index + 1] = temp;
-    await reorderTechnologiesAction(ids);
+    await moveTechnologyOrderAction(id, direction);
   }
 
   return (
@@ -141,24 +131,22 @@ export default async function AdminTechnologiesPage(props: PageProps) {
         <div className="lg:col-span-8 border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] bg-[var(--a-surface)] overflow-hidden" style={{ boxShadow: "var(--a-shadow)" }}>
           <div className="p-4 border-b border-solid border-[var(--a-line)] bg-[var(--a-inset)] flex items-center gap-2 text-xs font-mono text-[var(--a-faint)]">
             <Cpu size={14} />
-            <span>TECHNOLOGIES STACK ({technologies.length})</span>
+            <span>TECHNOLOGIES STACK ({total})</span>
           </div>
 
           <div className="divide-y divide-solid divide-[var(--a-line)] text-xs">
             {technologies.map((tech, idx) => {
               const draft = tech.draft;
-              if (!draft) return null;
-
-              // Find logo if any
-              const logoAsset = allMedia.find((m) => m.id === draft.logoId);
+              const isFirstOnPage = page === 1 && idx === 0;
+              const isLastOnPage = page === totalPages && idx === technologies.length - 1;
 
               return (
                 <div key={tech.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-[var(--a-inset)]/30">
                   <div className="flex items-start gap-3">
                     {/* Logo display */}
                     <div className="w-8 h-8 rounded bg-[var(--a-inset)] border border-solid border-[var(--a-line)] overflow-hidden flex items-center justify-center flex-shrink-0">
-                      {logoAsset ? (
-                        <img src={logoAsset.url} alt={draft.name} className="w-full h-full object-contain" />
+                      {draft.logo ? (
+                        <img src={draft.logo.url} alt={draft.name} className="w-full h-full object-contain" />
                       ) : (
                         <Cpu size={14} className="text-[var(--a-faint)]" />
                       )}
@@ -187,19 +175,19 @@ export default async function AdminTechnologiesPage(props: PageProps) {
                   <div className="flex flex-wrap items-center gap-4">
                     {/* Shift order */}
                     <div className="flex items-center gap-0.5">
-                      <form action={handleMoveUp.bind(null, idx)}>
+                      <form action={handleMove.bind(null, tech.id, "up")}>
                         <button
                           type="submit"
-                          disabled={idx === 0}
+                          disabled={isFirstOnPage}
                           className="p-1 hover:bg-[var(--a-inset)] text-[var(--a-faint)] hover:text-[var(--a-soft)] disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
                         >
                           <ArrowUp size={12} />
                         </button>
                       </form>
-                      <form action={handleMoveDown.bind(null, idx)}>
+                      <form action={handleMove.bind(null, tech.id, "down")}>
                         <button
                           type="submit"
-                          disabled={idx === technologies.length - 1}
+                          disabled={isLastOnPage}
                           className="p-1 hover:bg-[var(--a-inset)] text-[var(--a-faint)] hover:text-[var(--a-soft)] disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
                         >
                           <ArrowDown size={12} />
@@ -252,15 +240,15 @@ export default async function AdminTechnologiesPage(props: PageProps) {
               <p className="text-center py-12 text-[var(--a-faint)] font-mono">// NO TECHNOLOGIES SEEDED</p>
             )}
           </div>
+
+          <div className="px-4 pb-4">
+            <Pagination currentPage={page} totalPages={totalPages} buildHref={(p) => `/admin/technologies?page=${p}`} />
+          </div>
         </div>
 
-        {/* Right: Quick Add Form */}
-        <div className="lg:col-span-4 p-6 border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] bg-[var(--a-surface)] space-y-6" style={{ boxShadow: "var(--a-shadow)" }}>
-          <h3 className="font-bold text-sm text-[var(--a-ink)] border-b border-solid border-[var(--a-line)] pb-3 mb-2 flex items-center gap-2">
-            <Plus size={16} className="text-[var(--a-primary)]" />
-            Add New Skill
-          </h3>
-
+        {/* Right: Quick Add */}
+        <div className="lg:col-span-4">
+          <AddItemModal triggerLabel="Add New Skill" title="Add New Skill">
           <form action={handleCreateTech} className="space-y-4">
             <div className="space-y-1">
               <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Skill Name</label>
@@ -303,20 +291,7 @@ export default async function AdminTechnologiesPage(props: PageProps) {
               </select>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Tech Logo Asset</label>
-              <select
-                name="logoId"
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-inset)] focus:outline-none focus:border-[var(--a-primary)]"
-              >
-                <option value="">-- No Logo Selected --</option>
-                {allMedia.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.filename}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <MediaPickerModal name="logoId" label="Tech Logo Asset" mode="single" />
 
             <div className="space-y-1">
               <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Short Description</label>
@@ -336,6 +311,7 @@ export default async function AdminTechnologiesPage(props: PageProps) {
               Add Technology
             </button>
           </form>
+          </AddItemModal>
         </div>
       </div>
     </div>

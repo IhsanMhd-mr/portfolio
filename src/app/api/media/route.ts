@@ -1,6 +1,48 @@
 import { NextResponse } from "next/server";
 import { safeRequireAdmin } from "@/lib/require-admin";
 import { MediaService } from "@/services/media.service";
+import db from "@/lib/database";
+
+const PICKER_PAGE_SIZE = 24;
+
+/**
+ * Paginated/searchable media listing for MediaPickerModal — returns only the
+ * fields the picker needs, never the full MediaAsset row, and never the full
+ * table (unlike the admin forms this replaces, which used to `findMany()`
+ * every asset just to populate a <select>).
+ */
+export async function GET(request: Request) {
+  const { response } = await safeRequireAdmin(request);
+  if (response) return response;
+
+  const url = new URL(request.url);
+  const search = url.searchParams.get("search") || "";
+  const rawPage = parseInt(url.searchParams.get("page") || "1", 10);
+  const page = Number.isFinite(rawPage) && rawPage >= 1 ? rawPage : 1;
+
+  const where = {
+    deletedAt: null,
+    ...(search ? { filename: { contains: search, mode: "insensitive" as const } } : {}),
+  };
+
+  const [total, assets] = await Promise.all([
+    db.mediaAsset.count({ where }),
+    db.mediaAsset.findMany({
+      where,
+      select: { id: true, filename: true, url: true, mimeType: true, kind: true },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * PICKER_PAGE_SIZE,
+      take: PICKER_PAGE_SIZE,
+    }),
+  ]);
+
+  return NextResponse.json({
+    assets,
+    page,
+    totalPages: Math.max(1, Math.ceil(total / PICKER_PAGE_SIZE)),
+    total,
+  });
+}
 
 export async function POST(request: Request) {
   // Enforce requireAdmin validation

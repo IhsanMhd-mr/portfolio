@@ -63,4 +63,29 @@ export class NavItemService {
       summary: "Reordered nav items", context: auditContext,
     });
   }
+
+  /** Swap a nav item's `order` with its immediate neighbor — avoids refetching the full list. */
+  static async moveOrder(id: string, direction: "up" | "down", auditContext: AuditContext) {
+    return db.$transaction(async (tx) => {
+      const current = await tx.navItem.findUnique({ where: { id } });
+      if (!current) return false;
+
+      const neighbor = await tx.navItem.findFirst({
+        where: { order: direction === "up" ? { lt: current.order } : { gt: current.order } },
+        orderBy: direction === "up"
+          ? [{ order: "desc" }, { id: "desc" }]
+          : [{ order: "asc" }, { id: "asc" }],
+      });
+      if (!neighbor) return false;
+
+      await tx.navItem.update({ where: { id: current.id }, data: { order: neighbor.order } });
+      await tx.navItem.update({ where: { id: neighbor.id }, data: { order: current.order } });
+
+      await recordAudit({
+        action: "SETTINGS_UPDATED", entityType: "NavItem", entityId: id,
+        summary: `Moved a nav item ${direction} in the sequence`, context: auditContext, tx,
+      });
+      return true;
+    });
+  }
 }

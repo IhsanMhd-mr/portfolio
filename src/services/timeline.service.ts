@@ -193,4 +193,54 @@ export class TimelineService {
       return true;
     });
   }
+
+  /**
+   * Move a timeline entry's draft one position up/down by swapping `order`
+   * with its immediate neighbor — correct under pagination, unlike
+   * `reorderEntries` which needs the full ordered id list.
+   */
+  static async moveOrder(
+    id: string,
+    direction: "up" | "down",
+    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+  ) {
+    return await db.$transaction(async (tx) => {
+      const base = await tx.timelineEntry.findUnique({
+        where: { id },
+        include: { versions: { where: { state: "DRAFT" }, take: 1 } },
+      });
+      const current = base?.versions[0];
+      if (!current) return false;
+
+      const neighbor = await tx.timelineEntryVersion.findFirst({
+        where: {
+          state: "DRAFT",
+          order: direction === "up" ? { lt: current.order } : { gt: current.order },
+        },
+        orderBy: direction === "up"
+          ? [{ order: "desc" }, { id: "desc" }]
+          : [{ order: "asc" }, { id: "asc" }],
+      });
+      if (!neighbor) return false;
+
+      await tx.timelineEntryVersion.update({ where: { id: current.id }, data: { order: neighbor.order } });
+      await tx.timelineEntryVersion.update({ where: { id: neighbor.id }, data: { order: current.order } });
+
+      await recordAudit({
+        action: "TIMELINE_REORDERED",
+        entityType: "TimelineEntry",
+        entityId: id,
+        summary: `Moved a timeline entry ${direction} in the sequence.`,
+        context: auditContext,
+        tx,
+      });
+
+      await tx.page.update({
+        where: { key: "home" },
+        data: { hasUnpublishedChanges: true },
+      });
+
+      return true;
+    });
+  }
 }

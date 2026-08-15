@@ -1,12 +1,29 @@
 import db from "@/lib/database";
 import { revalidatePath } from "next/cache";
 import { Inbox, Trash2, Mail, CheckCircle } from "lucide-react";
+import Pagination from "@/components/admin/Pagination";
 
-export default async function AdminMessagesPage() {
-  const messages = await db.contactMessage.findMany({
-    where: { deletedAt: null },
-    orderBy: { createdAt: "desc" },
-  });
+const PAGE_SIZE = 20;
+
+interface PageProps {
+  searchParams: Promise<{ page?: string }>;
+}
+
+export default async function AdminMessagesPage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const rawPage = parseInt(params.page ?? "1", 10);
+  const page = Number.isFinite(rawPage) && rawPage >= 1 ? rawPage : 1;
+
+  const [total, messages] = await Promise.all([
+    db.contactMessage.count({ where: { deletedAt: null } }),
+    db.contactMessage.findMany({
+      where: { deletedAt: null },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+    }),
+  ]);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   // Server actions for inline message state mutations
   async function toggleReadStatus(formData: FormData) {
@@ -43,7 +60,7 @@ export default async function AdminMessagesPage() {
       <div className="border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] bg-[var(--a-surface)] overflow-hidden" style={{ boxShadow: "var(--a-shadow)" }}>
         <div className="p-4 border-b border-solid border-[var(--a-line)] bg-[var(--a-inset)] flex items-center gap-2 text-xs font-mono text-[var(--a-faint)]">
           <Inbox size={14} />
-          <span>INBOX ITEMS ({messages.length})</span>
+          <span>INBOX ITEMS ({total})</span>
         </div>
 
         <div className="divide-y divide-solid divide-[var(--a-line)]">
@@ -111,6 +128,10 @@ export default async function AdminMessagesPage() {
           {messages.length === 0 && (
             <div className="text-center py-20 text-xs font-mono text-[var(--a-faint)]">// NO MESSAGES RECEIVED IN INBOX</div>
           )}
+        </div>
+
+        <div className="px-4 pb-4">
+          <Pagination currentPage={page} totalPages={totalPages} buildHref={(p) => `/admin/messages?page=${p}`} />
         </div>
       </div>
     </div>

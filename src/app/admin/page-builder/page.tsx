@@ -1,7 +1,11 @@
 import db from "@/lib/database";
+import dynamic from "next/dynamic";
 import { requireAdmin } from "@/lib/require-admin";
 import { SectionGroupService } from "@/services/section-group.service";
-import PageBuilderBoard from "@/components/admin/page-builder/PageBuilderBoard";
+
+// dnd-kit (used by the board's drag-and-drop) is only needed on this route —
+// dynamic() keeps it out of shared admin chunks/other pages' initial JS.
+const PageBuilderBoard = dynamic(() => import("@/components/admin/page-builder/PageBuilderBoard"));
 
 export const metadata = { title: "Page Builder — Admin" };
 
@@ -20,7 +24,7 @@ function toModule(s: any) {
 }
 
 export default async function PageBuilderPage() {
-  await requireAdmin({ pathname: "/admin/page-builder" });
+  await requireAdmin("/admin/page-builder");
 
   const page = await db.page.findUnique({ where: { key: "home" }, select: { id: true } });
   if (!page) {
