@@ -104,12 +104,12 @@ export default async function AdminLayout({
             {/* Draft status chip (live from Page.hasUnpublishedChanges) — label hidden on mobile, dot always visible */}
             {hasUnpublishedChanges ? (
               <div className="flex items-center gap-2 text-xs text-[var(--a-soft)]">
-                <span className="h-2.5 w-2.5 rounded-full bg-amber-500 animate-pulse" />
+                <span className="h-2.5 w-2.5 rounded-full bg-[var(--a-warn-bg)]0 animate-pulse" />
                 <span className="hidden sm:inline">Unpublished changes</span>
               </div>
             ) : (
               <div className="flex items-center gap-2 text-xs text-[var(--a-soft)]">
-                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                <span className="h-2.5 w-2.5 rounded-full bg-[var(--a-success-bg)]0" />
                 <span className="hidden sm:inline">Everything published</span>
               </div>
             )}

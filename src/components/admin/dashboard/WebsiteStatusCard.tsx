@@ -40,7 +40,7 @@ export default function WebsiteStatusCard({
 
       <div className="pt-4 border-t border-solid border-[var(--a-line)] space-y-3">
         {hasChanges ? (
-          <div className="flex items-start gap-2.5 text-xs text-amber-600 bg-amber-500/5 p-3 rounded-[var(--a-r-sm)] border border-dashed border-amber-500/30">
+          <div className="flex items-start gap-2.5 text-xs text-[var(--a-warn-ink)] bg-[var(--a-warn-bg)] p-3 rounded-[var(--a-r-sm)] border border-dashed border-[var(--a-warn-ink)]/30">
             <FileEdit size={16} className="mt-0.5 shrink-0" />
             <div>
               <p className="font-semibold">{pendingChangeCount} Unpublished Changes</p>
@@ -48,9 +48,12 @@ export default function WebsiteStatusCard({
             </div>
           </div>
         ) : (
-          <div className="flex items-center gap-2.5 text-xs text-emerald-600 bg-emerald-500/5 p-3 rounded-[var(--a-r-sm)] border border-solid border-emerald-500/10">
+          <div className="flex items-center gap-2.5 text-xs text-[var(--a-success-ink)] bg-[var(--a-success-bg)] p-3 rounded-[var(--a-r-sm)] border border-solid border-[var(--a-success-ink)]/10">
             <CheckCircle2 size={16} className="shrink-0" />
-            <p className="font-semibold">Your live portfolio is up to date.</p>
+            <div>
+              <p className="font-semibold">Your live portfolio is up to date.</p>
+              <p className="text-[10px] text-[var(--a-soft)] mt-0.5">Last published: {lastPublished}</p>
+            </div>
           </div>
         )}
       </div>

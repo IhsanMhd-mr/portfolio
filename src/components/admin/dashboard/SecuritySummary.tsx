@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { Shield, Monitor } from "lucide-react";
+import { Shield } from "lucide-react";
 
 interface SecurityProps {
   loginMethod: string;

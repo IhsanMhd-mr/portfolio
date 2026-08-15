@@ -126,6 +126,7 @@ export default async function RootLayout({
   const isPreview = cookieStore.get("portfolio_preview_mode")?.value === "true";
 
   let templateKey = "MODERN_GLASS";
+  let defaultTheme = "system";
 
   try {
     if (isPreview) {
@@ -153,6 +154,11 @@ export default async function RootLayout({
         templateKey = page.draftTemplate.key;
       }
     }
+
+    const siteProfile = await db.siteProfile.findFirst({ select: { defaultTheme: true } });
+    if (siteProfile?.defaultTheme) {
+      defaultTheme = siteProfile.defaultTheme;
+    }
   } catch (error) {
     console.error("Failed to load active template from database:", error);
   }
@@ -174,7 +180,7 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col">
         <ThemeProvider
           attribute={["class", "data-theme"]}
-          defaultTheme="system"
+          defaultTheme={defaultTheme}
           enableSystem
           disableTransitionOnChange
           storageKey="portfolio-theme"

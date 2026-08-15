@@ -1,6 +1,6 @@
 import db from "@/lib/database";
 import { revalidatePath } from "next/cache";
-import { Inbox, Trash2, Mail, MessageSquare, CheckCircle } from "lucide-react";
+import { Inbox, Trash2, Mail, CheckCircle } from "lucide-react";
 
 export default async function AdminMessagesPage() {
   const messages = await db.contactMessage.findMany({
@@ -41,7 +41,7 @@ export default async function AdminMessagesPage() {
       </div>
 
       <div className="border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] bg-[var(--a-surface)] overflow-hidden" style={{ boxShadow: "var(--a-shadow)" }}>
-        <div className="p-4 border-b border-solid border-[var(--a-line)] bg-slate-50 flex items-center gap-2 text-xs font-mono text-[var(--a-faint)]">
+        <div className="p-4 border-b border-solid border-[var(--a-line)] bg-[var(--a-inset)] flex items-center gap-2 text-xs font-mono text-[var(--a-faint)]">
           <Inbox size={14} />
           <span>INBOX ITEMS ({messages.length})</span>
         </div>
@@ -50,8 +50,8 @@ export default async function AdminMessagesPage() {
           {messages.map((msg) => (
             <div 
               key={msg.id} 
-              className={`p-6 transition-colors hover:bg-slate-50/50 flex flex-col md:flex-row md:items-start justify-between gap-6 ${
-                msg.status === "NEW" ? "bg-amber-500/[0.02] border-l-2 border-solid border-amber-500" : ""
+              className={`p-6 transition-colors hover:bg-[var(--a-inset)]/50 flex flex-col md:flex-row md:items-start justify-between gap-6 ${
+                msg.status === "NEW" ? "bg-[var(--a-warn-bg)] border-l-2 border-solid border-[var(--a-warn)]" : ""
               }`}
             >
               {/* Message content */}
@@ -62,13 +62,13 @@ export default async function AdminMessagesPage() {
                     <Mail size={12} />
                     {msg.email}
                   </a>
-                  <span className="text-[10px] font-mono text-[var(--a-faint)] bg-slate-100 px-2 py-0.5 rounded">
+                  <span className="text-[10px] font-mono text-[var(--a-faint)] bg-[var(--a-inset)] px-2 py-0.5 rounded">
                     {msg.category}
                   </span>
                 </div>
 
                 <h3 className="font-bold text-sm text-[var(--a-ink)]">{msg.subject}</h3>
-                <p className="text-xs text-[var(--a-soft)] leading-relaxed whitespace-pre-line bg-slate-50 p-4 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)]">
+                <p className="text-xs text-[var(--a-soft)] leading-relaxed whitespace-pre-line bg-[var(--a-inset)] p-4 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)]">
                   {msg.message}
                 </p>
                 <p className="text-[10px] text-[var(--a-faint)] font-mono">
@@ -85,8 +85,8 @@ export default async function AdminMessagesPage() {
                     type="submit"
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--a-r-sm)] text-[10px] font-bold tracking-wider uppercase border border-solid cursor-pointer transition-all ${
                       msg.status === "NEW"
-                        ? "bg-amber-500/10 text-amber-600 border-amber-500/20 hover:bg-amber-500/20"
-                        : "bg-slate-100 text-[var(--a-soft)] border-[var(--a-line)] hover:bg-slate-200"
+                        ? "bg-[var(--a-warn-bg)] text-[var(--a-warn-ink)] border-[var(--a-warn-ink)]/20 hover:bg-[var(--a-warn-bg)]"
+                        : "bg-[var(--a-inset)] text-[var(--a-soft)] border-[var(--a-line)] hover:bg-[var(--a-line-hover)]"
                     }`}
                   >
                     <CheckCircle size={12} />
@@ -98,7 +98,7 @@ export default async function AdminMessagesPage() {
                   <input type="hidden" name="id" value={msg.id} />
                   <button
                     type="submit"
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-500 border border-solid border-red-200/50 hover:bg-red-100 rounded-[var(--a-r-sm)] text-[10px] font-bold tracking-wider uppercase cursor-pointer transition-all"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--a-danger-bg)] text-[var(--a-danger-ink)] border border-solid border-[var(--a-danger-ink)]/20 hover:bg-[var(--a-danger-bg)] rounded-[var(--a-r-sm)] text-[10px] font-bold tracking-wider uppercase cursor-pointer transition-all"
                   >
                     <Trash2 size={12} />
                     Delete

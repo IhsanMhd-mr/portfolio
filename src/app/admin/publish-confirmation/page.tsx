@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { UploadCloud, CheckCircle, AlertTriangle, ArrowRight, Eye, LayoutGrid } from "lucide-react";
+import { UploadCloud, CheckCircle, ArrowRight, Eye, LayoutGrid } from "lucide-react";
 import Link from "next/link";
 
 interface PublishDiff {
@@ -81,10 +81,10 @@ export default function PublishConfirmationPage() {
   if (publishSuccess !== null) {
     return (
       <div 
-        className="max-w-2xl mx-auto p-8 border border-solid border-green-500/20 bg-green-500/[0.02] rounded-[var(--a-r-md)] text-center space-y-6"
+        className="max-w-2xl mx-auto p-8 border border-solid border-[var(--a-success-ink)]/20 bg-[var(--a-success-bg)] rounded-[var(--a-r-md)] text-center space-y-6"
         style={{ boxShadow: "var(--a-shadow)" }}
       >
-        <div className="flex justify-center text-green-500">
+        <div className="flex justify-center text-[var(--a-success-ink)]">
           <CheckCircle size={48} />
         </div>
         <div className="space-y-2">
@@ -127,7 +127,7 @@ export default function PublishConfirmationPage() {
       </div>
 
       {error && (
-        <div className="p-4 border border-solid border-red-500/20 bg-red-500/5 text-red-400 rounded-[var(--a-r-sm)] text-xs font-semibold">
+        <div className="p-4 border border-solid border-[var(--a-danger-ink)]/20 bg-[var(--a-danger-bg)] text-[var(--a-danger-ink)] rounded-[var(--a-r-sm)] text-xs font-semibold">
           {error}
         </div>
       )}
@@ -137,7 +137,7 @@ export default function PublishConfirmationPage() {
         {/* Template differences */}
         <div 
           className={`p-6 border border-solid rounded-[var(--a-r-md)] bg-[var(--a-surface)] space-y-4 ${
-            diff?.hasTemplateDiff ? "border-amber-500/40 bg-amber-500/[0.01]" : "border-[var(--a-line)]"
+            diff?.hasTemplateDiff ? "border-[var(--a-warn-ink)]/40 bg-[var(--a-warn-bg)]" : "border-[var(--a-line)]"
           }`}
           style={{ boxShadow: "var(--a-shadow)" }}
         >
@@ -153,13 +153,13 @@ export default function PublishConfirmationPage() {
             </div>
             <div>
               <p className="text-[9px] text-[var(--a-faint)] uppercase">Draft Pending</p>
-              <p className={`font-semibold mt-0.5 uppercase ${diff?.hasTemplateDiff ? "text-amber-600 font-bold" : "text-[var(--a-ink)]"}`}>
+              <p className={`font-semibold mt-0.5 uppercase ${diff?.hasTemplateDiff ? "text-[var(--a-warn-ink)] font-bold" : "text-[var(--a-ink)]"}`}>
                 {diff?.draftTemplateKey.replace("_", " ")}
               </p>
             </div>
           </div>
           {diff?.hasTemplateDiff && (
-            <p className="text-[10px] text-amber-600 bg-amber-500/10 p-2.5 rounded border border-solid border-amber-500/20 font-medium">
+            <p className="text-[10px] text-[var(--a-warn-ink)] bg-[var(--a-warn-bg)] p-2.5 rounded border border-solid border-[var(--a-warn-ink)]/20 font-medium">
               ⚠️ Template style will be switched to {diff.draftTemplateKey}.
             </p>
           )}
@@ -168,7 +168,7 @@ export default function PublishConfirmationPage() {
         {/* Section counts differences */}
         <div 
           className={`p-6 border border-solid rounded-[var(--a-r-md)] bg-[var(--a-surface)] space-y-4 ${
-            diff?.hasSectionsCountDiff ? "border-amber-500/40 bg-amber-500/[0.01]" : "border-[var(--a-line)]"
+            diff?.hasSectionsCountDiff ? "border-[var(--a-warn-ink)]/40 bg-[var(--a-warn-bg)]" : "border-[var(--a-line)]"
           }`}
           style={{ boxShadow: "var(--a-shadow)" }}
         >
@@ -184,13 +184,13 @@ export default function PublishConfirmationPage() {
             </div>
             <div>
               <p className="text-[9px] text-[var(--a-faint)] uppercase">Draft Pending</p>
-              <p className={`font-semibold mt-0.5 ${diff?.hasSectionsCountDiff ? "text-amber-600 font-bold" : "text-[var(--a-ink)]"}`}>
+              <p className={`font-semibold mt-0.5 ${diff?.hasSectionsCountDiff ? "text-[var(--a-warn-ink)] font-bold" : "text-[var(--a-ink)]"}`}>
                 {diff?.draftSectionsCount} Sections
               </p>
             </div>
           </div>
           {diff?.hasSectionsCountDiff && (
-            <p className="text-[10px] text-amber-600 bg-amber-500/10 p-2.5 rounded border border-solid border-amber-500/20 font-medium">
+            <p className="text-[10px] text-[var(--a-warn-ink)] bg-[var(--a-warn-bg)] p-2.5 rounded border border-solid border-[var(--a-warn-ink)]/20 font-medium">
               ⚠️ Total sections rendering will change from {diff.publishedSectionsCount} to {diff.draftSectionsCount}.
             </p>
           )}
@@ -209,9 +209,9 @@ export default function PublishConfirmationPage() {
               <div className="flex items-center gap-3">
                 <span className="text-[var(--a-faint)]">#{idx + 1}</span>
                 <span className="font-bold text-[var(--a-ink)]">{sec.label}</span>
-                <span className="text-[8px] bg-slate-100 px-1.5 py-0.5 rounded text-[var(--a-faint)]">{sec.type}</span>
+                <span className="text-[8px] bg-[var(--a-inset)] px-1.5 py-0.5 rounded text-[var(--a-faint)]">{sec.type}</span>
               </div>
-              <span className={sec.visible ? "text-green-500 font-bold" : "text-red-400"}>
+              <span className={sec.visible ? "text-[var(--a-success-ink)] font-bold" : "text-[var(--a-danger-ink)]"}>
                 {sec.visible ? "VISIBLE" : "HIDDEN"}
               </span>
             </div>
@@ -220,7 +220,7 @@ export default function PublishConfirmationPage() {
       </div>
 
       {/* Confirmation and Actions */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-6 border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] bg-slate-50">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-6 border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] bg-[var(--a-inset)]">
         <div className="space-y-1">
           <h4 className="font-bold text-sm text-[var(--a-ink)]">Ready to release?</h4>
           <p className="text-xs text-[var(--a-soft)]">
@@ -235,7 +235,7 @@ export default function PublishConfirmationPage() {
           <Link
             href="/admin/preview"
             target="_blank"
-            className="flex items-center gap-1.5 px-4 py-2 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs font-semibold text-[var(--a-soft)] hover:bg-slate-100 transition-colors"
+            className="flex items-center gap-1.5 px-4 py-2 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs font-semibold text-[var(--a-soft)] hover:bg-[var(--a-inset)] transition-colors"
           >
             <Eye size={14} />
             Preview Draft

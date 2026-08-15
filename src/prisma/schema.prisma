@@ -313,6 +313,7 @@ model SiteProfile {
   cvVersionLabel        String? @map("cv_version_label")
   cvUpdatedAt           DateTime? @map("cv_updated_at")
   maintenanceMode       Boolean @default(false) @map("maintenance_mode")
+  defaultTheme          String  @default("system") @map("default_theme")
 
   // media refs
   profileImageId String? @map("profile_image_id")

@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { List, Eye, Edit } from "lucide-react";
+import { List } from "lucide-react";
 
 interface HomeSection {
   id: string;
@@ -42,8 +42,8 @@ export default function HomepageStructurePreview({ sections }: StructureProps) {
               <span
                 className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
                   sec.visible
-                    ? "bg-emerald-500/10 text-emerald-600"
-                    : "bg-red-500/10 text-red-600"
+                    ? "bg-[var(--a-success-bg)] text-[var(--a-success-ink)]"
+                    : "bg-[var(--a-danger-bg)] text-[var(--a-danger-ink)]"
                 }`}
               >
                 {sec.visible ? "Visible" : "Hidden"}

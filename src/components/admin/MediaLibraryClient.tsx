@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { 
-  ImageIcon, Plus, Trash2, Save, File, 
-  Upload, Check, AlertTriangle, RefreshCw 
+import {
+  ImageIcon, Trash2, File,
+  Upload, Check, AlertTriangle, RefreshCw
 } from "lucide-react";
 import { deleteMediaAction, updateMediaMetadataAction } from "@/app/admin/media/actions";
 
@@ -23,7 +23,7 @@ interface MediaLibraryClientProps {
 }
 
 export default function MediaLibraryClient({ mediaAssets }: MediaLibraryClientProps) {
-  const [assets, setAssets] = useState<MediaAsset[]>(mediaAssets);
+  const [assets] = useState<MediaAsset[]>(mediaAssets);
   const [uploading, setUploading] = useState(false);
   const [replacingId, setReplacingId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -46,7 +46,6 @@ export default function MediaLibraryClient({ mediaAssets }: MediaLibraryClientPr
 
     const formData = new FormData(e.currentTarget);
     const file = formData.get("file") as File;
-    const altText = formData.get("altText") as string;
 
     if (!file || file.size === 0) {
       setErrorMsg("Please select a file to upload.");
@@ -140,7 +139,7 @@ export default function MediaLibraryClient({ mediaAssets }: MediaLibraryClientPr
     <div className="space-y-6">
       {/* Messages */}
       {errorMsg && (
-        <div className="p-4 border border-solid border-red-200 bg-red-50 text-red-700 text-xs font-mono rounded-[var(--a-r-sm)] whitespace-pre-wrap flex items-start gap-2">
+        <div className="p-4 border border-solid border-[var(--a-danger-ink)]/20 bg-[var(--a-danger-bg)] text-[var(--a-danger-ink)] text-xs font-mono rounded-[var(--a-r-sm)] whitespace-pre-wrap flex items-start gap-2">
           <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
           <div>
             <h4 className="font-bold">Operation Blocked / Failed</h4>
@@ -150,7 +149,7 @@ export default function MediaLibraryClient({ mediaAssets }: MediaLibraryClientPr
       )}
 
       {successMsg && (
-        <div className="p-4 border border-solid border-green-200 bg-green-50 text-green-700 text-xs font-mono rounded-[var(--a-r-sm)] flex items-center gap-2">
+        <div className="p-4 border border-solid border-[var(--a-success-ink)]/20 bg-[var(--a-success-bg)] text-[var(--a-success-ink)] text-xs font-mono rounded-[var(--a-r-sm)] flex items-center gap-2">
           <Check size={14} />
           <span>{successMsg}</span>
         </div>
@@ -159,7 +158,7 @@ export default function MediaLibraryClient({ mediaAssets }: MediaLibraryClientPr
       <div className="grid gap-8 lg:grid-cols-12 items-start">
         {/* Left list of media */}
         <div className="lg:col-span-8 border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] bg-[var(--a-surface)] overflow-hidden" style={{ boxShadow: "var(--a-shadow)" }}>
-          <div className="p-4 border-b border-solid border-[var(--a-line)] bg-slate-50 flex items-center gap-2 text-xs font-mono text-[var(--a-faint)]">
+          <div className="p-4 border-b border-solid border-[var(--a-line)] bg-[var(--a-inset)] flex items-center gap-2 text-xs font-mono text-[var(--a-faint)]">
             <ImageIcon size={14} />
             <span>LIBRARY ASSETS ({assets.length})</span>
           </div>
@@ -177,14 +176,13 @@ export default function MediaLibraryClient({ mediaAssets }: MediaLibraryClientPr
                   {/* Preview aspect box */}
                   <div className="aspect-square w-full bg-slate-950 overflow-hidden flex items-center justify-center relative border-b border-solid border-[var(--a-line)]">
                     {isImage ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img 
+                      <img
                         src={asset.url} 
                         alt={asset.altText || asset.filename} 
                         className="w-full h-full object-contain p-1"
                       />
                     ) : (
-                      <File size={32} className="text-slate-500" />
+                      <File size={32} className="text-[var(--a-faint)]" />
                     )}
 
                     {/* Loader overlays */}
@@ -199,7 +197,7 @@ export default function MediaLibraryClient({ mediaAssets }: MediaLibraryClientPr
                       {/* Delete */}
                       <button
                         onClick={() => handleDelete(asset.id)}
-                        className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-full cursor-pointer border-none"
+                        className="p-2 bg-[var(--a-danger)] hover:opacity-90 text-white rounded-full cursor-pointer border-none"
                         title="Delete asset"
                       >
                         <Trash2 size={14} />
@@ -231,7 +229,7 @@ export default function MediaLibraryClient({ mediaAssets }: MediaLibraryClientPr
                     </div>
 
                     {isEditing ? (
-                      <div className="space-y-1 pt-1.5 border-t border-solid border-slate-100">
+                      <div className="space-y-1 pt-1.5 border-t border-solid border-[var(--a-line)]">
                         <input
                           type="text"
                           value={editAlt}
@@ -242,21 +240,21 @@ export default function MediaLibraryClient({ mediaAssets }: MediaLibraryClientPr
                         <div className="flex gap-1">
                           <button
                             onClick={() => handleSaveMetadata(asset.id)}
-                            className="px-1.5 py-0.5 bg-green-600 text-white rounded text-[8px] border-none cursor-pointer"
+                            className="px-1.5 py-0.5 bg-[var(--a-success)] text-white rounded text-[8px] border-none cursor-pointer"
                           >
                             Save
                           </button>
                           <button
                             onClick={() => setEditingId(null)}
-                            className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded text-[8px] border-none cursor-pointer"
+                            className="px-1.5 py-0.5 bg-[var(--a-line-hover)] text-[var(--a-ink)] rounded text-[8px] border-none cursor-pointer"
                           >
                             Cancel
                           </button>
                         </div>
                       </div>
                     ) : (
-                      <div className="pt-1.5 border-t border-solid border-slate-100 flex items-center justify-between">
-                        <span className="text-[9px] text-slate-400 italic truncate max-w-[80px]">
+                      <div className="pt-1.5 border-t border-solid border-[var(--a-line)] flex items-center justify-between">
+                        <span className="text-[9px] text-[var(--a-faint)] italic truncate max-w-[80px]">
                           {asset.altText || "No alt text"}
                         </span>
                         <button
@@ -295,7 +293,7 @@ export default function MediaLibraryClient({ mediaAssets }: MediaLibraryClientPr
                 type="file"
                 name="file"
                 required
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-slate-50 focus:outline-none focus:border-[var(--a-primary)]"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-inset)] focus:outline-none focus:border-[var(--a-primary)]"
               />
               <span className="text-[9px] text-[var(--a-faint)] block">Allowed: JPG, PNG, WEBP, AVIF, SVG, PDF</span>
             </div>
@@ -306,7 +304,7 @@ export default function MediaLibraryClient({ mediaAssets }: MediaLibraryClientPr
                 type="text"
                 name="altText"
                 placeholder="Description of image visual..."
-                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-slate-50 focus:outline-none focus:border-[var(--a-primary)]"
+                className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-inset)] focus:outline-none focus:border-[var(--a-primary)]"
               />
             </div>
 
