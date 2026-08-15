@@ -188,6 +188,29 @@
   --warning:       #B45309;
   --danger:        #DC2626;
   --shadow-color:  rgba(17, 24, 39, 0.10);
+
+  /* Technology Sandbox canvas stage (StackGameSection).
+     Defined here rather than per-template because the three template sheets
+     use two different light/dark conventions; a template may still override
+     any of these in its own block. --sandbox-neutral-rgb is space-separated
+     channels, not a color, because Canvas 2D needs to rebuild rgba() per
+     alpha value (it cannot parse var()).
+     --sandbox-bg is an opaque recessed-panel color reused from --bg-tertiary
+     (not a bespoke hue) and is what a non-backdrop-filter browser sees, since
+     there's no photo behind the panel for the blur to act on. --sandbox-glass-*
+     is the live glass composition consumed by the stage panel. */
+  --sandbox-bg:          #EDEDF1;
+  --sandbox-neutral-rgb: 17 17 17;
+  --sandbox-shadow:      inset 0 0 40px rgba(0, 0, 0, 0.05);
+  --sandbox-label:       #6B7280;
+  --sandbox-outline:     rgba(0, 0, 0, 0.25);
+
+  --sandbox-glass:       rgba(237, 237, 241, 0.65);
+  --sandbox-glass-border: rgba(37, 99, 235, 0.14);
+  --sandbox-glass-blur:  16px;
+  --sandbox-highlight:   rgba(255, 255, 255, 0.60);
+  --sandbox-glow-a:      rgba(37, 99, 235, 0.16);
+  --sandbox-glow-b:      rgba(139, 92, 246, 0.12);
 }
 
 :root[data-theme="dark"],
@@ -209,6 +232,21 @@
   --warning:       #FBBF24;
   --danger:        #F87171;
   --shadow-color:  rgba(0, 0, 0, 0.4);
+
+  /* Sandbox stage (dark). --sandbox-bg mirrors --bg-tertiary as the opaque
+     no-backdrop-filter fallback; --sandbox-glass-* is the live glass panel. */
+  --sandbox-bg:          #1C1C21;
+  --sandbox-neutral-rgb: 255 255 255;
+  --sandbox-shadow:      inset 0 0 40px rgba(0, 0, 0, 0.35);
+  --sandbox-label:       #64748B;
+  --sandbox-outline:     rgba(0, 0, 0, 0.3);
+
+  --sandbox-glass:       rgba(10, 12, 20, 0.55);
+  --sandbox-glass-border: rgba(255, 255, 255, 0.10);
+  --sandbox-glass-blur:  18px;
+  --sandbox-highlight:   rgba(255, 255, 255, 0.14);
+  --sandbox-glow-a:      rgba(99, 102, 241, 0.22);
+  --sandbox-glow-b:      rgba(139, 92, 246, 0.18);
 }
 
 body {

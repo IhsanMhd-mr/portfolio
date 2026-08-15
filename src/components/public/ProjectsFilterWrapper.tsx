@@ -160,7 +160,7 @@ export default function ProjectsFilterWrapper({
             style={{ boxShadow: "var(--shadow-card)" }}
           >
             {/* Thumbnail */}
-            <div className="relative aspect-video w-full overflow-hidden bg-slate-900 border-b border-solid border-[var(--line)]">
+            <div className="relative aspect-video w-full overflow-hidden bg-[var(--bg-inset)] border-b border-solid border-[var(--line)]">
               {project.thumbnailUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img

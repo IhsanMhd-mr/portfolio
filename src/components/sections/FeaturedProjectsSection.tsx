@@ -52,7 +52,7 @@ export default function FeaturedProjectsSection({ projects, settings, isPreview 
                 style={{ boxShadow: "var(--shadow-card)" }}
               >
                 {/* Thumbnail image placeholder/image */}
-                <div className="relative aspect-video w-full overflow-hidden bg-slate-900 border-b border-solid border-[var(--line)]">
+                <div className="relative aspect-video w-full overflow-hidden bg-[var(--bg-inset)] border-b border-solid border-[var(--line)]">
                   {thumbnail ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img 

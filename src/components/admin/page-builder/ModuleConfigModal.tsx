@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { X, ChevronDown, ChevronRight } from "lucide-react";
 import { dbEnumToRegistryKey, sectionConfigSchema, sectionMeta, type ConfigField } from "@/components/sections/registry";
+import { useBackdropDismiss } from "@/lib/use-backdrop-dismiss";
 
 export interface ModuleData {
   id: string;
@@ -38,6 +39,7 @@ export default function ModuleConfigModal({ module, groups, onCancel, onSave, on
   const registryKey = dbEnumToRegistryKey[module.type];
   const schema: ConfigField[] = sectionConfigSchema[registryKey] || [];
   const meta = sectionMeta[module.type];
+  const backdrop = useBackdropDismiss(onCancel);
 
   const [internalLabel, setInternalLabel] = useState(module.internalLabel);
   const [visible, setVisible] = useState(module.visible);
@@ -97,8 +99,8 @@ export default function ModuleConfigModal({ module, groups, onCancel, onSave, on
   }
 
   return (
-    <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onCancel} role="dialog" aria-modal="true">
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg max-h-[85vh] overflow-y-auto p-6 bg-[var(--a-surface)] border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] shadow-lg space-y-5">
+    <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" {...backdrop} role="dialog" aria-modal="true">
+      <div className="w-full max-w-lg max-h-[85vh] overflow-y-auto p-6 bg-[var(--a-surface)] border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] shadow-lg space-y-5">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="font-bold text-sm text-[var(--a-ink)]">Configure Module</h3>

@@ -19,6 +19,7 @@ import {
 import { Plus, Link2 } from "lucide-react";
 import SortableHandleRow, { type SocialHandleRowData } from "./SortableHandleRow";
 import SocialHandleModal, { type SocialHandleFormValue } from "./SocialHandleModal";
+import { useBackdropDismiss } from "@/lib/use-backdrop-dismiss";
 import {
   createSocialHandle,
   updateSocialHandle,
@@ -38,6 +39,7 @@ export default function SocialHandlesManager({ initialHandles }: SocialHandlesMa
   const [editingHandle, setEditingHandle] = useState<SocialHandleRowData | null>(null);
   const [pendingDelete, setPendingDelete] = useState<SocialHandleRowData | null>(null);
   const [globalError, setGlobalError] = useState<string | null>(null);
+  const deleteBackdrop = useBackdropDismiss(() => setPendingDelete(null));
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -199,13 +201,12 @@ export default function SocialHandlesManager({ initialHandles }: SocialHandlesMa
       {pendingDelete && (
         <div
           className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-          onClick={() => setPendingDelete(null)}
+          {...deleteBackdrop}
           role="alertdialog"
           aria-modal="true"
           aria-labelledby="delete-confirm-title"
         >
           <div
-            onClick={(e) => e.stopPropagation()}
             className="w-full max-w-sm p-6 bg-[var(--a-surface)] border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] shadow-lg space-y-4"
           >
             <h3 id="delete-confirm-title" className="font-bold text-sm text-[var(--a-ink)]">

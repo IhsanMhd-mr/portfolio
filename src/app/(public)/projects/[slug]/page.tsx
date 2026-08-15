@@ -312,7 +312,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
               {project.images.map((img) => (
                 <div key={img.id} className="space-y-1.5 border border-solid border-slate-100 p-2 bg-slate-50/50 rounded">
-                  <div className="aspect-video w-full rounded overflow-hidden bg-slate-900 border border-solid border-slate-200">
+                  <div className="aspect-video w-full rounded overflow-hidden bg-[var(--bg-inset)] border border-solid border-[var(--line)]">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={img.media.url} alt={img.caption || "Gallery"} className="w-full h-full object-cover" />
                   </div>

@@ -48,9 +48,40 @@ export default function StackGameSection({
     const accentColor = cssVar("--accent", isDarkTheme ? "#6366F1" : "#2563EB");
     const accentAltColor = cssVar("--violet", isDarkTheme ? "#818CF8" : "#7C3AED");
     const inkSoftColor = cssVar("--ink-soft", isDarkTheme ? "#9C9CA8" : "#555555");
-    // Neutral overlay ink for card fills/strokes/ground (white on dark, black on light)
-    const neutral = (alpha: number) =>
-      isDarkTheme ? `rgba(255, 255, 255, ${alpha})` : `rgba(17, 17, 17, ${alpha})`;
+    const outlineColor = cssVar("--sandbox-outline", "rgba(0, 0, 0, 0.3)");
+    const accentTextColor = cssVar("--accent-text", "#FFFFFF");
+    // Fixed black/white for floating-ball labels — ball.color text on a same-hue tinted
+    // disc/glow was low-contrast, and a background-matched halo (tried, reverted) still
+    // read poorly against the glow. Flat black-on-light / white-on-dark is simplest and
+    // most reliable.
+    const ballLabelColor = isDarkTheme ? "#FFFFFF" : "#000000";
+    // Canvas 2D cannot resolve var() inside a font shorthand any more than it
+    // can inside a color — every `ctx.font` string below previously embedded
+    // the literal text "var(--font-mono, monospace)", which is not a valid
+    // CSS font-family value, so the canvas silently fell back to its default
+    // font. Resolve the family once, the same way colors are resolved above.
+    const fontMono = cssVar("--font-mono", "monospace");
+    // Neutral overlay ink for card fills/strokes/ground. Sourced from a theme
+    // token like every other color here; it is stored as space-separated RGB
+    // channels rather than a color because this helper is parameterized by
+    // alpha and Canvas 2D cannot parse var().
+    const neutralRgb = cssVar(
+      "--sandbox-neutral-rgb",
+      isDarkTheme ? "255 255 255" : "17 17 17"
+    );
+    const [nr, ng, nb] = neutralRgb.split(/[\s,]+/);
+    const neutral = (alpha: number) => `rgba(${nr}, ${ng}, ${nb}, ${alpha})`;
+    // accentColor/accentAltColor above are always resolved hex ("#RRGGBB"), never a raw
+    // var() string, so a hex parser is safe here — used to tint each floating ball's own
+    // glass disc with its label color instead of the shared neutral tone.
+    const hexToRgba = (hex: string, alpha: number) => {
+      const h = hex.replace("#", "");
+      const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+      const r = parseInt(full.slice(0, 2), 16);
+      const g = parseInt(full.slice(2, 4), 16);
+      const b = parseInt(full.slice(4, 6), 16);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    };
 
     let animationId: number;
     let width = (canvas.width = canvas.parentElement?.clientWidth || 600);
@@ -62,49 +93,77 @@ export default function StackGameSection({
     };
     window.addEventListener("resize", handleResize);
 
-    // Mouse coordinate tracking
-    let mouse = { x: width / 2, y: height / 2, isDown: false };
-    const handleMouseMove = (e: MouseEvent) => {
+    // Unified pointer tracking — one set of handlers covers mouse, touch and pen,
+    // replacing the previous duplicated mouse*/touch* pairs.
+    const mouse = { x: width / 2, y: height / 2 };
+
+    // Global pause: pressing anywhere inside the canvas freezes every floating
+    // ball; releasing resumes them at the speed they had on page load.
+    let isPaused = false;
+    let capturedPointerId: number | null = null;
+
+    const updatePointer = (e: PointerEvent) => {
       const rect = canvas.getBoundingClientRect();
       mouse.x = e.clientX - rect.left;
       mouse.y = e.clientY - rect.top;
     };
-    const handleMouseDown = () => {
-      mouse.isDown = true;
-    };
-    const handleMouseUp = () => {
-      mouse.isDown = false;
+
+    /**
+     * The single release path — idempotent, so every termination route
+     * (pointerup, pointercancel, effect teardown) can call it unconditionally.
+     */
+    const releasePause = () => {
+      if (capturedPointerId === null) return;
+
+      // Restore each ball's page-load speed while keeping the direction it was
+      // travelling in when it froze. `floatingBalls` is declared further down;
+      // this closure only ever runs from an event, long after initialization.
+      for (const ball of floatingBalls) {
+        const speed = Math.hypot(ball.vx, ball.vy);
+        if (speed === 0) {
+          // A zero vector has no direction to preserve — pick a fresh one.
+          const angle = Math.random() * Math.PI * 2;
+          ball.vx = Math.cos(angle) * ball.initialSpeed;
+          ball.vy = Math.sin(angle) * ball.initialSpeed;
+        } else {
+          ball.vx = (ball.vx / speed) * ball.initialSpeed;
+          ball.vy = (ball.vy / speed) * ball.initialSpeed;
+        }
+      }
+
+      isPaused = false;
+      if (canvas.hasPointerCapture(capturedPointerId)) {
+        canvas.releasePointerCapture(capturedPointerId);
+      }
+      capturedPointerId = null;
     };
 
-    canvas.addEventListener("mousemove", handleMouseMove);
-    canvas.addEventListener("mousedown", handleMouseDown);
-    canvas.addEventListener("mouseup", handleMouseUp);
-
-    // Touch coordinate tracking — mirrors mouse handlers so the sphere/floating-balls
-    // modes rotate/repel on drag and the falling game responds to taps on touch devices.
-    const handleTouchMove = (e: TouchEvent) => {
-      if (e.touches.length === 0) return;
-      e.preventDefault();
-      const rect = canvas.getBoundingClientRect();
-      const touch = e.touches[0];
-      mouse.x = touch.clientX - rect.left;
-      mouse.y = touch.clientY - rect.top;
-    };
-    const handleTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 0) return;
-      const rect = canvas.getBoundingClientRect();
-      const touch = e.touches[0];
-      mouse.x = touch.clientX - rect.left;
-      mouse.y = touch.clientY - rect.top;
-      mouse.isDown = true;
-    };
-    const handleTouchEnd = () => {
-      mouse.isDown = false;
+    const handlePointerMove = (e: PointerEvent) => {
+      updatePointer(e);
     };
 
-    canvas.addEventListener("touchmove", handleTouchMove, { passive: false });
-    canvas.addEventListener("touchstart", handleTouchStart, { passive: true });
-    canvas.addEventListener("touchend", handleTouchEnd, { passive: true });
+    const handlePointerDown = (e: PointerEvent) => {
+      updatePointer(e);
+      // A single pointer owns the pause; a second finger must not re-capture it.
+      if (capturedPointerId !== null) return;
+      capturedPointerId = e.pointerId;
+      isPaused = true;
+      // Capture routes later pointer events here even once the cursor leaves the
+      // canvas, so a release outside the element still unfreezes the scene.
+      canvas.setPointerCapture(e.pointerId);
+    };
+
+    // Only the pointer that began the pause may end it, so a second finger
+    // lifting cannot unfreeze the scene early.
+    const handlePointerRelease = (e: PointerEvent) => {
+      if (e.pointerId !== capturedPointerId) return;
+      releasePause();
+    };
+
+    canvas.addEventListener("pointermove", handlePointerMove);
+    canvas.addEventListener("pointerdown", handlePointerDown);
+    canvas.addEventListener("pointerup", handlePointerRelease);
+    canvas.addEventListener("pointercancel", handlePointerRelease);
 
     // Select technologies list
     const techList = technologies.filter(t => t.showInGame || t.showInStack).slice(0, ballCount);
@@ -139,6 +198,8 @@ export default function StackGameSection({
       y: number;
       vx: number;
       vy: number;
+      /** Speed at spawn — what a release restores the ball to. */
+      initialSpeed: number;
       radius: number;
       name: string;
       color: string;
@@ -146,11 +207,16 @@ export default function StackGameSection({
     const floatingBalls: FloatingBall[] = [];
     if (mode === "FLOATING_BALLS") {
       displayNames.forEach((name, i) => {
+        // Same spawn velocities as before, captured so the magnitude can be
+        // restored later without changing any spawn behavior.
+        const vx = (Math.random() - 0.5) * 3;
+        const vy = (Math.random() - 0.5) * 3;
         floatingBalls.push({
           x: Math.random() * (width - 120) + 60,
           y: Math.random() * (height - 80) + 40,
-          vx: (Math.random() - 0.5) * 3,
-          vy: (Math.random() - 0.5) * 3,
+          vx,
+          vy,
+          initialSpeed: Math.hypot(vx, vy),
           radius: 35 * ballSize,
           name,
           color: i % 2 === 0 ? accentColor : accentAltColor,
@@ -231,7 +297,7 @@ export default function StackGameSection({
           const opacity = (250 - node.z3d) / 350;
 
           // Render tag text
-          ctx.font = `${Math.max(10, Math.floor(14 * scale))}px var(--font-mono, monospace)`;
+          ctx.font = `${Math.max(10, Math.floor(14 * scale))}px ${fontMono}`;
           ctx.fillStyle = accentColor;
           ctx.globalAlpha = Math.min(1, Math.max(0.2, opacity));
           ctx.textAlign = "center";
@@ -241,54 +307,92 @@ export default function StackGameSection({
 
         // Informational overlay
         ctx.fillStyle = inkSoftColor;
-        ctx.font = "10px var(--font-mono, monospace)";
+        ctx.font = `10px ${fontMono}`;
         ctx.fillText("// DRAG OR HOVER CURSOR TO ROTATE SPHERE", width / 2, height - 15);
       } 
       else if (mode === "FLOATING_BALLS") {
-        floatingBalls.forEach((ball) => {
-          // Bouncing boundary logic
-          ball.x += ball.vx;
-          ball.y += ball.vy;
+        // While paused, skip the whole simulation step (integration + collision): position
+        // is left exactly as it was and velocity stays untouched, which is what lets a
+        // release preserve the ball's pre-press direction. Drawing below still runs every frame.
+        if (!isPaused) {
+          floatingBalls.forEach((ball) => {
+            // Bouncing boundary logic
+            ball.x += ball.vx;
+            ball.y += ball.vy;
 
-          if (ball.x - ball.radius < 0) {
-            ball.x = ball.radius;
-            ball.vx *= -1;
-          }
-          if (ball.x + ball.radius > width) {
-            ball.x = width - ball.radius;
-            ball.vx *= -1;
-          }
-          if (ball.y - ball.radius < 0) {
-            ball.y = ball.radius;
-            ball.vy *= -1;
-          }
-          if (ball.y + ball.radius > height) {
-            ball.y = height - ball.radius;
-            ball.vy *= -1;
-          }
+            if (ball.x - ball.radius < 0) {
+              ball.x = ball.radius;
+              ball.vx *= -1;
+            }
+            if (ball.x + ball.radius > width) {
+              ball.x = width - ball.radius;
+              ball.vx *= -1;
+            }
+            if (ball.y - ball.radius < 0) {
+              ball.y = ball.radius;
+              ball.vy *= -1;
+            }
+            if (ball.y + ball.radius > height) {
+              ball.y = height - ball.radius;
+              ball.vy *= -1;
+            }
 
-          // Mouse repelling physics
-          const dx = ball.x - mouse.x;
-          const dy = ball.y - mouse.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 120) {
-            const force = (120 - dist) / 120;
-            ball.vx += (dx / dist) * force * 0.4;
-            ball.vy += (dy / dist) * force * 0.4;
+            // Mouse repelling physics
+            const dx = ball.x - mouse.x;
+            const dy = ball.y - mouse.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < 120) {
+              const force = (120 - dist) / 120;
+              ball.vx += (dx / dist) * force * 0.4;
+              ball.vy += (dy / dist) * force * 0.4;
 
-            // clamp speed
-            const speed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
-            if (speed > 5) {
-              ball.vx = (ball.vx / speed) * 5;
-              ball.vy = (ball.vy / speed) * 5;
+              // clamp speed
+              const speed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+              if (speed > 5) {
+                ball.vx = (ball.vx / speed) * 5;
+                ball.vy = (ball.vy / speed) * 5;
+              }
+            }
+          });
+
+          // Ball-to-ball collision — all balls share one radius (35 * ballSize), so this
+          // is the equal-mass case: separate the overlap and swap the normal velocity
+          // component (tangential component untouched). O(n^2) is fine at this ball count.
+          for (let i = 0; i < floatingBalls.length; i++) {
+            for (let j = i + 1; j < floatingBalls.length; j++) {
+              const a = floatingBalls[i];
+              const b = floatingBalls[j];
+              const dx = b.x - a.x;
+              const dy = b.y - a.y;
+              const dist = Math.hypot(dx, dy);
+              const minDist = a.radius + b.radius;
+              if (dist > 0 && dist < minDist) {
+                const nx = dx / dist;
+                const ny = dy / dist;
+                const overlap = (minDist - dist) / 2;
+                a.x -= nx * overlap;
+                a.y -= ny * overlap;
+                b.x += nx * overlap;
+                b.y += ny * overlap;
+
+                const relVel = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+                a.vx += relVel * nx;
+                a.vy += relVel * ny;
+                b.vx -= relVel * nx;
+                b.vy -= relVel * ny;
+              }
             }
           }
+        }
 
-          // Render sphere card
+        // Draw pass — always runs, even while paused, so frozen balls still render.
+        floatingBalls.forEach((ball) => {
+          // Render sphere card, tinted with the ball's own color instead of a shared neutral
+          // tone, so each ball reads as its own colored glass orb.
           ctx.beginPath();
           ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
-          ctx.fillStyle = neutral(0.03);
-          ctx.strokeStyle = neutral(0.12);
+          ctx.fillStyle = hexToRgba(ball.color, 0.14);
+          ctx.strokeStyle = hexToRgba(ball.color, 0.45);
           ctx.lineWidth = 1;
           ctx.fill();
           ctx.stroke();
@@ -298,7 +402,7 @@ export default function StackGameSection({
             ball.x - ball.radius/3, ball.y - ball.radius/3, 5,
             ball.x, ball.y, ball.radius
           );
-          glowGrad.addColorStop(0, neutral(0.15));
+          glowGrad.addColorStop(0, hexToRgba(ball.color, 0.35));
           glowGrad.addColorStop(1, "transparent");
           ctx.fillStyle = glowGrad;
           ctx.beginPath();
@@ -306,8 +410,8 @@ export default function StackGameSection({
           ctx.fill();
 
           // Text labels
-          ctx.font = "11px var(--font-mono, monospace)";
-          ctx.fillStyle = ball.color;
+          ctx.font = `11px ${fontMono}`;
+          ctx.fillStyle = ballLabelColor;
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
           ctx.fillText(ball.name, ball.x, ball.y);
@@ -316,7 +420,7 @@ export default function StackGameSection({
       else if (mode === "FALLING_GAME") {
         if (!gameStarted) {
           ctx.fillStyle = neutral(0.7);
-          ctx.font = "14px var(--font-mono, monospace)";
+          ctx.font = `14px ${fontMono}`;
           ctx.textAlign = "center";
           ctx.fillText("// CLICK 'START STACK GAME' TO PLAY", width / 2, height / 2);
           return;
@@ -330,11 +434,11 @@ export default function StackGameSection({
         blocks.forEach((b) => {
           ctx.fillStyle = b.color;
           ctx.fillRect(b.x, b.y, b.width, b.height);
-          ctx.strokeStyle = "rgba(0, 0, 0, 0.3)";
+          ctx.strokeStyle = outlineColor;
           ctx.strokeRect(b.x, b.y, b.width, b.height);
 
-          ctx.font = "10px var(--font-mono, monospace)";
-          ctx.fillStyle = "#FFFFFF"; /* accent-text on accent-colored block */
+          ctx.font = `10px ${fontMono}`;
+          ctx.fillStyle = accentTextColor;
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
           ctx.fillText(b.name, b.x + b.width / 2, b.y + b.height / 2);
@@ -380,11 +484,11 @@ export default function StackGameSection({
             // NOTE: canvas cannot parse "var(--accent)" — must use the resolved value
             ctx.fillStyle = accentColor;
             ctx.fillRect(currentBlock.x, currentBlock.y, currentBlock.width, currentBlock.height);
-            ctx.strokeStyle = "rgba(0,0,0,0.5)";
+            ctx.strokeStyle = outlineColor;
             ctx.strokeRect(currentBlock.x, currentBlock.y, currentBlock.width, currentBlock.height);
 
-            ctx.font = "10px var(--font-mono, monospace)";
-            ctx.fillStyle = "#FFFFFF"; /* accent-text on accent-colored block */
+            ctx.font = `10px ${fontMono}`;
+            ctx.fillStyle = accentTextColor;
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
             ctx.fillText(currentBlock.name, currentBlock.x + currentBlock.width / 2, currentBlock.y + currentBlock.height / 2);
@@ -408,13 +512,14 @@ export default function StackGameSection({
 
     return () => {
       cancelAnimationFrame(animationId);
+      // Terminate any in-flight interaction so no pointer capture outlives this
+      // effect (e.g. when the sandbox mode or theme changes mid-press).
+      releasePause();
       window.removeEventListener("resize", handleResize);
-      canvas.removeEventListener("mousemove", handleMouseMove);
-      canvas.removeEventListener("mousedown", handleMouseDown);
-      canvas.removeEventListener("mouseup", handleMouseUp);
-      canvas.removeEventListener("touchmove", handleTouchMove);
-      canvas.removeEventListener("touchstart", handleTouchStart);
-      canvas.removeEventListener("touchend", handleTouchEnd);
+      canvas.removeEventListener("pointermove", handlePointerMove);
+      canvas.removeEventListener("pointerdown", handlePointerDown);
+      canvas.removeEventListener("pointerup", handlePointerRelease);
+      canvas.removeEventListener("pointercancel", handlePointerRelease);
       canvas.removeEventListener("click", handleClick);
     };
   }, [mode, ballCount, ballSize, fallingSpeed, technologies, gameStarted, score, resolvedTheme]);
@@ -468,14 +573,35 @@ export default function StackGameSection({
             ))}
           </div>
         ) : (
-          <div 
-            className="w-full h-[400px] rounded-[var(--radius-md)] border border-solid border-[var(--line)] bg-[#070b14] overflow-hidden relative flex justify-center items-center"
-            style={{ boxShadow: "inset 0 0 40px rgba(0,0,0,0.8)" }}
+          <div
+            className="w-full h-[400px] rounded-[var(--radius-md)] border border-solid border-[var(--sandbox-glass-border)] bg-[var(--sandbox-glass)] backdrop-blur-[var(--sandbox-glass-blur)] overflow-hidden relative flex justify-center items-center transition-colors duration-300"
+            style={{ boxShadow: "var(--sandbox-shadow)" }}
           >
-            <canvas ref={canvasRef} className="block w-full h-full cursor-crosshair" />
-            
+            {/* Ambient glass glow blobs — sit below the canvas in DOM/paint order */}
+            <div
+              className="pointer-events-none absolute -top-24 -left-16 w-72 h-72 rounded-full blur-3xl"
+              style={{ background: "var(--sandbox-glow-a)" }}
+            />
+            <div
+              className="pointer-events-none absolute -bottom-24 -right-16 w-72 h-72 rounded-full blur-3xl"
+              style={{ background: "var(--sandbox-glow-b)" }}
+            />
+            {/* Top highlight sheen */}
+            <div
+              className="pointer-events-none absolute inset-x-0 top-0 h-1/2"
+              style={{ background: "linear-gradient(to bottom, var(--sandbox-highlight), transparent)" }}
+            />
+
+            {/* touch-action:none keeps the browser from claiming a touch drag as a
+                page scroll, so pointer events reach the sandbox intact. */}
+            <canvas
+              ref={canvasRef}
+              className="block w-full h-full cursor-crosshair relative"
+              style={{ touchAction: "none" }}
+            />
+
             {/* Informative top overlay */}
-            <div className="absolute top-4 left-4 pointer-events-none text-[10px] font-mono text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+            <div className="absolute top-4 left-4 pointer-events-none text-[10px] font-mono text-[var(--sandbox-label)] uppercase tracking-widest flex items-center gap-1.5">
               <Gamepad2 size={12} className="text-[var(--accent)]" />
               <span>Sandbox Mode: {mode.replace("_", " ")}</span>
             </div>

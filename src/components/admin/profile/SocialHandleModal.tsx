@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { X } from "lucide-react";
 import { PLATFORM_META, PLATFORM_KEYS, type PlatformKey, domainMismatchWarning } from "@/lib/social-platforms";
+import { useBackdropDismiss } from "@/lib/use-backdrop-dismiss";
 
 export interface SocialHandleFormValue {
   platform: PlatformKey;
@@ -28,6 +29,7 @@ export default function SocialHandleModal({ initial, onCancel, onSubmit, existin
 
   const meta = PLATFORM_META[platform];
   const Icon = meta.icon;
+  const backdrop = useBackdropDismiss(onCancel);
 
   const availablePlatforms = useMemo(
     () =>
@@ -60,13 +62,12 @@ export default function SocialHandleModal({ initial, onCancel, onSubmit, existin
   return (
     <div
       className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-      onClick={onCancel}
+      {...backdrop}
       role="dialog"
       aria-modal="true"
       aria-labelledby="social-handle-modal-title"
     >
       <div
-        onClick={(e) => e.stopPropagation()}
         className="w-full max-w-md p-6 bg-[var(--a-surface)] border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] shadow-lg space-y-5"
       >
         <div className="flex items-center justify-between">

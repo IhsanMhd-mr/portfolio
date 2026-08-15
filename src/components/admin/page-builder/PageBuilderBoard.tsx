@@ -28,6 +28,7 @@ import {
   reorderModulesAction,
   assignModuleToGroupAction,
 } from "@/app/admin/page-builder/actions";
+import { useBackdropDismiss } from "@/lib/use-backdrop-dismiss";
 
 const UNGROUPED_KEY = "ungrouped";
 const containerKeyOf = (groupId: string | null) => (groupId ? `group:${groupId}` : UNGROUPED_KEY);
@@ -430,6 +431,7 @@ function GroupEditModal({ group, onCancel, onSave }: { group: GroupData; onCance
   const [visible, setVisible] = useState(group.visible);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const backdrop = useBackdropDismiss(onCancel);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -440,8 +442,8 @@ function GroupEditModal({ group, onCancel, onSave }: { group: GroupData; onCance
   }
 
   return (
-    <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onCancel} role="dialog" aria-modal="true">
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm p-6 bg-[var(--a-surface)] border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] shadow-lg space-y-4">
+    <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" {...backdrop} role="dialog" aria-modal="true">
+      <div className="w-full max-w-sm p-6 bg-[var(--a-surface)] border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] shadow-lg space-y-4">
         <h3 className="font-bold text-sm text-[var(--a-ink)]">Edit Group</h3>
         {error && <div role="alert" className="text-xs text-[var(--a-danger)] bg-red-500/10 border border-solid border-red-500/30 rounded-[var(--a-r-sm)] px-3 py-2">{error}</div>}
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -462,9 +464,10 @@ function GroupEditModal({ group, onCancel, onSave }: { group: GroupData; onCance
 }
 
 function ConfirmDialog({ title, message, onCancel, onConfirm }: { title: string; message: string; onCancel: () => void; onConfirm: () => void }) {
+  const backdrop = useBackdropDismiss(onCancel);
   return (
-    <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onCancel} role="alertdialog" aria-modal="true">
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm p-6 bg-[var(--a-surface)] border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] shadow-lg space-y-4">
+    <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" {...backdrop} role="alertdialog" aria-modal="true">
+      <div className="w-full max-w-sm p-6 bg-[var(--a-surface)] border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] shadow-lg space-y-4">
         <h3 className="font-bold text-sm text-[var(--a-ink)]">{title}</h3>
         <p className="text-xs text-[var(--a-soft)]">{message}</p>
         <div className="flex justify-end gap-2">

@@ -47,6 +47,29 @@ export default function AuthDialog({ isOpen, onClose }: AuthDialogProps) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
+  // Lock scrolling behind the dialog so the page can't be moved underneath it.
+  // The scrollbar's width is added back as padding, otherwise removing it
+  // shifts the whole layout sideways as the dialog opens.
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const { body, documentElement } = document;
+    const previousOverflow = body.style.overflow;
+    const previousPaddingRight = body.style.paddingRight;
+    const scrollbarWidth = window.innerWidth - documentElement.clientWidth;
+
+    body.style.overflow = "hidden";
+    if (scrollbarWidth > 0) {
+      const currentPadding = parseFloat(getComputedStyle(body).paddingRight) || 0;
+      body.style.paddingRight = `${currentPadding + scrollbarWidth}px`;
+    }
+
+    return () => {
+      body.style.overflow = previousOverflow;
+      body.style.paddingRight = previousPaddingRight;
+    };
+  }, [isOpen]);
+
   // Focus trap inside the modal
   useEffect(() => {
     if (!isOpen || !overlayRef.current) return;
@@ -85,17 +108,16 @@ export default function AuthDialog({ isOpen, onClose }: AuthDialogProps) {
 
   if (!isOpen) return null;
 
-  const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === overlayRef.current) {
-      onClose();
-    }
-  };
-
-  // Render modal in Portal at document.body root
+  // Deliberately no backdrop dismissal. This dialog holds credentials the user
+  // is part-way through typing, so it closes only via an explicit action (the
+  // close button or Escape). Previously an `onClick` here compared the event
+  // target to the overlay, which looks safe but is not: `click` fires on the
+  // nearest common ancestor of the press and release targets, so pressing
+  // inside a field and releasing over the backdrop dispatched the click on the
+  // overlay itself and discarded whatever had been entered.
   return ReactDOM.createPortal(
     <div
       ref={overlayRef}
-      onClick={handleBackdropClick}
       className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in"
       role="dialog"
       aria-modal="true"

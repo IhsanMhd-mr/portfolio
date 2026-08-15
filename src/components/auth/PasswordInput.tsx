@@ -34,7 +34,7 @@ export default function PasswordInput({ label = "Password", error, id, ...props 
           {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
         </button>
       </div>
-      {error && <span className="text-xs text-[var(--danger, #ef4444)] mt-0.5">{error}</span>}
+      {error && <span className="text-xs text-[var(--danger,#ef4444)] mt-0.5">{error}</span>}
     </div>
   );
 }
