@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "postinstall": "prisma generate",
     "clean": "powershell -Command \"@(3000) | ForEach-Object { $port=$_; $procId=(Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue).OwningProcess; if($procId){Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue; Write-Host \\\"Killed port $port (PID $procId)\\\"} else {Write-Host \\\"Port $port is free\\\"} }\"",
     "dev": "node --env-file=.env scripts/dev-start.js",
     "build": "next build",
