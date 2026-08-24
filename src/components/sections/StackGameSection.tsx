@@ -536,8 +536,7 @@ export default function StackGameSection({
       <div className="max-w-[var(--w-content)] mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6 mb-12">
           <div>
-            <p className="pm-kicker text-mono-label mb-2 text-[var(--accent)]">// 07 — INTERACTION LAB</p>
-            <h2 
+            <h2
               className="text-h2 text-[var(--ink)]" 
               style={{ fontFamily: "var(--font-display)" }}
             >

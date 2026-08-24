@@ -26,8 +26,7 @@ export default function ProjectGridSection({ projects, settings, isPreview = fal
     <section className="w-full py-20 px-[var(--gutter)] bg-[var(--bg)] border-t border-solid border-[var(--line)] transition-colors duration-300">
       <div className="max-w-[var(--w-content)] mx-auto">
         <div className="mb-12 text-center md:text-left">
-          <p className="pm-kicker text-mono-label mb-2 text-[var(--accent)]">// 04 — WORKS ARCHIVE</p>
-          <h2 
+          <h2
             className="text-h2 text-[var(--ink)]" 
             style={{ fontFamily: "var(--font-display)" }}
           >
@@ -55,7 +54,7 @@ export default function ProjectGridSection({ projects, settings, isPreview = fal
                     />
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center text-[var(--ink-faint)] p-6">
-                      <span className="text-mono-label">// {category}</span>
+                      <span className="text-mono-label">{category.replace("_", " ")}</span>
                     </div>
                   )}
                 </div>

@@ -76,7 +76,6 @@ export default function LoginForm({ onSuccess, standalone = false }: LoginFormPr
       } else {
         if (onSuccess) onSuccess();
         router.push(nextTarget);
-        router.refresh();
       }
     } catch {
       setErrorType("INVALID_CREDENTIALS");

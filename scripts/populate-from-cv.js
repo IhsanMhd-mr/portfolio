@@ -59,8 +59,8 @@ async function updateSiteProfile() {
 async function createSocialLinks() {
   await db.socialLink.createMany({
     data: [
-      { platform: "GitHub", url: "https://github.com/IhsanMhd-mr", showInHeader: true, showInFooter: true, visible: true, order: 0 },
-      { platform: "LinkedIn", url: "https://linkedin.com/in/ihsan-mhd", showInHeader: true, showInFooter: true, visible: true, order: 1 },
+      { platform: "github", url: "https://github.com/IhsanMhd-mr", showInHeader: true, showInFooter: true, visible: true, order: 0 },
+      { platform: "linkedin", url: "https://linkedin.com/in/ihsan-mhd", showInHeader: true, showInFooter: true, visible: true, order: 1 },
     ],
   });
   console.log("SocialLink: created 2");

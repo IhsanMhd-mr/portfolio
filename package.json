@@ -5,10 +5,11 @@
   "scripts": {
     "postinstall": "prisma generate",
     "clean": "powershell -Command \"@(3000) | ForEach-Object { $port=$_; $procId=(Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue).OwningProcess; if($procId){Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue; Write-Host \\\"Killed port $port (PID $procId)\\\"} else {Write-Host \\\"Port $port is free\\\"} }\"",
-    "dev": "node --env-file=.env scripts/dev-start.js",
+    "dev": "cross-env DB_TARGET=local node --env-file=.env scripts/dev-start.js",
+    "dev:cloud": "node --env-file=.env scripts/dev-start.js",
     "build": "next build",
     "analyze": "cross-env ANALYZE=true next build",
-    "start": "C:\\\\PROGRA~1\\\\PostgreSQL\\\\17\\\\bin\\\\pg_ctl.exe start -D C:\\\\PROGRA~1\\\\PostgreSQL\\\\17\\\\data & next start",
+    "start": "next start",
     "initialize": "node --env-file=.env scripts/initialize.js",
     "admin:init": "npm run initialize",
     "seed": "node --env-file=.env scripts/seed-content.js",

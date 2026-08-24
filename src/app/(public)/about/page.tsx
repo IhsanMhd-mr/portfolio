@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import db from "@/lib/database";
+import { PublicContentService } from "@/services/public-content.service";
 import Link from "next/link";
 import { ArrowRight, Briefcase, GraduationCap, MapPin, Mail, Award, BookOpen, Target } from "lucide-react";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const profile = await db.siteProfile.findFirst();
+  const profile = await PublicContentService.getSiteProfile();
   const fullName = profile?.fullName || "Jane Doe";
   const title = profile?.title || "Full-Stack Software Engineer";
   const description =
@@ -19,9 +20,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function AboutPage() {
   const [profile, educationRaw, experienceRaw] = await Promise.all([
-    db.siteProfile.findFirst({
-      include: { cvFile: true },
-    }),
+    PublicContentService.getSiteProfile(),
     db.education.findMany({
       where: { deletedAt: null },
       include: { versions: { where: { state: "PUBLISHED", visible: true } } },
@@ -79,7 +78,6 @@ export default async function AboutPage() {
       <div className="max-w-[var(--w-prose)] mx-auto space-y-12">
         {/* Header */}
         <div>
-          <p className="text-mono-label mb-2 text-[var(--accent)]">// 01 — IDENTITY</p>
           <h1 className="text-display mb-4" style={{ fontFamily: "var(--font-display)" }}>
             About Me
           </h1>

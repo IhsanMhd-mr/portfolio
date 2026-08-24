@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import db from "@/lib/database";
+import { PublicContentService } from "@/services/public-content.service";
 import Link from "next/link";
 import { Calendar, MapPin, Link2 } from "lucide-react";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const profile = await db.siteProfile.findFirst();
+  const profile = await PublicContentService.getSiteProfile();
   const fullName = profile?.fullName || "Jane Doe";
   const description = `Career and project timeline for ${fullName} — milestones, roles, and journey over time.`;
 
@@ -64,7 +65,6 @@ export default async function TimelinePage() {
       }}
     >
       <div className="max-w-[var(--w-prose)] mx-auto">
-        <p className="text-mono-label mb-2 text-[var(--accent)]">// TIMELINE JOURNEY</p>
         <h1
           className="text-h1 mb-10"
           style={{ fontFamily: "var(--font-display)" }}
@@ -122,7 +122,7 @@ export default async function TimelinePage() {
 
           {timelineEntries.length === 0 && (
             <div className="text-[var(--ink-faint)] font-mono py-6">
-              // NO TIMELINE ENTRIES SEEDED
+              No timeline entries yet.
             </div>
           )}
         </div>

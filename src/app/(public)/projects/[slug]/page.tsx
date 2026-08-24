@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import db from "@/lib/database";
 import { notFound } from "next/navigation";
 import { headers, cookies } from "next/headers";
@@ -10,6 +11,31 @@ interface ProjectDetailPageProps {
   params: Promise<{ slug: string }>;
 }
 
+/**
+ * The project row plus every relation the page body needs, fetched once per
+ * request. generateMetadata and the component both call this; React `cache()`
+ * collapses them into a single query set instead of two independent lookups of
+ * the same row. Includes the superset of relations so the richer body render
+ * is satisfied by the same cached result the lighter metadata pass triggers.
+ */
+const getProjectBySlug = cache(async (slug: string, state: "DRAFT" | "PUBLISHED") => {
+  return db.project.findUnique({
+    where: { slug },
+    include: {
+      versions: { where: { state } },
+      technologies: {
+        include: {
+          technology: {
+            include: { versions: { where: { state } } },
+          },
+        },
+        orderBy: { order: "asc" },
+      },
+      images: { include: { media: true }, orderBy: { order: "asc" } },
+    },
+  });
+});
+
 export async function generateMetadata({ params }: ProjectDetailPageProps): Promise<Metadata> {
   const { slug } = await params;
 
@@ -17,12 +43,9 @@ export async function generateMetadata({ params }: ProjectDetailPageProps): Prom
   const isPreview = cookiesList.get("portfolio_preview_mode")?.value === "true";
   const state = isPreview ? "DRAFT" : "PUBLISHED";
 
-  // Mirrors the page body's lookup + visibility rules below (independent query —
-  // generateMetadata and the page component don't share request data in this app).
-  const project = await db.project.findUnique({
-    where: { slug },
-    include: { versions: { where: { state } } },
-  });
+  // Mirrors the page body's lookup + visibility rules below, sharing the same
+  // request-cached query.
+  const project = await getProjectBySlug(slug, state);
 
   if (!project || project.deletedAt || !project.versions[0]) {
     notFound();
@@ -58,22 +81,9 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
   const isPreview = cookiesList.get("portfolio_preview_mode")?.value === "true";
   const state = isPreview ? "DRAFT" : "PUBLISHED";
 
-  // Find project with active state version
-  const project = await db.project.findUnique({
-    where: { slug },
-    include: {
-      versions: { where: { state } },
-      technologies: {
-        include: {
-          technology: {
-            include: { versions: { where: { state } } },
-          },
-        },
-        orderBy: { order: "asc" },
-      },
-      images: { include: { media: true }, orderBy: { order: "asc" } },
-    },
-  });
+  // Find project with active state version (request-cached — generateMetadata
+  // above already resolved this exact query)
+  const project = await getProjectBySlug(slug, state);
 
   // Verify project existence and visibility
   if (!project || project.deletedAt || !project.versions[0]) {
@@ -151,7 +161,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
         {/* 2. Project Hero */}
         <div className="space-y-4">
           <span className="text-mono-label text-[var(--accent)]" style={{ fontSize: "10px" }}>
-            // {categoryLabel} CASE STUDY
+            {categoryLabel} Case Study
           </span>
           <h1 className="text-display" style={{ fontFamily: "var(--font-display)", fontSize: "clamp(32px, 5vw, 56px)" }}>
             {pub.title}
@@ -207,7 +217,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
         {/* 5. Technology Stack */}
         {project.technologies.length > 0 && (
           <div className="space-y-3">
-            <h4 className="text-mono-label text-[var(--ink-faint)]" style={{ fontSize: "11px" }}>// TECHNOLOGY WORKED WITH</h4>
+            <h4 className="text-mono-label text-[var(--ink-faint)]" style={{ fontSize: "11px" }}>Technology Worked With</h4>
             <div className="flex flex-wrap gap-2">
               {project.technologies.map((t) => {
                 const name = t.technology.versions.find((v) => v.state === state)?.name || t.technology.slug;
@@ -308,7 +318,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
         {/* Visual Gallery grid */}
         {project.images.length > 0 && (
           <div className="pt-8 border-t border-solid border-[var(--line)] space-y-4">
-            <h3 className="text-mono-label text-[var(--ink-faint)]" style={{ fontSize: "11px" }}>// CASE STUDY GALLERY</h3>
+            <h3 className="text-mono-label text-[var(--ink-faint)]" style={{ fontSize: "11px" }}>Case Study Gallery</h3>
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
               {project.images.map((img) => (
                 <div key={img.id} className="space-y-1.5 border border-solid border-slate-100 p-2 bg-slate-50/50 rounded">
@@ -365,7 +375,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
         {/* 7. Related Projects */}
         {relatedProjects.length > 0 && (
           <div className="pt-12 border-t border-solid border-[var(--line)] space-y-6">
-            <h3 className="text-mono-label text-[var(--ink-faint)]" style={{ fontSize: "11px" }}>// RELATED PROJECTS</h3>
+            <h3 className="text-mono-label text-[var(--ink-faint)]" style={{ fontSize: "11px" }}>Related Projects</h3>
             <div className="grid gap-6 sm:grid-cols-2">
               {relatedProjects.map((rp) => (
                 <div 

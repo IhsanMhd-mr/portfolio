@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import db from "@/lib/database";
+import { PublicContentService } from "@/services/public-content.service";
 import ProjectsFilterWrapper from "@/components/public/ProjectsFilterWrapper";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const profile = await db.siteProfile.findFirst();
+  const profile = await PublicContentService.getSiteProfile();
   const fullName = profile?.fullName || "Jane Doe";
   const description =
     "A comprehensive list of engineering projects, case studies, academic milestones, and open-source contributions.";
@@ -107,7 +108,6 @@ export default async function ProjectsPage() {
     >
       <div className="max-w-[var(--w-content)] mx-auto space-y-10">
         <div>
-          <p className="text-mono-label mb-2 text-[var(--accent)]">// 02 — ARCHIVE</p>
           <h1 className="text-display mb-4" style={{ fontFamily: "var(--font-display)" }}>
             Projects
           </h1>

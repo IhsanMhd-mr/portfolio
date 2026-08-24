@@ -100,10 +100,11 @@ export default function AdminSidebar() {
           color: "var(--a-sidebar-text)",
           fontFamily: "var(--a-font-body)",
         }}
+        suppressHydrationWarning
       >
         {/* Brand Logo Header */}
         <div className="h-[60px] border-b border-solid border-[var(--a-sidebar-line)] flex items-center justify-between px-6">
-          <Link href="/admin/dashboard" className="text-[var(--a-sidebar-heading)] font-bold tracking-tight text-lg">
+          <Link href="/admin/dashboard" prefetch={false} className="text-[var(--a-sidebar-heading)] font-bold tracking-tight text-lg">
             Workbench <span className="text-[var(--a-primary)]">CMS</span>
           </Link>
           <button
@@ -131,6 +132,7 @@ export default function AdminSidebar() {
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={false}
                 className="flex items-center gap-3 px-3 py-2 text-sm rounded-[var(--a-r-sm)] font-medium transition-all group relative hover:bg-[var(--a-sidebar-hover)]"
                 style={{
                   backgroundColor: isActive ? "var(--a-sidebar-active-bg)" : "transparent",

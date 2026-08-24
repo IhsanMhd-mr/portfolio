@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import db from "@/lib/database";
+import { PublicContentService } from "@/services/public-content.service";
 import { ArrowDownToLine, Mail, MapPin, Globe } from "lucide-react";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const profile = await db.siteProfile.findFirst();
+  const profile = await PublicContentService.getSiteProfile();
   const fullName = profile?.fullName || "Jane Doe";
   const title = profile?.title || "Full-Stack Software Engineer";
   const description = `Resume and curriculum vitae for ${fullName}, ${title.toLowerCase()}.`;
@@ -17,9 +18,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function ResumePage() {
   const [profile, educationRaw, experienceRaw, technologiesRaw] = await Promise.all([
-    db.siteProfile.findFirst({
-      include: { cvFile: true },
-    }),
+    PublicContentService.getSiteProfile(),
     db.education.findMany({
       where: { deletedAt: null },
       include: { versions: { where: { state: "PUBLISHED", visible: true } } },
@@ -114,7 +113,6 @@ export default async function ResumePage() {
         {/* Eyebrow and Download CV header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
-            <p className="text-mono-label mb-2 text-[var(--accent)]">// CURRICULUM VITAE</p>
             <h1
               className="text-h1"
               style={{ fontFamily: "var(--font-display)" }}
@@ -193,7 +191,7 @@ export default async function ResumePage() {
                 );
               })}
               {experience.length === 0 && (
-                <p className="text-small text-[var(--ink-faint)]">// NO EXPERIENCE ENTRIES SEEDED</p>
+                <p className="text-small text-[var(--ink-faint)]">No experience entries yet.</p>
               )}
             </div>
           </section>
@@ -228,7 +226,7 @@ export default async function ResumePage() {
                 );
               })}
               {education.length === 0 && (
-                <p className="text-small text-[var(--ink-faint)]">// NO EDUCATION ENTRIES SEEDED</p>
+                <p className="text-small text-[var(--ink-faint)]">No education entries yet.</p>
               )}
             </div>
           </section>
@@ -244,7 +242,7 @@ export default async function ResumePage() {
                 if (list.length === 0) return null;
                 return (
                   <div key={cat}>
-                    <h4 className="text-xs text-mono-label text-[var(--ink-faint)] mb-2">// {cat}</h4>
+                    <h4 className="text-xs text-mono-label text-[var(--ink-faint)] mb-2">{cat}</h4>
                     <div className="flex flex-wrap gap-2">
                       {list.map((skill) => (
                         <span key={skill} className="px-2.5 py-1 text-xs border border-solid border-[var(--line)] rounded-[var(--radius-xs)] bg-[var(--bg-raised)] text-[var(--ink)] animate-scaleIn">

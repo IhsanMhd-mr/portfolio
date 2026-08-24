@@ -170,7 +170,7 @@ export default function ProjectsFilterWrapper({
                 />
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center text-[var(--ink-faint)] p-6 text-center">
-                  <span className="text-mono-label">// {project.category.replace("_", " ")}</span>
+                  <span className="text-mono-label">{project.category.replace("_", " ")}</span>
                 </div>
               )}
             </div>
@@ -244,7 +244,7 @@ export default function ProjectsFilterWrapper({
 
       {filteredProjects.length === 0 && (
         <div className="text-center py-20 text-[var(--ink-faint)] border border-dashed border-[var(--line)] rounded-[var(--radius-sm)]">
-          // NO PROJECTS FOUND MATCHING FILTERS
+          No projects found matching filters.
         </div>
       )}
     </div>

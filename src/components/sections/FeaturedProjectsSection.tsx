@@ -23,8 +23,7 @@ export default function FeaturedProjectsSection({ projects, settings, isPreview 
       <div className="max-w-[var(--w-content)] mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6 mb-12">
           <div>
-            <p className="pm-kicker text-mono-label mb-2 text-[var(--accent)]">// 03 — FEATURED WORKS</p>
-            <h2 
+            <h2
               className="text-h2 text-[var(--ink)]" 
               style={{ fontFamily: "var(--font-display)" }}
             >
@@ -62,7 +61,7 @@ export default function FeaturedProjectsSection({ projects, settings, isPreview 
                     />
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center text-[var(--ink-faint)] p-6">
-                      <span className="text-mono-label">// {category}</span>
+                      <span className="text-mono-label">{category.replace("_", " ")}</span>
                       <p className="text-xs mt-2">No thumbnail uploaded</p>
                     </div>
                   )}

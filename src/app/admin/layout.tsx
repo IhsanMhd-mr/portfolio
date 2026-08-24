@@ -40,6 +40,7 @@ export default async function AdminLayout({
           backgroundColor: "var(--a-bg)",
           fontFamily: "var(--a-font-body)",
         }}
+        suppressHydrationWarning
       >
         <div className="w-full max-w-md mb-4 flex justify-end">
           <ThemeToggle />
@@ -70,6 +71,7 @@ export default async function AdminLayout({
         backgroundColor: "var(--a-bg)",
         fontFamily: "var(--a-font-body)",
       }}
+      suppressHydrationWarning
     >
       {/* 1. Left Sidebar Navigation */}
       <AdminSidebar />
@@ -84,6 +86,7 @@ export default async function AdminLayout({
           <div className="flex items-center gap-2 text-sm pl-10 md:pl-0">
             <Link
               href="/admin/dashboard"
+              prefetch={false}
               className="text-[var(--a-soft)] hover:text-[var(--a-ink)] transition-colors animate-none"
             >
               Admin
@@ -93,6 +96,7 @@ export default async function AdminLayout({
                 <span className="text-[var(--a-faint)]">/</span>
                 <Link
                   href={crumb.href}
+                  prefetch={false}
                   className="font-medium text-[var(--a-ink)] hover:text-[var(--a-primary)] transition-colors"
                 >
                   {crumb.label}
@@ -124,6 +128,7 @@ export default async function AdminLayout({
             <div className="flex items-center gap-2">
               <Link
                 href="/admin/preview"
+                prefetch={false}
                 className="flex items-center gap-1.5 text-xs font-semibold px-2 md:px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-[var(--a-soft)] hover:text-[var(--a-ink)] hover:border-[var(--a-ink)] transition-colors bg-[var(--a-surface)]"
               >
                 <Eye size={14} />
@@ -140,6 +145,7 @@ export default async function AdminLayout({
               </a>
               <Link
                 href="/admin/publish-confirmation"
+                prefetch={false}
                 className="flex items-center gap-1.5 text-xs font-semibold px-2 md:px-4 py-1.5 bg-[var(--a-primary)] hover:bg-[var(--a-primary-hover)] text-white rounded-[var(--a-r-sm)] transition-colors border-none"
               >
                 <span className="md:hidden">Publish</span>

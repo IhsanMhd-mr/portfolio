@@ -113,8 +113,8 @@ export const metadata: Metadata = {
    Root Layout
    ========================================================================== */
 
-import db from "@/lib/database";
 import { cookies } from "next/headers";
+import { PublicContentService } from "@/services/public-content.service";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 
 export default async function RootLayout({
@@ -126,36 +126,17 @@ export default async function RootLayout({
   const isPreview = cookieStore.get("portfolio_preview_mode")?.value === "true";
 
   let templateKey = "MODERN_GLASS";
-  let defaultTheme = "system";
+  let defaultTheme = "light";
 
   try {
-    if (isPreview) {
-      const page = await db.page.findUnique({
-        where: { key: "home" },
-        include: { draftTemplate: true },
-      });
-      if (page?.draftTemplate?.key) {
-        templateKey = page.draftTemplate.key;
-      }
-    } else {
-      const page = await db.page.findUnique({
-        where: { key: "home" },
-        include: {
-          versions: {
-            where: { isActive: true },
-            take: 1,
-          },
-          draftTemplate: true,
-        },
-      });
-      if (page?.versions?.[0]?.templateKey) {
-        templateKey = page.versions[0].templateKey;
-      } else if (page?.draftTemplate?.key) {
-        templateKey = page.draftTemplate.key;
-      }
-    }
-
-    const siteProfile = await db.siteProfile.findFirst({ select: { defaultTheme: true } });
+    // Both go through PublicContentService so they share its request-cached
+    // page/profile reads with the page and its metadata, instead of issuing a
+    // third independent copy of the same two queries per render.
+    const [resolvedTemplateKey, siteProfile] = await Promise.all([
+      PublicContentService.resolveTemplateKey(isPreview),
+      PublicContentService.getSiteProfile(),
+    ]);
+    templateKey = resolvedTemplateKey;
     if (siteProfile?.defaultTheme) {
       defaultTheme = siteProfile.defaultTheme;
     }
@@ -177,7 +158,7 @@ export default async function RootLayout({
       className={`${fontVariables} h-full antialiased`}
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <ThemeProvider
           attribute={["class", "data-theme"]}
           defaultTheme={defaultTheme}

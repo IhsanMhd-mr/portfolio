@@ -17,7 +17,6 @@ export default function CertificationsSection({ certifications, isPreview = fals
     <section className="w-full py-20 px-[var(--gutter)] bg-[var(--bg)] border-t border-solid border-[var(--line)] transition-colors duration-300">
       <div className="max-w-[var(--w-content)] mx-auto">
         <header className="pm-section-header mb-10">
-          <span className="pm-kicker text-mono-label mb-2 text-[var(--accent)] block">// 09 — CERTIFICATIONS</span>
           <h2 className="text-h2 text-[var(--ink)]" style={{ fontFamily: "var(--font-display)" }}>
             Certifications &amp; Achievements
           </h2>

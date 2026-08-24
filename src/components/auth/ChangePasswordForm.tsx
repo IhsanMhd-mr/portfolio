@@ -54,7 +54,6 @@ export default function ChangePasswordForm() {
       }
       setSuccess(true);
       router.push("/admin/dashboard");
-      router.refresh();
     } catch {
       setError("Server error. Please try again.");
     } finally {

@@ -11,6 +11,14 @@ const path = require("path");
 
 const projectRoot = path.resolve(__dirname, "..");
 
+if (process.env.DB_TARGET === "local") {
+  if (!process.env.DATABASE_URL_LOCAL) {
+    console.error("[dev-start] DB_TARGET=local but DATABASE_URL_LOCAL is not set in .env");
+    process.exit(1);
+  }
+  process.env.DATABASE_URL = process.env.DATABASE_URL_LOCAL;
+}
+
 const connectionString =
   process.env.DATABASE_URL ||
   "postgresql://postgres:123@localhost:5432/portfolio?schema=public";

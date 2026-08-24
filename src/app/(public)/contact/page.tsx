@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import db from "@/lib/database";
+import { PublicContentService } from "@/services/public-content.service";
 import ContactForm from "@/components/public/ContactForm";
 import { Mail, MapPin, Clock, MessageSquare } from "lucide-react";
 import { Github, Linkedin } from "@/components/public/Icons";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const profile = await db.siteProfile.findFirst();
+  const profile = await PublicContentService.getSiteProfile();
   const fullName = profile?.fullName || "Jane Doe";
   const description = `Get in touch with ${fullName} for project inquiries, opportunities, or collaborations.`;
 
@@ -17,7 +18,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function ContactPage() {
-  const profile = await db.siteProfile.findFirst();
+  const profile = await PublicContentService.getSiteProfile();
   const socialLinks = await db.socialLink.findMany({
     where: { visible: true },
     orderBy: { order: "asc" },
@@ -40,7 +41,6 @@ export default async function ContactPage() {
         {/* Left Column: Context details */}
         <div className="md:col-span-5 space-y-8">
           <div>
-            <p className="text-mono-label mb-2 text-[var(--accent)]">// 07 — CONTACT</p>
             <h1 className="text-display mb-4" style={{ fontFamily: "var(--font-display)", fontSize: "clamp(32px, 5vw, 56px)" }}>
               Get in Touch
             </h1>
@@ -86,7 +86,7 @@ export default async function ContactPage() {
           {/* Social connections */}
           {socialLinks.length > 0 && (
             <div className="space-y-4">
-              <h4 className="text-mono-label text-[var(--ink-faint)]" style={{ fontSize: "11px" }}>// SOCIAL PROFILES</h4>
+              <h4 className="text-mono-label text-[var(--ink-faint)]" style={{ fontSize: "11px" }}>Social Profiles</h4>
               <div className="flex gap-4">
                 {socialLinks.map((link) => {
                   const platform = link.platform.toLowerCase();

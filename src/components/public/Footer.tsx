@@ -94,9 +94,10 @@ export default function Footer({
                     rel={link.platform === "email" ? undefined : "noopener noreferrer"}
                     aria-label={displayName}
                     title={displayName}
-                    className="p-2 border border-solid border-[var(--line)] rounded-[var(--radius-sm)] text-[var(--ink-soft)] hover:text-[var(--accent)] hover:border-[var(--accent)] transition-colors"
+                    className="flex items-center gap-2 px-3 py-2 border border-solid border-[var(--line)] rounded-[var(--radius-sm)] text-[var(--ink-soft)] text-sm hover:text-[var(--accent)] hover:border-[var(--accent)] transition-colors"
                   >
                     <Icon size={18} />
+                    {displayName}
                   </a>
                 );
               })
@@ -104,9 +105,11 @@ export default function Footer({
               <a
                 href={`mailto:${contactEmail}`}
                 aria-label="Email"
-                className="p-2 border border-solid border-[var(--line)] rounded-[var(--radius-sm)] text-[var(--ink-soft)] hover:text-[var(--accent)] hover:border-[var(--accent)] transition-colors"
+                title="Email"
+                className="flex items-center gap-2 px-3 py-2 border border-solid border-[var(--line)] rounded-[var(--radius-sm)] text-[var(--ink-soft)] text-sm hover:text-[var(--accent)] hover:border-[var(--accent)] transition-colors"
               >
                 <Mail size={18} />
+                Email
               </a>
             )}
           </div>

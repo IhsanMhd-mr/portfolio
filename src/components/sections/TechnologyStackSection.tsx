@@ -59,60 +59,45 @@ export default function TechnologyStackSection({ technologies, settings, isPrevi
   return (
     <section className="w-full py-20 px-[var(--gutter)] bg-[var(--bg)] border-t border-solid border-[var(--line)] transition-colors duration-300">
       <div className="max-w-[var(--w-content)] mx-auto">
-        <div className="mb-12 text-center md:text-left">
-          <p className="pm-kicker text-mono-label mb-2 text-[var(--accent)]">// 02 — CAPABILITIES</p>
-          <h2 
-            className="text-h2 text-[var(--ink)]" 
+        <div className="mb-10 text-center md:text-left">
+          <h2
+            className="text-h2 text-[var(--ink)]"
             style={{ fontFamily: "var(--font-display)" }}
           >
             Technical Stack
           </h2>
         </div>
 
-        <div className="grid gap-12 md:grid-cols-2">
+        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
           {activeCategories.map((catKey) => {
             const displayTitle = categoriesMap[catKey] || catKey;
             const items = grouped[catKey];
 
             return (
-              <div key={catKey} className="space-y-6">
-                <h3 
-                  className="text-mono-label border-b border-solid border-[var(--line)] pb-2 text-[var(--ink-faint)]"
+              <div key={catKey} className="space-y-3">
+                <h3
+                  className="text-mono-label text-[var(--ink-faint)]"
                   style={{ fontSize: "12px" }}
                 >
-                  // {displayTitle.toUpperCase()}
+                  {displayTitle.toUpperCase()}
                 </h3>
 
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="flex flex-wrap gap-2">
                   {items.map((tech) => {
                     const badgeStyles = getExperienceColor(tech.experienceLabel);
                     return (
-                      <div 
-                        key={tech.id} 
-                        className="p-5 rounded-[var(--radius-sm)] border border-solid border-[var(--line)] bg-[var(--bg-raised, var(--bg))] hover:border-[var(--accent)] transition-all flex flex-col justify-between"
+                      <span
+                        key={tech.id}
+                        title={formatLabel(tech.experienceLabel)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-solid border-[var(--line)] bg-[var(--bg-raised, var(--bg))] text-[var(--ink)] text-sm hover:border-[var(--accent)] transition-colors"
                       >
-                        <div>
-                          <div className="flex items-center justify-between gap-3 mb-2">
-                            <h4 className="font-semibold text-[var(--ink)] text-body">
-                              {tech.name}
-                            </h4>
-                            <span 
-                              className="px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase rounded-full"
-                              style={{
-                                backgroundColor: badgeStyles.bg,
-                                color: badgeStyles.text
-                              }}
-                            >
-                              {formatLabel(tech.experienceLabel)}
-                            </span>
-                          </div>
-                          {tech.description && (
-                            <p className="text-xs text-[var(--ink-soft)] leading-relaxed">
-                              {tech.description}
-                            </p>
-                          )}
-                        </div>
-                      </div>
+                        <span
+                          className="w-1.5 h-1.5 rounded-full shrink-0"
+                          style={{ backgroundColor: badgeStyles.text }}
+                          aria-hidden
+                        />
+                        {tech.name}
+                      </span>
                     );
                   })}
                 </div>

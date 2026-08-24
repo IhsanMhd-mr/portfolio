@@ -1,3 +1,4 @@
+import { cache } from "react";
 import db from "@/lib/database";
 import { SectionGroupService } from "./section-group.service";
 
@@ -13,6 +14,14 @@ import { SectionGroupService } from "./section-group.service";
  * sections/template (already authorized upstream via the httpOnly preview
  * cookie set by an admin-only action); false → PUBLISHED versions + the
  * active PageVersion snapshot.
+ *
+ * Every resolver here is wrapped in React `cache()`. Next.js runs
+ * generateMetadata() and the page component as separate passes over the same
+ * request, and the root/public layouts resolve chrome independently — without
+ * deduping, one homepage render issued the identical `site_profiles`/`pages`
+ * lookups a dozen-plus times. `cache()` is strictly request-scoped (same
+ * semantics as requireAdmin in lib/require-admin.ts): it collapses repeat
+ * calls within a single request and never persists across requests or users.
  */
 
 export interface SectionData {
@@ -39,14 +48,33 @@ export interface HomePageData {
 
 export class PublicContentService {
   /**
+   * The single SiteProfile row, with every media relation any consumer needs.
+   * One cached query instead of three near-identical `findFirst` calls that
+   * differed only by `include` (root layout wanted defaultTheme, the chrome
+   * wanted cvFile/logoImage, the homepage wanted profileImage/cvFile) — and
+   * therefore could not dedupe.
+   */
+  static getSiteProfile = cache(async () => {
+    return db.siteProfile.findFirst({
+      include: {
+        // Only the two relations anything actually renders. logoImage/favicon
+        // are deliberately excluded: no view reads them (media.service.ts
+        // touches their FK columns only), and each unused `include` costs an
+        // extra round trip on every page — Prisma still issues the lookup even
+        // when the FK is null.
+        profileImage: true,
+        cvFile: true,
+      },
+    });
+  });
+
+  /**
    * Shared chrome data for the public layout (navbar/footer): site profile
    * plus footer-visible social links, ordered.
    */
-  static async getPublicChrome() {
+  static getPublicChrome = cache(async () => {
     const [profile, socialLinksRaw, navItemsRaw] = await Promise.all([
-      db.siteProfile.findFirst({
-        include: { cvFile: true, logoImage: true },
-      }),
+      PublicContentService.getSiteProfile(),
       db.socialLink.findMany({
         where: { visible: true, showInFooter: true },
         orderBy: { order: "asc" },
@@ -68,13 +96,13 @@ export class PublicContentService {
       })),
       navLinks: navItemsRaw.map((n) => ({ label: n.label, href: n.target })),
     };
-  }
+  });
 
   /**
    * Full homepage dataset for the active template, resolved for the given
    * publish state.
    */
-  static async getHomePageData(isPreview: boolean): Promise<HomePageData> {
+  static getHomePageData = cache(async (isPreview: boolean): Promise<HomePageData> => {
     const state = isPreview ? ("DRAFT" as const) : ("PUBLISHED" as const);
 
     const [
@@ -87,12 +115,7 @@ export class PublicContentService {
       certificationsRaw,
       gameSettings,
     ] = await Promise.all([
-      db.siteProfile.findFirst({
-        include: {
-          profileImage: true,
-          cvFile: true,
-        },
-      }),
+      PublicContentService.getSiteProfile(),
       db.technology.findMany({
         where: { deletedAt: null },
         include: { versions: { where: { state } } },
@@ -205,7 +228,25 @@ export class PublicContentService {
       gameSettings,
       templateKey,
     };
-  }
+  });
+
+  /**
+   * The `home` Page row with every relation the two resolvers below need.
+   * Fetched as ONE cached query rather than letting resolveSections and
+   * resolveTemplateKey each issue their own `findUnique` for the same row
+   * with different `include` clauses — different includes are different
+   * queries, so caching those two functions alone would not have collapsed
+   * the underlying `pages`/`page_versions`/`templates` reads.
+   */
+  private static getHomePageRecord = cache(async () => {
+    return db.page.findUnique({
+      where: { key: "home" },
+      include: {
+        versions: { where: { isActive: true }, take: 1 },
+        draftTemplate: true,
+      },
+    });
+  });
 
   /**
    * Layout sections: draft (grouped) rows in preview, active snapshot
@@ -217,13 +258,10 @@ export class PublicContentService {
    * container (per group, and separately for the ungrouped bucket) rather
    * than page-wide.
    */
-  private static async resolveSections(isPreview: boolean): Promise<SectionData[]> {
+  private static resolveSections = cache(async (isPreview: boolean): Promise<SectionData[]> => {
     let sections: SectionData[] = [];
     try {
-      const page = await db.page.findUnique({
-        where: { key: "home" },
-        include: { versions: { where: { isActive: true }, take: 1 } },
-      });
+      const page = await PublicContentService.getHomePageRecord();
       if (!page) return [];
 
       if (isPreview) {
@@ -252,26 +290,21 @@ export class PublicContentService {
     }
 
     return sections.filter((s) => s.visible);
-  }
+  });
 
-  /** Active template: draft pointer in preview, published version key otherwise. */
-  private static async resolveTemplateKey(isPreview: boolean): Promise<string> {
+  /**
+   * Active template: draft pointer in preview, published version key otherwise.
+   * Public because the root layout needs the same value to stamp
+   * `data-template` on <html>; it must resolve identically (and share the
+   * cached page read) rather than reimplementing the lookup.
+   */
+  static resolveTemplateKey = cache(async (isPreview: boolean): Promise<string> => {
     let templateKey = "MODERN_GLASS";
     try {
+      const page = await PublicContentService.getHomePageRecord();
       if (isPreview) {
-        const page = await db.page.findUnique({
-          where: { key: "home" },
-          include: { draftTemplate: true },
-        });
         if (page?.draftTemplate?.key) templateKey = page.draftTemplate.key;
       } else {
-        const page = await db.page.findUnique({
-          where: { key: "home" },
-          include: {
-            versions: { where: { isActive: true }, take: 1 },
-            draftTemplate: true,
-          },
-        });
         if (page?.versions?.[0]?.templateKey) {
           templateKey = page.versions[0].templateKey;
         } else if (page?.draftTemplate?.key) {
@@ -282,7 +315,7 @@ export class PublicContentService {
       console.error("Failed to load template:", error);
     }
     return templateKey;
-  }
+  });
 
   private static toSectionData(s: any): SectionData {
     return {

@@ -45,7 +45,6 @@ export default function EducationExperienceSection({
         {/* Left Column: Experience */}
         <div>
           <header className="pm-section-header mb-8">
-            <span className="pm-kicker text-mono-label mb-2 text-[var(--accent)] block">// PROFESSIONAL EXPERIENCE</span>
             <h2 className="text-h3 text-[var(--ink)]" style={{ fontFamily: "var(--font-display)" }}>
               Employment History
             </h2>
@@ -88,7 +87,6 @@ export default function EducationExperienceSection({
         {/* Right Column: Education */}
         <div>
           <header className="pm-section-header mb-8">
-            <span className="pm-kicker text-mono-label mb-2 text-[var(--accent)] block">// ACADEMIC EDUCATION</span>
             <h2 className="text-h3 text-[var(--ink)]" style={{ fontFamily: "var(--font-display)" }}>
               Qualifications
             </h2>
