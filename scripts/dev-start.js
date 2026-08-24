@@ -15,8 +15,10 @@ const connectionString =
   process.env.DATABASE_URL ||
   "postgresql://postgres:123@localhost:5432/portfolio?schema=public";
 
+const isLocalDatabase = /localhost|127\.0\.0\.1/.test(connectionString);
+
 async function checkConnectivity() {
-  const client = new Client({ connectionString, connectionTimeoutMillis: 2000 });
+  const client = new Client({ connectionString, connectionTimeoutMillis: 10000 });
   try {
     await client.connect();
     await client.end();
@@ -37,7 +39,7 @@ async function main() {
   console.log("[dev-start] Checking database connectivity...");
   let connected = await checkConnectivity();
 
-  if (!connected) {
+  if (!connected && isLocalDatabase) {
     console.log("[dev-start] Database not responding. Attempting to start local PostgreSQL service...");
     try {
       execSync(`C:\\PROGRA~1\\PostgreSQL\\17\\bin\\pg_ctl.exe start -D C:\\PROGRA~1\\PostgreSQL\\17\\data`, { stdio: "inherit" });
@@ -48,11 +50,12 @@ async function main() {
     }
 
     connected = await checkConnectivity();
-    if (!connected) {
-      console.error("\n[dev-start] CRITICAL ERROR: Could not connect to PostgreSQL database.");
-      console.error("Please make sure your database server is running and DATABASE_URL in .env is correct.\n");
-      process.exit(1);
-    }
+  }
+
+  if (!connected) {
+    console.error("\n[dev-start] CRITICAL ERROR: Could not connect to PostgreSQL database.");
+    console.error("Please make sure your database server is running and DATABASE_URL in .env is correct.\n");
+    process.exit(1);
   }
 
   console.log("[dev-start] Database connection established.");
