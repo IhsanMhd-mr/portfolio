@@ -18,12 +18,14 @@ export default async function AdminProfilePage() {
 
   if (!profile) {
     profile = await db.siteProfile.create({
+      // Bootstrap an EMPTY profile — see the matching comment in
+      // src/app/admin/settings/page.tsx. Never seed a fictional identity.
       data: {
-        fullName: "Jane Doe",
-        logoText: "JD",
-        title: "Software Engineer",
-        aboutBio: "Passionate about web systems and clean code.",
-        contactEmail: "admin@portfolio.com",
+        fullName: "",
+        logoText: "",
+        title: "",
+        aboutBio: "",
+        contactEmail: "",
       },
       include: { profileImage: true, cvFile: true },
     });

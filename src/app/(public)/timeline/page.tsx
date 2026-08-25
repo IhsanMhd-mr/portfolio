@@ -4,16 +4,20 @@ import { PublicContentService } from "@/services/public-content.service";
 import Link from "next/link";
 import { Calendar, MapPin, Link2 } from "lucide-react";
 import { formatMonthYear } from "@/lib/format-date";
+import { text } from "@/lib/text";
 
 export async function generateMetadata(): Promise<Metadata> {
   const profile = await PublicContentService.getSiteProfile();
-  const fullName = profile?.fullName || "Jane Doe";
-  const description = `Career and project timeline for ${fullName} — milestones, roles, and journey over time.`;
+  const fullName = text(profile?.fullName);
+  const heading = fullName ? `Timeline — ${fullName}` : "Timeline";
+  const description = fullName
+    ? `Career and project timeline for ${fullName} — milestones, roles, and journey over time.`
+    : "Career and project timeline — milestones, roles, and journey over time.";
 
   return {
-    title: `Timeline — ${fullName}`,
+    title: heading,
     description,
-    openGraph: { title: `Timeline — ${fullName}`, description, type: "website" },
+    openGraph: { title: heading, description, type: "website" },
   };
 }
 

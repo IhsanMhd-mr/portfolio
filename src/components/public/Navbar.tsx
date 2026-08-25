@@ -22,11 +22,12 @@ export interface NavLinkItem {
 }
 
 export default function Navbar({
-  logoText = "Jane Doe",
+  logoText = null,
   cvUrl = "/resume",
   navLinks: navLinksProp,
 }: {
-  logoText?: string;
+  /** Null renders no wordmark rather than a placeholder name. */
+  logoText?: string | null;
   cvUrl?: string;
   /** Admin-configured items (NavItemService). Falls back to the built-in
    *  default list when empty, so a fresh install never shows an empty nav. */
@@ -82,13 +83,19 @@ export default function Navbar({
         }}
       >
         {/* Logo */}
-        <Link
-          href="/"
-          className="text-lg font-bold tracking-tight text-[var(--accent)]"
-          style={{ fontFamily: "var(--font-display)" }}
-        >
-          {logoText}
-        </Link>
+        {/* No wordmark configured — render nothing rather than an invisible,
+            empty click target where the brand link would be. */}
+        {logoText ? (
+          <Link
+            href="/"
+            className="text-lg font-bold tracking-tight text-[var(--accent)]"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            {logoText}
+          </Link>
+        ) : (
+          <span />
+        )}
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-8">

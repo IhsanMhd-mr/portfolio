@@ -8,12 +8,16 @@ export default async function AdminSettingsPage() {
 
   if (!profile) {
     profile = await db.siteProfile.create({
+      // Bootstrap an EMPTY profile. These columns are NOT NULL so they must be
+      // written, but "" is what the public site treats as absent — it renders
+      // nothing rather than publishing a fictional identity and an unowned
+      // email address that the owner never entered.
       data: {
-        fullName: "Jane Doe",
-        logoText: "JD",
-        title: "Software Engineer",
-        aboutBio: "Passionate about web systems and clean code.",
-        contactEmail: "admin@portfolio.com",
+        fullName: "",
+        logoText: "",
+        title: "",
+        aboutBio: "",
+        contactEmail: "",
       },
     });
   }

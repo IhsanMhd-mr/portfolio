@@ -4,16 +4,20 @@ import { PublicContentService } from "@/services/public-content.service";
 import ContactForm from "@/components/public/ContactForm";
 import { Mail, MapPin, Clock, MessageSquare } from "lucide-react";
 import { Github, Linkedin } from "@/components/public/Icons";
+import { text } from "@/lib/text";
 
 export async function generateMetadata(): Promise<Metadata> {
   const profile = await PublicContentService.getSiteProfile();
-  const fullName = profile?.fullName || "Jane Doe";
-  const description = `Get in touch with ${fullName} for project inquiries, opportunities, or collaborations.`;
+  const fullName = text(profile?.fullName);
+  const heading = fullName ? `Contact — ${fullName}` : "Contact";
+  const description = fullName
+    ? `Get in touch with ${fullName} for project inquiries, opportunities, or collaborations.`
+    : "Get in touch for project inquiries, opportunities, or collaborations.";
 
   return {
-    title: `Contact — ${fullName}`,
+    title: heading,
     description,
-    openGraph: { title: `Contact — ${fullName}`, description, type: "website" },
+    openGraph: { title: heading, description, type: "website" },
   };
 }
 
@@ -24,9 +28,11 @@ export default async function ContactPage() {
     orderBy: { order: "asc" },
   });
 
-  const contactEmail = profile?.contactEmail || "admin@portfolio.com";
-  const locationText = profile?.locationText || "Colombo, Sri Lanka";
-  const availabilityStatus = profile?.availabilityStatus || "Open to work";
+  // No invented contact details: an unset field hides its row entirely rather
+  // than publishing a placeholder address a visitor could actually email.
+  const contactEmail = text(profile?.contactEmail);
+  const locationText = text(profile?.locationText);
+  const availabilityStatus = text(profile?.availabilityStatus);
 
   return (
     <div
@@ -50,37 +56,43 @@ export default async function ContactPage() {
           </div>
 
           <div className="space-y-6 text-small text-[var(--ink-soft)]">
-            <div className="flex items-center gap-3">
-              <div className="p-2 border border-solid border-[var(--line)] rounded-[var(--radius-sm)] text-[var(--accent)] bg-[var(--bg-raised)]">
-                <Mail size={16} />
+            {contactEmail && (
+              <div className="flex items-center gap-3">
+                <div className="p-2 border border-solid border-[var(--line)] rounded-[var(--radius-sm)] text-[var(--accent)] bg-[var(--bg-raised)]">
+                  <Mail size={16} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-mono text-[var(--ink-faint)] uppercase">Email</p>
+                  <a href={`mailto:${contactEmail}`} className="font-semibold text-[var(--ink)] hover:text-[var(--accent)] transition-colors">
+                    {contactEmail}
+                  </a>
+                </div>
               </div>
-              <div>
-                <p className="text-[10px] font-mono text-[var(--ink-faint)] uppercase">Email</p>
-                <a href={`mailto:${contactEmail}`} className="font-semibold text-[var(--ink)] hover:text-[var(--accent)] transition-colors">
-                  {contactEmail}
-                </a>
-              </div>
-            </div>
+            )}
 
-            <div className="flex items-center gap-3">
-              <div className="p-2 border border-solid border-[var(--line)] rounded-[var(--radius-sm)] text-[var(--accent)] bg-[var(--bg-raised)]">
-                <MapPin size={16} />
+            {locationText && (
+              <div className="flex items-center gap-3">
+                <div className="p-2 border border-solid border-[var(--line)] rounded-[var(--radius-sm)] text-[var(--accent)] bg-[var(--bg-raised)]">
+                  <MapPin size={16} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-mono text-[var(--ink-faint)] uppercase">Location</p>
+                  <p className="font-semibold text-[var(--ink)]">{locationText}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-[10px] font-mono text-[var(--ink-faint)] uppercase">Location</p>
-                <p className="font-semibold text-[var(--ink)]">{locationText}</p>
-              </div>
-            </div>
+            )}
 
-            <div className="flex items-center gap-3">
-              <div className="p-2 border border-solid border-[var(--line)] rounded-[var(--radius-sm)] text-[var(--accent)] bg-[var(--bg-raised)]">
-                <Clock size={16} />
+            {availabilityStatus && (
+              <div className="flex items-center gap-3">
+                <div className="p-2 border border-solid border-[var(--line)] rounded-[var(--radius-sm)] text-[var(--accent)] bg-[var(--bg-raised)]">
+                  <Clock size={16} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-mono text-[var(--ink-faint)] uppercase">Status</p>
+                  <p className="font-semibold text-[var(--ink)]">{availabilityStatus}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-[10px] font-mono text-[var(--ink-faint)] uppercase">Status</p>
-                <p className="font-semibold text-[var(--ink)]">{availabilityStatus}</p>
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Social connections */}

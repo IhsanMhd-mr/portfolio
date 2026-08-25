@@ -13,12 +13,14 @@ export interface FooterSocialLink {
 }
 
 export default function Footer({
-  logoText = "Jane Doe",
-  contactEmail = "admin@portfolio.com",
+  logoText = null,
+  contactEmail = null,
   socialLinks = [],
 }: {
-  logoText?: string;
-  contactEmail?: string;
+  // Nullable, and null means "render nothing" — not "substitute a placeholder".
+  // These previously defaulted to a fictional name and an unowned email address.
+  logoText?: string | null;
+  contactEmail?: string | null;
   socialLinks?: FooterSocialLink[];
 }) {
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -101,7 +103,7 @@ export default function Footer({
                   </a>
                 );
               })
-            ) : (
+            ) : contactEmail ? (
               <a
                 href={`mailto:${contactEmail}`}
                 aria-label="Email"
@@ -111,14 +113,14 @@ export default function Footer({
                 <Mail size={18} />
                 Email
               </a>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
 
       {/* Bottom bar */}
       <div className="max-w-[var(--w-content)] mx-auto pt-8 border-t border-solid border-[var(--line)] flex flex-col sm:flex-row justify-between items-center gap-4 text-mono-label text-[var(--ink-faint)]">
-        <span>© {currentYear} {logoText.toUpperCase()}</span>
+        <span>© {currentYear}{logoText ? ` ${logoText.toUpperCase()}` : ""}</span>
         <span>BUILT WITH NEXT.JS • PRISMA • POSTGRESQL</span>
       </div>
 

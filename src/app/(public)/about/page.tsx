@@ -43,8 +43,9 @@ export default async function AboutPage() {
     }),
   ]);
 
-  const fullName = profile?.fullName || "Jane Doe";
-  const title = profile?.title || "Full-Stack Software Engineer";
+  const fullName = text(profile?.fullName);
+  const title = text(profile?.title);
+  const identity = [fullName, title].filter(Boolean).join(" · ");
   const cvUrl = profile?.cvFile?.url || "/resume";
 
   const education = educationRaw
@@ -88,9 +89,11 @@ export default async function AboutPage() {
           <h1 className="text-display mb-4" style={{ fontFamily: "var(--font-display)" }}>
             About Me
           </h1>
-          <p className="text-body-lg text-[var(--ink-soft)] font-medium">
-            {fullName} · {title}
-          </p>
+          {identity && (
+            <p className="text-body-lg text-[var(--ink-soft)] font-medium">
+              {identity}
+            </p>
+          )}
         </div>
 
         {/* Biography text */}

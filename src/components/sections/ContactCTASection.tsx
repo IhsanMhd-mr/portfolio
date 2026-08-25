@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, Mail } from "lucide-react";
 import MagneticButton from "@/components/ui/MagneticButton";
+import { text } from "@/lib/text";
 
 interface ContactCTASectionProps {
   settings?: any;
@@ -9,8 +10,9 @@ interface ContactCTASectionProps {
 }
 
 export default function ContactCTASection({ settings, profile, isPreview = false }: ContactCTASectionProps) {
-  const contactEmail = profile?.contactEmail || "admin@portfolio.com";
-  const locationText = profile?.locationText || "Colombo, Sri Lanka";
+  // No invented contact details — see src/lib/text.ts.
+  const contactEmail = text(profile?.contactEmail);
+  const locationText = text(profile?.locationText);
 
   return (
     <section className="w-full py-24 px-[var(--gutter)] bg-[var(--bg)] border-t border-solid border-[var(--line)] transition-colors duration-300 relative overflow-hidden">
@@ -45,19 +47,21 @@ export default function ContactCTASection({ settings, profile, isPreview = false
             </Link>
           </MagneticButton>
 
-          <MagneticButton>
-            <a
-              href={`mailto:${contactEmail}`}
-              className="flex items-center gap-2 px-6 py-3 border border-solid border-[var(--line)] hover:border-[var(--accent)] hover:text-[var(--accent)] text-[var(--ink)] font-semibold rounded-[var(--radius-sm)] transition-colors"
-            >
-              <Mail size={16} />
-              {contactEmail}
-            </a>
-          </MagneticButton>
+          {contactEmail && (
+            <MagneticButton>
+              <a
+                href={`mailto:${contactEmail}`}
+                className="flex items-center gap-2 px-6 py-3 border border-solid border-[var(--line)] hover:border-[var(--accent)] hover:text-[var(--accent)] text-[var(--ink)] font-semibold rounded-[var(--radius-sm)] transition-colors"
+              >
+                <Mail size={16} />
+                {contactEmail}
+              </a>
+            </MagneticButton>
+          )}
         </div>
 
         <p className="text-xs text-[var(--ink-faint)] font-mono pt-4">
-          Located in {locationText} · Supporting remote work globally
+          {locationText && `Located in ${locationText} · `}Supporting remote work globally
         </p>
       </div>
     </section>

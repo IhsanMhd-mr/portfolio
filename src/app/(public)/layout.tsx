@@ -3,6 +3,7 @@ import Footer from "@/components/public/Footer";
 import { auth } from "@/lib/auth";
 import { SessionProvider } from "next-auth/react";
 import { PublicContentService } from "@/services/public-content.service";
+import { text } from "@/lib/text";
 
 export default async function PublicLayout({
   children,
@@ -15,9 +16,12 @@ export default async function PublicLayout({
 
   const session = await auth();
 
-  const logoText = profile?.logoText || "Jane Doe";
+  // The wordmark falls back to the real name, never to a placeholder person.
+  // An unset contact email yields null so the footer omits the link entirely
+  // rather than publishing an address nobody owns.
+  const logoText = text(profile?.logoText) || text(profile?.fullName);
   const cvUrl = profile?.cvFile?.url || "/resume";
-  const contactEmail = profile?.contactEmail || "admin@portfolio.com";
+  const contactEmail = text(profile?.contactEmail);
 
   return (
     <SessionProvider session={session}>

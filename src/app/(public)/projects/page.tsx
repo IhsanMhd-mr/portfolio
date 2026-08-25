@@ -2,17 +2,19 @@ import type { Metadata } from "next";
 import db from "@/lib/database";
 import { PublicContentService } from "@/services/public-content.service";
 import ProjectsFilterWrapper from "@/components/public/ProjectsFilterWrapper";
+import { text } from "@/lib/text";
 
 export async function generateMetadata(): Promise<Metadata> {
   const profile = await PublicContentService.getSiteProfile();
-  const fullName = profile?.fullName || "Jane Doe";
+  const fullName = text(profile?.fullName);
+  const heading = fullName ? `Projects — ${fullName}` : "Projects";
   const description =
     "A comprehensive list of engineering projects, case studies, academic milestones, and open-source contributions.";
 
   return {
-    title: `Projects — ${fullName}`,
+    title: heading,
     description,
-    openGraph: { title: `Projects — ${fullName}`, description, type: "website" },
+    openGraph: { title: heading, description, type: "website" },
   };
 }
 

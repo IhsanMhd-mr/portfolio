@@ -3,15 +3,20 @@ import db from "@/lib/database";
 import { PublicContentService } from "@/services/public-content.service";
 import { ArrowDownToLine, Mail, MapPin, Globe } from "lucide-react";
 import { formatMonthYear } from "@/lib/format-date";
+import { text } from "@/lib/text";
 
 export async function generateMetadata(): Promise<Metadata> {
   const profile = await PublicContentService.getSiteProfile();
-  const fullName = profile?.fullName || "Jane Doe";
-  const title = profile?.title || "Full-Stack Software Engineer";
-  const description = `Resume and curriculum vitae for ${fullName}, ${title.toLowerCase()}.`;
+  // Metadata needs a string, but it must never name a fictional person.
+  const fullName = text(profile?.fullName);
+  const title = text(profile?.title);
+  const description =
+    [fullName && `Resume and curriculum vitae for ${fullName}`, title?.toLowerCase()]
+      .filter(Boolean)
+      .join(", ") || undefined;
 
   return {
-    title: `Resume — ${fullName}`,
+    title: fullName ? `Resume — ${fullName}` : "Resume",
     description,
     openGraph: { title: `Resume — ${fullName}`, description, type: "profile" },
   };
@@ -34,11 +39,21 @@ export default async function ResumePage() {
     }),
   ]);
 
-  const fullName = profile?.fullName || "Jane Doe";
-  const title = profile?.title || "Full-Stack Software Engineer";
+  // No invented identity or contact details — see src/lib/text.ts.
+  const fullName = text(profile?.fullName);
+  const title = text(profile?.title);
   const cvUrl = profile?.cvFile?.url || "#";
-  const contactEmail = profile?.contactEmail || "admin@portfolio.com";
-  const locationText = profile?.locationText || "Colombo, LK";
+  const contactEmail = text(profile?.contactEmail);
+  const locationText = text(profile?.locationText);
+
+  // The contact strip is a fixed 3-up grid; empty entries drop out so it never
+  // shows a bare icon. The third slot was previously the literal, unconditional
+  // string "Jane Doe Portfolio".
+  const contactItems = [
+    { icon: Mail, value: contactEmail },
+    { icon: MapPin, value: locationText },
+    { icon: Globe, value: fullName ? `${fullName} Portfolio` : null },
+  ].filter((item) => item.value);
 
   // Resolve active versions
   const education = educationRaw
@@ -110,15 +125,19 @@ export default async function ResumePage() {
         {/* Eyebrow and Download CV header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
-            <h1
-              className="text-h1"
-              style={{ fontFamily: "var(--font-display)" }}
-            >
-              {fullName}
-            </h1>
-            <p className="text-body-lg text-[var(--ink-soft)] mt-1">
-              {title}
-            </p>
+            {fullName && (
+              <h1
+                className="text-h1"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                {fullName}
+              </h1>
+            )}
+            {title && (
+              <p className="text-body-lg text-[var(--ink-soft)] mt-1">
+                {title}
+              </p>
+            )}
           </div>
           <div>
             {cvUrl !== "#" ? (
@@ -145,20 +164,16 @@ export default async function ResumePage() {
         </div>
 
         {/* Contact info grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 border border-solid border-[var(--line)] rounded-[var(--radius-sm)] mb-10 text-small text-[var(--ink-soft)]">
-          <div className="flex items-center gap-2">
-            <Mail size={14} className="text-[var(--accent)]" />
-            <span>{contactEmail}</span>
+        {contactItems.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 border border-solid border-[var(--line)] rounded-[var(--radius-sm)] mb-10 text-small text-[var(--ink-soft)]">
+            {contactItems.map(({ icon: Icon, value }) => (
+              <div key={value} className="flex items-center gap-2">
+                <Icon size={14} className="text-[var(--accent)]" />
+                <span>{value}</span>
+              </div>
+            ))}
           </div>
-          <div className="flex items-center gap-2">
-            <MapPin size={14} className="text-[var(--accent)]" />
-            <span>{locationText}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Globe size={14} className="text-[var(--accent)]" />
-            <span>Jane Doe Portfolio</span>
-          </div>
-        </div>
+        )}
 
         <div className="space-y-10">
           {/* Work Experience */}

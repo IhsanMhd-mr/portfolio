@@ -4,18 +4,22 @@ import { PublicContentService } from "@/services/public-content.service";
 import ProfessionalMinimalTemplate from "@/components/templates/ProfessionalMinimalTemplate";
 import ModernGlassTemplate from "@/components/templates/ModernGlassTemplate";
 import Interactive3DTemplate from "@/components/templates/Interactive3DTemplate";
+import { text } from "@/lib/text";
 
 export async function generateMetadata(): Promise<Metadata> {
   const isPreview = await resolvePreviewMode();
   const { profile } = await PublicContentService.getHomePageData(isPreview);
 
-  const fullName = profile?.fullName || "Jane Doe";
-  const title = profile?.title || "Full-Stack Software Engineer";
+  // Never name a fictional person in metadata; fall back to the site's own
+  // generic label instead. The description fallback describes the site, not
+  // the owner, so it stays.
+  const fullName = text(profile?.fullName);
+  const title = text(profile?.title);
   const description =
-    profile?.tagline ||
-    profile?.heroIntro ||
+    text(profile?.tagline) ||
+    text(profile?.heroIntro) ||
     "Full-stack developer portfolio with admin CMS, visual page builder, and three selectable templates.";
-  const pageTitle = `${fullName} — ${title}`;
+  const pageTitle = [fullName, title].filter(Boolean).join(" — ") || "Portfolio";
 
   return {
     title: pageTitle,
