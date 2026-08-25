@@ -105,6 +105,13 @@ export class PublicContentService {
   static getHomePageData = cache(async (isPreview: boolean): Promise<HomePageData> => {
     const state = isPreview ? ("DRAFT" as const) : ("PUBLISHED" as const);
 
+    // Visibility is filtered in SQL rather than by a JS pass over every row.
+    // Preview intentionally keeps hidden rows so the owner can see them.
+    // `@@unique([entityId, state])` guarantees at most one version per state,
+    // so an entity whose only version is hidden simply comes back with an
+    // empty `versions` array and is dropped by the `.filter()` passes below.
+    const versionWhere = isPreview ? { state } : { state, visible: true };
+
     const [
       profile,
       technologiesRaw,
@@ -118,54 +125,124 @@ export class PublicContentService {
       PublicContentService.getSiteProfile(),
       db.technology.findMany({
         where: { deletedAt: null },
-        include: { versions: { where: { state } } },
+        select: {
+          id: true,
+          // Homepage renders name/category/experienceLabel and the game reads
+          // showInGame/showInStack. `description`, `logo`, `slug` are unused
+          // here, so they are not selected.
+          versions: {
+            where: versionWhere,
+            select: {
+              name: true,
+              category: true,
+              experienceLabel: true,
+              showInStack: true,
+              showInGame: true,
+              visible: true,
+              order: true,
+            },
+          },
+        },
       }),
       db.project.findMany({
         where: { deletedAt: null },
-        include: {
-          versions: { where: { state } },
-          technologies: {
-            include: {
-              technology: {
-                include: { versions: { where: { state } } },
-              },
+        select: {
+          id: true,
+          slug: true,
+          // Only the join rows — the technology names are resolved in memory
+          // from the full technology list fetched above, instead of a third
+          // nested `technology -> versions` round trip per project.
+          technologies: { select: { technologyId: true }, orderBy: { order: "asc" } },
+          // `images` is deliberately NOT selected: no homepage section renders
+          // a project gallery, only `thumbnail` below.
+          versions: {
+            where: versionWhere,
+            select: {
+              title: true,
+              summary: true,
+              category: true,
+              featured: true,
+              githubUrl: true,
+              liveDemoUrl: true,
+              visible: true,
+              manualOrder: true,
+              // The card image actually rendered by the sections. This lives on
+              // ProjectVersion and was previously never fetched, so
+              // `project.thumbnail` was always undefined.
+              thumbnail: { select: { url: true } },
             },
-            orderBy: { order: "asc" },
           },
-          images: { include: { media: true }, orderBy: { order: "asc" } },
         },
       }),
       db.timelineEntry.findMany({
         where: { deletedAt: null },
-        include: {
-          versions: { where: { state } },
-          linkedProject: {
-            include: { versions: { where: { state } } },
+        select: {
+          id: true,
+          // `linkedProject` is reduced to its slug — the only field the
+          // timeline renders. Previously this pulled the whole related project
+          // plus a second full ProjectVersion row.
+          linkedProject: { select: { slug: true } },
+          versions: {
+            where: versionWhere,
+            select: {
+              title: true,
+              entryType: true,
+              startDate: true,
+              endDate: true,
+              description: true,
+              visible: true,
+              order: true,
+            },
           },
         },
       }),
       db.education.findMany({
         where: { deletedAt: null },
-        include: { versions: { where: { state } } },
+        select: {
+          id: true,
+          versions: {
+            where: versionWhere,
+            select: {
+              institution: true,
+              qualification: true,
+              startDate: true,
+              endDate: true,
+              isCurrent: true,
+              grade: true,
+              description: true,
+              visible: true,
+              order: true,
+            },
+          },
+        },
       }),
       db.experience.findMany({
         where: { deletedAt: null },
-        include: {
-          versions: { where: { state } },
-          technologies: {
-            include: {
-              technology: {
-                include: { versions: { where: { state } } },
-              },
+        select: {
+          id: true,
+          // `technologies` is deliberately NOT selected: EducationExperience
+          // renders no technology chips, so the 3-level join was dead weight.
+          versions: {
+            where: versionWhere,
+            select: {
+              organization: true,
+              role: true,
+              startDate: true,
+              endDate: true,
+              isCurrent: true,
+              locationText: true,
+              description: true,
+              visible: true,
+              order: true,
             },
           },
         },
       }),
       // Certifications apply immediately (no draft state, like social links) —
       // preview and published both see the same visible-filtered list.
+      // `media` is not selected: the section renders no certificate image.
       db.certification.findMany({
         where: isPreview ? undefined : { visible: true },
-        include: { media: true },
         orderBy: { order: "asc" },
       }),
       db.gameSettings.findFirst(),
@@ -173,44 +250,38 @@ export class PublicContentService {
 
     const technologies = technologiesRaw
       .map((tech) => ({ ...tech, ...tech.versions[0] }))
-      .filter((t) => t.name && (isPreview || t.visible));
+      .filter((t) => t.name);
     technologies.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+    // Index once so projects can resolve their technology chips in memory.
+    // The full technology list is already loaded above, so re-querying the same
+    // rows through each project's nested include would be pure duplication.
+    const technologyById = new Map(technologies.map((t) => [t.id, t]));
 
     const projects = projectsRaw
       .map((proj) => {
         const pub = proj.versions[0];
-        const resolvedTechs = proj.technologies
-          .map((pt) => ({ ...pt.technology, ...pt.technology.versions[0] }))
-          .filter((t) => t.name);
-        return { ...proj, ...pub, resolvedTechs };
+        const projectTechnologies = proj.technologies
+          .map((pt) => technologyById.get(pt.technologyId))
+          .filter((t): t is (typeof technologies)[number] => Boolean(t));
+        return { ...proj, ...pub, technologies: projectTechnologies };
       })
-      .filter((p) => p.title && (isPreview || p.visible));
+      .filter((p) => p.title);
     projects.sort((a, b) => (a.manualOrder || 0) - (b.manualOrder || 0));
 
     const timelineEntries = timelineEntriesRaw
-      .map((entry) => {
-        const pub = entry.versions[0];
-        const projectTitle =
-          entry.linkedProject?.versions[0]?.title || entry.linkedProject?.slug || "";
-        return { ...entry, ...pub, projectTitle };
-      })
-      .filter((t) => t.title && (isPreview || t.visible));
+      .map((entry) => ({ ...entry, ...entry.versions[0] }))
+      .filter((t) => t.title);
     timelineEntries.sort((a, b) => (a.order || 0) - (b.order || 0));
 
     const education = educationRaw
       .map((edu) => ({ ...edu, ...edu.versions[0] }))
-      .filter((e) => e.institution && (isPreview || e.visible));
+      .filter((e) => e.institution);
     education.sort((a, b) => (a.order || 0) - (b.order || 0));
 
     const experience = experienceRaw
-      .map((exp) => {
-        const pub = exp.versions[0];
-        const resolvedTechs = exp.technologies
-          .map((et) => ({ ...et.technology, ...et.technology.versions[0] }))
-          .filter((t) => t.name);
-        return { ...exp, ...pub, resolvedTechs };
-      })
-      .filter((e) => e.organization && (isPreview || e.visible));
+      .map((exp) => ({ ...exp, ...exp.versions[0] }))
+      .filter((e) => e.organization);
     experience.sort((a, b) => (a.order || 0) - (b.order || 0));
 
     const sections = await PublicContentService.resolveSections(isPreview);

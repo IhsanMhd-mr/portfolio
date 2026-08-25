@@ -93,17 +93,17 @@ export default function FeaturedProjectsSection({ projects, settings, isPreview 
                     {/* Tech tag list */}
                     {project.technologies && project.technologies.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 pt-2">
-                        {project.technologies.map((t: any) => {
-                          const tech = t.technology || t;
-                          return (
-                            <span 
-                              key={tech.id} 
-                              className="px-2 py-0.5 text-[10px] font-medium border border-solid border-[var(--line)] rounded-[var(--radius-xs)] bg-[var(--bg-inset)] text-[var(--ink-soft)]"
-                            >
-                              {tech.name}
-                            </span>
-                          );
-                        })}
+                        {/* Flattened technology summaries (Technology joined to
+                            its active TechnologyVersion) — `name` lives on the
+                            version, not on Technology itself. */}
+                        {project.technologies.map((tech: any) => (
+                          <span
+                            key={tech.id}
+                            className="px-2 py-0.5 text-[10px] font-medium border border-solid border-[var(--line)] rounded-[var(--radius-xs)] bg-[var(--bg-inset)] text-[var(--ink-soft)]"
+                          >
+                            {tech.name}
+                          </span>
+                        ))}
                       </div>
                     )}
                   </div>

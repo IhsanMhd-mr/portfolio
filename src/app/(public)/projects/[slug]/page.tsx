@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { cache } from "react";
 import db from "@/lib/database";
 import { notFound } from "next/navigation";
-import { headers, cookies } from "next/headers";
+import { headers } from "next/headers";
+import { resolvePreviewMode } from "@/lib/preview-mode";
 import Link from "next/link";
 import { ArrowLeft, Calendar, User, CheckCircle2, Globe, FileText, ChevronRight, Image as ImageIcon } from "lucide-react";
 import { Github } from "@/components/public/Icons";
@@ -39,8 +40,8 @@ const getProjectBySlug = cache(async (slug: string, state: "DRAFT" | "PUBLISHED"
 export async function generateMetadata({ params }: ProjectDetailPageProps): Promise<Metadata> {
   const { slug } = await params;
 
-  const cookiesList = await cookies();
-  const isPreview = cookiesList.get("portfolio_preview_mode")?.value === "true";
+  // Session-validated, not cookie-trusted — see lib/preview-mode.ts
+  const isPreview = await resolvePreviewMode();
   const state = isPreview ? "DRAFT" : "PUBLISHED";
 
   // Mirrors the page body's lookup + visibility rules below, sharing the same
@@ -77,8 +78,8 @@ export async function generateMetadata({ params }: ProjectDetailPageProps): Prom
 export default async function ProjectDetailPage({ params }: ProjectDetailPageProps) {
   const { slug } = await params;
   
-  const cookiesList = await cookies();
-  const isPreview = cookiesList.get("portfolio_preview_mode")?.value === "true";
+  // Session-validated, not cookie-trusted — see lib/preview-mode.ts
+  const isPreview = await resolvePreviewMode();
   const state = isPreview ? "DRAFT" : "PUBLISHED";
 
   // Find project with active state version (request-cached — generateMetadata

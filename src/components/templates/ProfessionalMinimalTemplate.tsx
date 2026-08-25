@@ -13,7 +13,6 @@ interface TemplateProps {
   certifications: any[];
   gameSettings: any;
   isPreview?: boolean;
-  isOwner?: boolean;
 }
 
 export default function ProfessionalMinimalTemplate({
@@ -27,7 +26,6 @@ export default function ProfessionalMinimalTemplate({
   certifications,
   gameSettings,
   isPreview = false,
-  isOwner = false,
 }: TemplateProps) {
   // Pre-filter sections to avoid duplicate education-experience rendering without reassignment warnings
   let hasRenderedEduExp = false;
@@ -65,10 +63,8 @@ export default function ProfessionalMinimalTemplate({
           }
 
           const props: any = {
-            key: section.id,
             settings: section.settings,
             isPreview,
-            isOwner,
           };
 
           if (registryKey === "hero" || registryKey === "about" || registryKey === "contact") {

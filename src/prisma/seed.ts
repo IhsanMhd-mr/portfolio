@@ -17,7 +17,8 @@ async function hashPassword(password: string): Promise<string> {
 const connectionString =
   process.env.DATABASE_URL ||
   "postgresql://postgres:postgres@localhost:5432/portfolio?schema=public";
-const pool = new Pool({ connectionString });
+// 10s: a cold Neon compute can take 5-14s just to accept a connection.
+const pool = new Pool({ connectionString, connectionTimeoutMillis: 10000 });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 

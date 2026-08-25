@@ -113,7 +113,7 @@ export const metadata: Metadata = {
    Root Layout
    ========================================================================== */
 
-import { cookies } from "next/headers";
+import { resolvePreviewMode } from "@/lib/preview-mode";
 import { PublicContentService } from "@/services/public-content.service";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 
@@ -122,8 +122,8 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const cookieStore = await cookies();
-  const isPreview = cookieStore.get("portfolio_preview_mode")?.value === "true";
+  // Session-validated, not cookie-trusted — see lib/preview-mode.ts
+  const isPreview = await resolvePreviewMode();
 
   let templateKey = "MODERN_GLASS";
   let defaultTheme = "light";

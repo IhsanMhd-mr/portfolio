@@ -13,7 +13,6 @@ interface TemplateProps {
   certifications: any[];
   gameSettings: any;
   isPreview?: boolean;
-  isOwner?: boolean;
 }
 
 export default function ModernGlassTemplate({
@@ -27,7 +26,6 @@ export default function ModernGlassTemplate({
   certifications,
   gameSettings,
   isPreview = false,
-  isOwner = false,
 }: TemplateProps) {
   // Pre-filter sections to avoid duplicate education-experience rendering without reassignment warnings
   let hasRenderedEduExp = false;
@@ -71,7 +69,6 @@ export default function ModernGlassTemplate({
           const props: any = {
             settings: section.settings,
             isPreview,
-            isOwner,
           };
 
           if (registryKey === "hero" || registryKey === "about" || registryKey === "contact") {

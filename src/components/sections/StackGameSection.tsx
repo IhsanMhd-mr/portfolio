@@ -87,6 +87,30 @@ export default function StackGameSection({
     let width = (canvas.width = canvas.parentElement?.clientWidth || 600);
     let height = (canvas.height = 400);
 
+    /**
+     * Perspective divisor used by the ROTATING_SPHERE projection. Kept as a
+     * named constant because the radius below is solved against it.
+     */
+    const PERSPECTIVE = 250;
+
+    /**
+     * Sphere radius in px, derived from the canvas width.
+     *
+     * The projection magnifies a node's horizontal offset by up to
+     * PERSPECTIVE / (PERSPECTIVE - radius) for the nearest node, so a radius
+     * that looks right on a ~1100px desktop canvas throws labels far outside a
+     * ~375px phone canvas (a hardcoded 150 projected to width/2 + 375 = 562px
+     * on a 375px canvas, i.e. entirely off-screen).
+     *
+     * Solving `extent = r * P / (P - r)` for r gives `r = extent * P / (P + extent)`,
+     * so we pick the largest radius whose worst-case extent still fits, and keep
+     * 150 as the desktop cap so wide canvases are unchanged.
+     */
+    const sphereRadius = () => {
+      const maxExtent = Math.max(60, width / 2 - 48); // 48px keeps centred labels inside
+      return Math.min(150, (maxExtent * PERSPECTIVE) / (PERSPECTIVE + maxExtent));
+    };
+
     const handleResize = () => {
       width = canvas.width = canvas.parentElement?.clientWidth || 600;
       height = canvas.height = 400;
@@ -183,10 +207,13 @@ export default function StackGameSection({
       for (let i = 0; i < count; i++) {
         const phi = Math.acos(-1 + (2 * i) / count);
         const theta = Math.sqrt(count * Math.PI) * phi;
+        // Unit vectors: the radius is applied at projection time so it can
+        // follow the canvas width (including across a resize) instead of being
+        // baked in here.
         sphereNodes.push({
-          x3d: 150 * Math.sin(phi) * Math.cos(theta),
-          y3d: 150 * Math.sin(phi) * Math.sin(theta),
-          z3d: 150 * Math.cos(phi),
+          x3d: Math.sin(phi) * Math.cos(theta),
+          y3d: Math.sin(phi) * Math.sin(theta),
+          z3d: Math.cos(phi),
           name: displayNames[i],
         });
       }
@@ -278,8 +305,11 @@ export default function StackGameSection({
         const cosY = Math.cos(radY);
         const sinY = Math.sin(radY);
 
+        // Radius is read per frame so a resize takes effect immediately.
+        const r = sphereRadius();
+
         sphereNodes.forEach((node) => {
-          // Rotate X
+          // Rotate X (unit vectors — rotation preserves magnitude)
           const y1 = node.y3d * cosX - node.z3d * sinX;
           const z1 = node.z3d * cosX + node.y3d * sinX;
           // Rotate Y
@@ -290,11 +320,12 @@ export default function StackGameSection({
           node.y3d = y1;
           node.z3d = z2;
 
-          // Projection
-          const scale = 250 / (250 + node.z3d);
-          const x2d = width / 2 + node.x3d * scale;
-          const y2d = height / 2 + node.y3d * scale;
-          const opacity = (250 - node.z3d) / 350;
+          // Projection — scale the unit vector up to the responsive radius
+          const zWorld = node.z3d * r;
+          const scale = PERSPECTIVE / (PERSPECTIVE + zWorld);
+          const x2d = width / 2 + node.x3d * r * scale;
+          const y2d = height / 2 + node.y3d * r * scale;
+          const opacity = (PERSPECTIVE - zWorld) / 350;
 
           // Render tag text
           ctx.font = `${Math.max(10, Math.floor(14 * scale))}px ${fontMono}`;

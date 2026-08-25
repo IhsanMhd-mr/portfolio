@@ -1,14 +1,12 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
-import { getValidatedOwner } from "@/lib/require-admin";
+import { resolvePreviewMode } from "@/lib/preview-mode";
 import { PublicContentService } from "@/services/public-content.service";
 import ProfessionalMinimalTemplate from "@/components/templates/ProfessionalMinimalTemplate";
 import ModernGlassTemplate from "@/components/templates/ModernGlassTemplate";
 import Interactive3DTemplate from "@/components/templates/Interactive3DTemplate";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const cookiesList = await cookies();
-  const isPreview = cookiesList.get("portfolio_preview_mode")?.value === "true";
+  const isPreview = await resolvePreviewMode();
   const { profile } = await PublicContentService.getHomePageData(isPreview);
 
   const fullName = profile?.fullName || "Jane Doe";
@@ -38,19 +36,17 @@ export async function generateMetadata(): Promise<Metadata> {
  * gates owner-only UI, and picks the template component to render.
  */
 export default async function HomePage() {
-  const cookiesList = await cookies();
+  // Preview is authorized against the session, not the cookie alone — the
+  // cookie is client-supplied and forgeable. See lib/preview-mode.ts.
+  const isPreview = await resolvePreviewMode();
 
-  // Secure preview mode authorization (httpOnly cookie set by admin-only action)
-  const isPreview = cookiesList.get("portfolio_preview_mode")?.value === "true";
-
-  // Owner-only UI gate. Validates against TrackedSession (not just the JWT), so
-  // a revoked/expired session is treated as a guest. Guests get isOwner=false
-  // and owner-only JSX is never rendered into the response.
-  const isOwner = (await getValidatedOwner()) !== null;
-
+  // NOTE: no owner-gate here. No public section renders owner-only UI, so
+  // validating the session on every homepage request bought nothing while
+  // costing two queries for a signed-in owner. Reintroduce
+  // `getValidatedOwner()` from lib/require-admin if owner-only JSX is added.
   const { templateKey, ...data } = await PublicContentService.getHomePageData(isPreview);
 
-  const templateProps = { ...data, isPreview, isOwner };
+  const templateProps = { ...data, isPreview };
 
   if (templateKey === "PROFESSIONAL_MINIMAL") {
     return <ProfessionalMinimalTemplate {...templateProps} />;

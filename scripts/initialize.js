@@ -43,7 +43,9 @@ const connectionString =
   process.env.DATABASE_URL ||
   "postgresql://postgres:postgres@localhost:5432/portfolio?schema=public";
 
-const pool = new Pool({ connectionString, max: 2, connectionTimeoutMillis: 5000 });
+// 10s, not 5s: a cold Neon compute can take 5-14s just to accept a connection,
+// which made `npm run dev` fail with "Connection terminated due to connection timeout".
+const pool = new Pool({ connectionString, max: 2, connectionTimeoutMillis: 10000 });
 const db = new PrismaClient({ adapter: new PrismaPg(pool) });
 
 // ─── Helpers ────────────────────────────────────────────────────────────────

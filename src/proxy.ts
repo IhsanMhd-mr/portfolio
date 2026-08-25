@@ -13,15 +13,15 @@ import { edgeAuth } from "@/lib/auth-config";
 import { NextResponse } from "next/server";
 
 export default edgeAuth((req) => {
-  const { pathname, searchParams } = req.nextUrl;
+  const { pathname } = req.nextUrl;
   const session = req.auth;
 
   // Forward useful headers to Server Components
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-pathname", pathname);
-  if (searchParams.get("preview") === "true") {
-    requestHeaders.set("x-preview", "true");
-  }
+  // NOTE: an `x-preview` header used to be set here from `?preview=true`. It had
+  // no consumers, and preview is now authorized against the session in
+  // lib/preview-mode.ts — a URL param must never grant access to draft content.
 
   const isLogin = pathname === "/admin/login";
   const isOnAdmin = pathname.startsWith("/admin");
