@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowDownToLine, ArrowRight } from "lucide-react";
 import CursorAura from "@/components/ui/CursorAura";
 import MagneticButton from "@/components/ui/MagneticButton";
+import { text, initials } from "@/lib/text";
 
 interface HeroSectionProps {
   profile: any;
@@ -10,10 +11,11 @@ interface HeroSectionProps {
 }
 
 export default function HeroSection({ profile, settings, isPreview = false }: HeroSectionProps) {
-  const title = settings?.title || profile?.title || "Full-Stack Software Engineer";
-  const fullName = settings?.fullName || profile?.fullName || "Jane Doe";
-  const tagline = settings?.tagline || profile?.tagline || "Engineering software as craft with precision and intent.";
-  const heroIntro = settings?.heroIntro || profile?.heroIntro || "I specialize in building performant distributed systems, accessible web interfaces, and modern database platforms.";
+  // No fallback prose: an empty field renders nothing at all. See src/lib/text.ts.
+  const title = text(settings?.title) || text(profile?.title);
+  const fullName = text(settings?.fullName) || text(profile?.fullName);
+  const tagline = text(settings?.tagline) || text(profile?.tagline);
+  const heroIntro = text(settings?.heroIntro) || text(profile?.heroIntro);
   const profileImageUrl = profile?.profileImage?.url;
   const cvUrl = profile?.cvFile?.url || "/resume";
 
@@ -33,23 +35,35 @@ export default function HeroSection({ profile, settings, isPreview = false }: He
         {/* Left text area */}
         <div className="md:col-span-7 flex flex-col items-start text-left">
           {/* Title / Name */}
-          <h1 
+          {(fullName || title) && (
+          <h1
             className="text-display mb-6 tracking-tight text-[var(--ink)]"
             style={{ fontFamily: "var(--font-display)" }}
           >
-            I'm <span className="text-[var(--accent)]">{fullName}</span>, <br />
+            {fullName && (
+              <>
+                I'm <span className="text-[var(--accent)]">{fullName}</span>
+                {title ? "," : ""}
+                {title && <br />}
+              </>
+            )}
             {title}
           </h1>
+          )}
 
           {/* Subtitle / Tagline */}
-          <p className="text-body-lg text-[var(--ink-soft)] font-medium mb-4 max-w-xl">
-            {tagline}
-          </p>
+          {tagline && (
+            <p className="text-body-lg text-[var(--ink-soft)] font-medium mb-4 max-w-xl">
+              {tagline}
+            </p>
+          )}
 
           {/* Detailed intro */}
-          <p className="text-body text-[var(--ink-soft)] mb-8 max-w-lg leading-relaxed">
-            {heroIntro}
-          </p>
+          {heroIntro && (
+            <p className="text-body text-[var(--ink-soft)] mb-8 max-w-lg leading-relaxed">
+              {heroIntro}
+            </p>
+          )}
 
           {/* CTA Buttons */}
           <div className="flex flex-wrap gap-4">
@@ -88,15 +102,20 @@ export default function HeroSection({ profile, settings, isPreview = false }: He
           >
             {profileImageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img 
-                src={profileImageUrl} 
-                alt={fullName} 
+              <img
+                src={profileImageUrl}
+                alt={fullName || ""}
                 className="w-full h-full object-cover"
               />
             ) : (
+              /* Initials come from the real name — the old "JD" default was the
+                 initials of a fictional "Jane Doe" placeholder. The upload hint
+                 is authoring guidance, so it shows only in admin preview. */
               <div className="w-full h-full flex flex-col justify-center items-center text-[var(--ink-faint)] p-6 text-center">
-                <span className="text-6xl font-bold font-display opacity-20 mb-4">{profile?.logoText || "JD"}</span>
-                <p className="text-small">Upload profile image in Media / Settings</p>
+                <span className="text-6xl font-bold font-display opacity-20 mb-4">
+                  {text(profile?.logoText) || initials(fullName)}
+                </span>
+                {isPreview && <p className="text-small">Upload profile image in Media / Settings</p>}
               </div>
             )}
           </div>

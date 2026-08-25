@@ -4,18 +4,29 @@ import { PublicContentService } from "@/services/public-content.service";
 import Link from "next/link";
 import { ArrowRight, Briefcase, GraduationCap, MapPin, Mail, Award, BookOpen, Target } from "lucide-react";
 import { formatMonthYear } from "@/lib/format-date";
+import { text } from "@/lib/text";
 
 export async function generateMetadata(): Promise<Metadata> {
   const profile = await PublicContentService.getSiteProfile();
-  const fullName = profile?.fullName || "Jane Doe";
-  const title = profile?.title || "Full-Stack Software Engineer";
+  // Metadata always needs a string, but it must never name a fictional person.
+  // With no profile name, fall back to the page's own label, not a stand-in.
+  const fullName = text(profile?.fullName);
+  const title = text(profile?.title);
+  const heading = fullName ? `About — ${fullName}` : "About";
+
+  // Descriptive SEO copy in the site's own voice is fine here; what we refuse
+  // to invent is prose attributed to the owner.
   const description =
-    profile?.aboutBio || `Learn more about ${fullName}, ${title.toLowerCase()}.`;
+    text(profile?.aboutBio) ||
+    [fullName && `Learn more about ${fullName}`, title?.toLowerCase()]
+      .filter(Boolean)
+      .join(", ") ||
+    undefined;
 
   return {
-    title: `About — ${fullName}`,
+    title: heading,
     description,
-    openGraph: { title: `About — ${fullName}`, description, type: "profile" },
+    openGraph: { title: heading, description, type: "profile" },
   };
 }
 
@@ -83,9 +94,11 @@ export default async function AboutPage() {
         </div>
 
         {/* Biography text */}
-        <div className="space-y-6 text-body leading-relaxed text-[var(--ink)]">
-          <p>{profile?.aboutBio || "No biography details seeded."}</p>
-        </div>
+        {text(profile?.aboutBio) && (
+          <div className="space-y-6 text-body leading-relaxed text-[var(--ink)]">
+            <p>{text(profile?.aboutBio)}</p>
+          </div>
+        )}
 
         {/* Details Grid */}
         <div className="grid gap-6 sm:grid-cols-2">

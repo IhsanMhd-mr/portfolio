@@ -114,7 +114,7 @@ export default function FeaturedProjectsSection({ projects, settings, isPreview 
                       href={`/projects/${project.slug}`}
                       className="flex items-center gap-1.5 font-bold text-[var(--ink)] hover:text-[var(--accent)] transition-colors"
                     >
-                      View Case Study
+                      View Project
                       <ArrowRight size={14} />
                     </Link>
 

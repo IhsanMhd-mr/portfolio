@@ -133,6 +133,16 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
   const architectureAsset = allMedia.find((m) => m.id === pub.architectureImageId);
 
   const categoryLabel = pub.category.replace("_", " ");
+
+  // Whether there is any case-study content below the fold. Every field here is
+  // already loaded, so this costs nothing. `architectureAsset` counts because
+  // that section renders on the image alone; `solutionsDetail` does not,
+  // because it only ever renders nested inside `challenges`.
+  const hasCaseStudy = Boolean(
+    pub.problem || pub.solution || pub.mainFeatures || pub.systemArchitecture ||
+    architectureAsset?.url || pub.developmentProcess || pub.challenges ||
+    pub.testing || pub.results || pub.lessonsLearned
+  );
   const startDateStr = pub.startDate
     ? new Date(pub.startDate).toLocaleDateString("en-US", { month: "short", year: "numeric" })
     : null;
@@ -162,7 +172,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
         {/* 2. Project Hero */}
         <div className="space-y-4">
           <span className="text-mono-label text-[var(--accent)]" style={{ fontSize: "10px" }}>
-            {categoryLabel} Case Study
+            {hasCaseStudy ? `${categoryLabel} Case Study` : categoryLabel}
           </span>
           <h1 className="text-display" style={{ fontFamily: "var(--font-display)", fontSize: "clamp(32px, 5vw, 56px)" }}>
             {pub.title}
@@ -175,7 +185,9 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
         </div>
 
         {/* 3. Date, Status, and Meta Row */}
-        <div className="pm-case-meta grid grid-cols-2 md:grid-cols-3 gap-6 p-5 border border-solid border-[var(--line)] rounded-[var(--radius-sm)] bg-[var(--bg-raised)] text-small text-[var(--ink-soft)]">
+        {/* The third cell (My Role) is conditional, so the column count follows it
+            — otherwise a project without a role leaves a trailing empty column. */}
+        <div className={`pm-case-meta grid grid-cols-2 ${pub.myRole ? "md:grid-cols-3" : ""} gap-6 p-5 border border-solid border-[var(--line)] rounded-[var(--radius-sm)] bg-[var(--bg-raised)] text-small text-[var(--ink-soft)]`}>
           <div className="flex items-center gap-2">
             <Calendar size={16} className="text-[var(--accent)]" />
             <div>
@@ -236,6 +248,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
         )}
 
         {/* Dynamic content rendering for Case Study fields */}
+        {hasCaseStudy && (
         <div className="pm-case-body space-y-10 pt-4">
           {pub.problem && (
             <section className="space-y-3">
@@ -315,6 +328,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
             </section>
           )}
         </div>
+        )}
 
         {/* Visual Gallery grid */}
         {project.images.length > 0 && (

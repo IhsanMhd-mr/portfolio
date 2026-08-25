@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, BookOpen, Target, Settings, Award } from "lucide-react";
+import { text } from "@/lib/text";
 
 interface AboutSummarySectionProps {
   profile: any;
@@ -8,10 +9,20 @@ interface AboutSummarySectionProps {
 }
 
 export default function AboutSummarySection({ profile, settings, isPreview = false }: AboutSummarySectionProps) {
-  const aboutBio = settings?.aboutBio || profile?.aboutBio || "I focus on building performant, accessible web systems. I believe in clean layers, rich aesthetics, and robust engineering architectures.";
-  const technicalInterests = settings?.technicalInterests || profile?.technicalInterests || "Web Performance, R3F & WebGL, Microservices, Security & Cryptography";
-  const developmentApproach = settings?.developmentApproach || profile?.developmentApproach || "Plan thoroughly, build cleanly with standard layers, verify with typechecks and tests.";
-  const currentGoals = settings?.currentGoals || profile?.currentGoals || "Looking for full-time Full-Stack Developer roles starting Fall 2026.";
+  // No fallback prose: an empty field renders nothing at all. See src/lib/text.ts.
+  const aboutBio = text(settings?.aboutBio) || text(profile?.aboutBio);
+
+  // Each meta box is identical apart from its icon, label and value, so they are
+  // driven from one list and the empty ones drop out. The grid reflows on its own.
+  const metaItems = [
+    { icon: BookOpen, label: "Interests", value: text(settings?.technicalInterests) || text(profile?.technicalInterests) },
+    { icon: Settings, label: "Approach", value: text(settings?.developmentApproach) || text(profile?.developmentApproach) },
+    { icon: Target, label: "Focus", value: text(settings?.currentGoals) || text(profile?.currentGoals) },
+    { icon: Award, label: "Availability", value: text(profile?.availabilityStatus) },
+  ].filter((item) => item.value);
+
+  // Nothing authored yet — don't render a bare "About Me" heading over emptiness.
+  if (!aboutBio && metaItems.length === 0) return null;
 
   return (
     <section className="pm-about w-full py-20 px-[var(--gutter)] bg-[var(--bg-2, var(--bg))] border-t border-solid border-[var(--line)] transition-colors duration-300">
@@ -24,10 +35,12 @@ export default function AboutSummarySection({ profile, settings, isPreview = fal
           >
             About Me
           </h2>
-          <p className="text-body-lg text-[var(--ink)] leading-relaxed mb-6">
-            {aboutBio}
-          </p>
-          <Link 
+          {aboutBio && (
+            <p className="text-body-lg text-[var(--ink)] leading-relaxed mb-6">
+              {aboutBio}
+            </p>
+          )}
+          <Link
             href="/about" 
             className="flex items-center gap-1 text-small font-semibold text-[var(--accent)] hover:text-[var(--accent-hover)] transition-colors"
           >
@@ -38,61 +51,21 @@ export default function AboutSummarySection({ profile, settings, isPreview = fal
 
         {/* Right Column: Key Details Grid */}
         <div className="pm-about-meta md:col-span-6 grid gap-6 sm:grid-cols-2">
-          {/* Box 1: Technical Interests */}
-          <div 
-            className="pm-about-meta-item p-6 rounded-[var(--radius-md)] border border-solid border-[var(--line)] bg-[var(--bg-raised, var(--bg))]"
-            style={{ boxShadow: "var(--shadow-card)" }}
-          >
-            <div className="flex items-center gap-3 mb-4 text-[var(--accent)]">
-              <BookOpen size={20} />
-              <h3 className="font-semibold text-body" style={{ fontFamily: "var(--font-display)" }}>Interests</h3>
+          {metaItems.map(({ icon: Icon, label, value }) => (
+            <div
+              key={label}
+              className="pm-about-meta-item p-6 rounded-[var(--radius-md)] border border-solid border-[var(--line)] bg-[var(--bg-raised, var(--bg))]"
+              style={{ boxShadow: "var(--shadow-card)" }}
+            >
+              <div className="flex items-center gap-3 mb-4 text-[var(--accent)]">
+                <Icon size={20} />
+                <h3 className="font-semibold text-body" style={{ fontFamily: "var(--font-display)" }}>{label}</h3>
+              </div>
+              <p className="text-small text-[var(--ink-soft)] leading-relaxed">
+                {value}
+              </p>
             </div>
-            <p className="text-small text-[var(--ink-soft)] leading-relaxed">
-              {technicalInterests}
-            </p>
-          </div>
-
-          {/* Box 2: Development Approach */}
-          <div 
-            className="pm-about-meta-item p-6 rounded-[var(--radius-md)] border border-solid border-[var(--line)] bg-[var(--bg-raised, var(--bg))]"
-            style={{ boxShadow: "var(--shadow-card)" }}
-          >
-            <div className="flex items-center gap-3 mb-4 text-[var(--accent)]">
-              <Settings size={20} />
-              <h3 className="font-semibold text-body" style={{ fontFamily: "var(--font-display)" }}>Approach</h3>
-            </div>
-            <p className="text-small text-[var(--ink-soft)] leading-relaxed">
-              {developmentApproach}
-            </p>
-          </div>
-
-          {/* Box 3: Current Goals */}
-          <div 
-            className="pm-about-meta-item p-6 rounded-[var(--radius-md)] border border-solid border-[var(--line)] bg-[var(--bg-raised, var(--bg))]"
-            style={{ boxShadow: "var(--shadow-card)" }}
-          >
-            <div className="flex items-center gap-3 mb-4 text-[var(--accent)]">
-              <Target size={20} />
-              <h3 className="font-semibold text-body" style={{ fontFamily: "var(--font-display)" }}>Focus</h3>
-            </div>
-            <p className="text-small text-[var(--ink-soft)] leading-relaxed">
-              {currentGoals}
-            </p>
-          </div>
-
-          {/* Box 4: Qualification Status */}
-          <div 
-            className="pm-about-meta-item p-6 rounded-[var(--radius-md)] border border-solid border-[var(--line)] bg-[var(--bg-raised, var(--bg))]"
-            style={{ boxShadow: "var(--shadow-card)" }}
-          >
-            <div className="flex items-center gap-3 mb-4 text-[var(--accent)]">
-              <Award size={20} />
-              <h3 className="font-semibold text-body" style={{ fontFamily: "var(--font-display)" }}>Availability</h3>
-            </div>
-            <p className="text-small text-[var(--ink-soft)] leading-relaxed">
-              {profile?.availabilityStatus || "Open to new engineering challenges."}
-            </p>
-          </div>
+          ))}
         </div>
       </div>
     </section>

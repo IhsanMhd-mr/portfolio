@@ -77,7 +77,7 @@ export default function ProjectGridSection({ projects, settings, isPreview = fal
                       href={`/projects/${project.slug}`}
                       className="flex items-center gap-1 font-bold text-[var(--ink)] hover:text-[var(--accent)]"
                     >
-                      Case Study
+                      View Project
                       <ArrowRight size={12} />
                     </Link>
 
