@@ -3,6 +3,7 @@ import dynamic from "next/dynamic";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Save, Briefcase, Eye, Star, Link as LinkIcon, FileText, Image as ImageIcon } from "lucide-react";
+import PendingButton from "@/components/ui/PendingButton";
 import { updateProjectAction } from "../../actions";
 import GalleryManager from "@/components/admin/projects/GalleryManager";
 
@@ -566,13 +567,13 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
 
         {/* Controls */}
         <div className="flex gap-4">
-          <button
-            type="submit"
-            className="flex items-center justify-center gap-2 px-6 py-2.5 bg-[var(--a-primary)] hover:bg-[var(--a-primary-hover)] text-white text-xs font-semibold rounded-[var(--a-r-sm)] transition-colors cursor-pointer border-none"
+          <PendingButton
+            className="flex items-center justify-center gap-2 px-6 py-2.5 bg-[var(--a-primary)] hover:bg-[var(--a-primary-hover)] text-white text-xs font-semibold rounded-[var(--a-r-sm)] transition-colors cursor-pointer border-none disabled:opacity-60"
+            pendingLabel="Saving…"
           >
             <Save size={14} />
             Save Case Study
-          </button>
+          </PendingButton>
           <Link
             href="/admin/projects"
             className="flex items-center justify-center gap-2 px-6 py-2.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-[var(--a-soft)] hover:bg-[var(--a-inset)] transition-colors text-xs font-semibold"

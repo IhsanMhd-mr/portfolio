@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, Calendar, Bookmark } from "lucide-react";
+import { formatMonthYear } from "@/lib/format-date";
 
 interface ProjectTimelineSectionProps {
   timelineEntries: any[];
@@ -26,11 +27,6 @@ export default function ProjectTimelineSection({ timelineEntries, settings, isPr
   // Slice entries based on configuration
   const limitVal = settings?.limit || 3;
   const previewEntries = sorted.slice(0, limitVal);
-
-  function formatDate(dateStr: string) {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
-  }
 
   return (
     <section className="w-full py-20 px-[var(--gutter)] bg-[var(--bg-2, var(--bg))] border-t border-solid border-[var(--line)] transition-colors duration-300">
@@ -88,8 +84,8 @@ export default function ProjectTimelineSection({ timelineEntries, settings, isPr
                       <div className="flex items-center gap-1.5 text-xs text-[var(--ink-soft)] mt-1">
                         <Calendar size={12} />
                         <span>
-                          {formatDate(entry.startDate)} 
-                          {entry.endDate ? ` - ${formatDate(entry.endDate)}` : " - Present"}
+                          {formatMonthYear(entry.startDate)} 
+                          {entry.endDate ? ` - ${formatMonthYear(entry.endDate)}` : " - Present"}
                         </span>
                       </div>
                     </div>

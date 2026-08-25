@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ImageIcon, File, Search, X } from "lucide-react";
+import { useBackdropDismiss } from "@/lib/use-backdrop-dismiss";
 
 interface PickerAsset {
   id: string;
@@ -48,6 +49,10 @@ export default function MediaPickerModal({
   onSelect?: (id: string, preview: { filename: string; url: string }) => void;
 }) {
   const [open, setOpen] = useState(false);
+  // Picker holds no unsaved text, so outside-click dismissal is safe here —
+  // but it must be a complete press+release on the backdrop, never a stray
+  // release that started inside the dialog.
+  const backdrop = useBackdropDismiss(() => setOpen(false));
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [data, setData] = useState<MediaListResponse | null>(null);
@@ -128,11 +133,13 @@ export default function MediaPickerModal({
       )}
 
       {open && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setOpen(false)}>
-          <div
-            className="w-full max-w-2xl max-h-[80vh] flex flex-col bg-[var(--a-surface)] border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div
+          className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          role="dialog"
+          aria-modal="true"
+          {...backdrop}
+        >
+          <div className="w-full max-w-2xl max-h-[80vh] flex flex-col bg-[var(--a-surface)] border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] overflow-hidden">
             <div className="p-4 border-b border-solid border-[var(--a-line)] flex items-center justify-between gap-3">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-2.5 text-[var(--a-faint)]" size={14} />

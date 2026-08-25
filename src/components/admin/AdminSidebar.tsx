@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import NavPendingIndicator from "@/components/ui/NavPendingIndicator";
 import {
   Award,
   Navigation,
@@ -147,6 +148,7 @@ export default function AdminSidebar() {
                   className="opacity-70 group-hover:opacity-100 transition-opacity"
                 />
                 <span>{item.label}</span>
+                <NavPendingIndicator className="ml-auto" />
               </Link>
             );
           })}

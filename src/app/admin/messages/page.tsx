@@ -2,6 +2,8 @@ import db from "@/lib/database";
 import { revalidatePath } from "next/cache";
 import { Inbox, Trash2, Mail, CheckCircle } from "lucide-react";
 import Pagination from "@/components/admin/Pagination";
+import { formatDateTime } from "@/lib/format-date";
+import PendingButton from "@/components/ui/PendingButton";
 
 const PAGE_SIZE = 20;
 
@@ -89,7 +91,7 @@ export default async function AdminMessagesPage({ searchParams }: PageProps) {
                   {msg.message}
                 </p>
                 <p className="text-[10px] text-[var(--a-faint)] font-mono">
-                  Submitted: {msg.createdAt.toLocaleString()}
+                  Submitted: {formatDateTime(msg.createdAt)}
                 </p>
               </div>
 
@@ -98,8 +100,8 @@ export default async function AdminMessagesPage({ searchParams }: PageProps) {
                 <form action={toggleReadStatus}>
                   <input type="hidden" name="id" value={msg.id} />
                   <input type="hidden" name="status" value={msg.status} />
-                  <button
-                    type="submit"
+                  <PendingButton variant="icon"
+                    
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--a-r-sm)] text-[10px] font-bold tracking-wider uppercase border border-solid cursor-pointer transition-all ${
                       msg.status === "NEW"
                         ? "bg-[var(--a-warn-bg)] text-[var(--a-warn-ink)] border-[var(--a-warn-ink)]/20 hover:bg-[var(--a-warn-bg)]"
@@ -108,18 +110,18 @@ export default async function AdminMessagesPage({ searchParams }: PageProps) {
                   >
                     <CheckCircle size={12} />
                     {msg.status === "NEW" ? "Mark Read" : "Mark Unread"}
-                  </button>
+                  </PendingButton>
                 </form>
 
                 <form action={deleteMessage}>
                   <input type="hidden" name="id" value={msg.id} />
-                  <button
-                    type="submit"
+                  <PendingButton variant="icon"
+                    
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--a-danger-bg)] text-[var(--a-danger-ink)] border border-solid border-[var(--a-danger-ink)]/20 hover:bg-[var(--a-danger-bg)] rounded-[var(--a-r-sm)] text-[10px] font-bold tracking-wider uppercase cursor-pointer transition-all"
                   >
                     <Trash2 size={12} />
                     Delete
-                  </button>
+                  </PendingButton>
                 </form>
               </div>
             </div>

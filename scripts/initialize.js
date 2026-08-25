@@ -148,7 +148,12 @@ async function assertSchemaReady() {
 // ─── Step 1: canonical owner ─────────────────────────────────────────────────
 
 async function ensureOwner(reset) {
+  // Password-locked accounts (the permanent superadmin from
+  // scripts/initialise_admin.js) are deliberately invisible here: they must
+  // never count toward the single-owner check, and `--reset` must never
+  // rotate their credentials.
   const users = await db.user.findMany({
+    where: { passwordLocked: false },
     select: { id: true, username: true, email: true, passwordHash: true },
   });
 
@@ -206,7 +211,10 @@ async function ensureOwner(reset) {
   // No user — create the canonical owner
   const username = (process.env.INITIAL_OWNER_USERNAME_PREFIX || "ihsan-admin").trim();
   const email = (process.env.INITIAL_OWNER_EMAIL || `${username}@local.invalid`).trim();
-  const temporaryPassword = (process.env.INITIAL_PASSWORD  ).trim();
+  // Fall back to a generated password so a fresh deploy without
+  // INITIAL_PASSWORD set doesn't crash — printCredentials() below prints it
+  // and writes it to .admin-credentials.local either way.
+  const temporaryPassword = (process.env.INITIAL_PASSWORD || generateTemporaryPassword()).trim();
   const passwordHash = await hashPassword(temporaryPassword);
 
   const owner = await db.user.create({

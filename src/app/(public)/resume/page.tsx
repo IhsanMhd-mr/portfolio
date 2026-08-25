@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import db from "@/lib/database";
 import { PublicContentService } from "@/services/public-content.service";
 import { ArrowDownToLine, Mail, MapPin, Globe } from "lucide-react";
+import { formatMonthYear } from "@/lib/format-date";
 
 export async function generateMetadata(): Promise<Metadata> {
   const profile = await PublicContentService.getSiteProfile();
@@ -74,10 +75,6 @@ export default async function ResumePage() {
     .filter((t) => t.pub);
 
   technologies.sort((a, b) => (a.pub?.order || 0) - (b.pub?.order || 0));
-
-  function formatDate(date: Date) {
-    return new Date(date).toLocaleDateString("en-US", { month: "short", year: "numeric" });
-  }
 
   // Group technologies by category
   const groupedTech: Record<string, string[]> = {
@@ -179,7 +176,7 @@ export default async function ResumePage() {
                         {pub.role} <span className="text-[var(--ink-soft)] font-normal">at {pub.organization}</span>
                       </h3>
                       <span className="text-xs text-mono-label text-[var(--ink-faint)]">
-                        {formatDate(pub.startDate)} - {pub.isCurrent || !pub.endDate ? "Present" : formatDate(pub.endDate)}
+                        {formatMonthYear(pub.startDate)} - {pub.isCurrent || !pub.endDate ? "Present" : formatMonthYear(pub.endDate)}
                       </span>
                     </div>
                     {pub.description && (
@@ -211,7 +208,7 @@ export default async function ResumePage() {
                         {pub.qualification}
                       </h3>
                       <span className="text-xs text-mono-label text-[var(--ink-faint)]">
-                        {formatDate(pub.startDate)} - {pub.isCurrent || !pub.endDate ? "Present" : formatDate(pub.endDate)}
+                        {formatMonthYear(pub.startDate)} - {pub.isCurrent || !pub.endDate ? "Present" : formatMonthYear(pub.endDate)}
                       </span>
                     </div>
                     <p className="text-small text-[var(--accent)] font-medium mt-0.5">

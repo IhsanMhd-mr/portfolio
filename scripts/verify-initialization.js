@@ -23,8 +23,13 @@ const VALID_TEMPLATE_KEYS = ["PROFESSIONAL_MINIMAL", "MODERN_GLASS", "INTERACTIV
 async function main() {
   const missing = [];
 
-  // Exactly one owner with a valid password hash
-  const users = await db.user.findMany({ select: { passwordHash: true } });
+  // Exactly one owner with a valid password hash. Password-locked accounts
+  // (the permanent superadmin) are excluded — they're managed separately by
+  // scripts/initialise_admin.js and must not trip the single-owner check.
+  const users = await db.user.findMany({
+    where: { passwordLocked: false },
+    select: { passwordHash: true },
+  });
   if (users.length === 0) missing.push("Owner account");
   if (users.length > 1) missing.push("Single owner (found " + users.length + " user records — duplicates)");
   if (users.length === 1) {

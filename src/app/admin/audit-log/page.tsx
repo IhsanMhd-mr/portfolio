@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, Fragment } from "react";
 import { ClipboardList, ChevronDown, ChevronUp, Search, Filter } from "lucide-react";
+import { formatDateTime } from "@/lib/format-date";
 
 interface AuditEntry {
   id: string;
@@ -159,7 +160,7 @@ export default function AuditLogPage() {
                       onClick={() => toggleExpand(entry.id)}
                     >
                       <td className="px-4 py-2.5 text-xs text-[var(--a-faint)] whitespace-nowrap">
-                        {new Date(entry.createdAt).toLocaleString()}
+                        {formatDateTime(entry.createdAt)}
                       </td>
                       <td className="px-4 py-2.5">
                         <ActionBadge action={entry.action} />

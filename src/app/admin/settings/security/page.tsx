@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
 import { Shield, Key, Link2, Link2Off, Monitor, Clock, LogOut, RefreshCw } from "lucide-react";
+import { formatDateTime } from "@/lib/format-date";
 
 interface LinkedAccount {
   id: string;
@@ -242,7 +243,7 @@ export default function SecuritySettingsPage() {
                   </div>
                   <p className="text-xs text-[var(--a-soft)]">IP: {s.ipAddress ?? "unknown"}</p>
                   <p className="text-xs text-[var(--a-faint)] flex items-center gap-1">
-                    <Clock size={11} /> Last seen {new Date(s.lastSeenAt).toLocaleString()}
+                    <Clock size={11} /> Last seen {formatDateTime(s.lastSeenAt)}
                   </p>
                 </div>
                 {!s.isCurrent && (
@@ -270,7 +271,7 @@ export default function SecuritySettingsPage() {
               {revokedSessions.map((s) => (
                 <li key={s.sid} className="py-2 space-y-0.5">
                   <p className="text-xs text-[var(--a-ink)]">
-                    {s.loginMethod} — {s.ipAddress ?? "unknown"} — Revoked: {new Date(s.revokedAt!).toLocaleString()}
+                    {s.loginMethod} — {s.ipAddress ?? "unknown"} — Revoked: {formatDateTime(s.revokedAt!)}
                     {s.revokeReason ? ` (${s.revokeReason})` : ""}
                   </p>
                 </li>

@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { History, ArrowRight } from "lucide-react";
+import { formatDateTime } from "@/lib/format-date";
 
 interface LogEntry {
   id: string;
@@ -37,7 +38,7 @@ export default function RecentActivity({ logs }: RecentActivityProps) {
                 className="text-[11px] leading-relaxed border-b border-solid border-[var(--a-line)] pb-3 last:border-0 last:pb-0"
               >
                 <div className="flex items-center justify-between text-[10px] text-[var(--a-faint)] mb-1">
-                  <span>{new Date(log.createdAt).toLocaleString()}</span>
+                  <span suppressHydrationWarning>{formatDateTime(log.createdAt)}</span>
                   <span className="font-semibold text-[var(--a-primary)]">
                     {log.action}
                   </span>

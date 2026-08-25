@@ -1,6 +1,7 @@
 import db from "@/lib/database";
 import { revalidatePath } from "next/cache";
 import { Settings, Save } from "lucide-react";
+import PendingButton from "@/components/ui/PendingButton";
 
 export default async function AdminSettingsPage() {
   let profile = await db.siteProfile.findFirst();
@@ -250,13 +251,13 @@ export default async function AdminSettingsPage() {
         </div>
 
         {/* Submit */}
-        <button
-          type="submit"
-          className="flex items-center justify-center gap-2 px-6 py-2.5 bg-[var(--a-primary)] hover:bg-[var(--a-primary-hover)] text-white text-xs font-semibold rounded-[var(--a-r-sm)] transition-colors cursor-pointer border-none"
+        <PendingButton
+          className="flex items-center justify-center gap-2 px-6 py-2.5 bg-[var(--a-primary)] hover:bg-[var(--a-primary-hover)] text-white text-xs font-semibold rounded-[var(--a-r-sm)] transition-colors cursor-pointer border-none disabled:opacity-60"
+          pendingLabel="Saving…"
         >
           <Save size={14} />
           Save Global Settings
-        </button>
+        </PendingButton>
       </form>
     </div>
   );

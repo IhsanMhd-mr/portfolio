@@ -136,6 +136,10 @@ model User {
   /// PBKDF2-SHA256 hash: "iterations:salt:hash" — null when no local password set
   passwordHash         String?   @map("password_hash")
   mustChangePassword   Boolean   @default(false) @map("must_change_password")
+  /// Password is permanent: this account is excluded from `initialize --reset`
+  /// rotation. Honoured ONLY by the owner-management scripts (initialize.js,
+  /// verify-initialization.js) — the application itself ignores this column.
+  passwordLocked       Boolean   @default(false) @map("password_locked")
   avatarUrl            String?   @map("avatar_url")
   lastLoginAt          DateTime? @map("last_login_at")
   createdAt            DateTime  @default(now()) @map("created_at")

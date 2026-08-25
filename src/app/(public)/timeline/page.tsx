@@ -3,6 +3,7 @@ import db from "@/lib/database";
 import { PublicContentService } from "@/services/public-content.service";
 import Link from "next/link";
 import { Calendar, MapPin, Link2 } from "lucide-react";
+import { formatMonthYear } from "@/lib/format-date";
 
 export async function generateMetadata(): Promise<Metadata> {
   const profile = await PublicContentService.getSiteProfile();
@@ -51,10 +52,6 @@ export default async function TimelinePage() {
     return new Date(b.published?.startDate || 0).getTime() - new Date(a.published?.startDate || 0).getTime();
   });
 
-  function formatDate(date: Date) {
-    return new Date(date).toLocaleDateString("en-US", { month: "short", year: "numeric" });
-  }
-
   return (
     <div
       className="flex-1 w-full px-[var(--gutter)] py-16 transition-colors duration-300 animate-fadeIn"
@@ -75,8 +72,8 @@ export default async function TimelinePage() {
         <div className="relative border-l border-solid border-[var(--line)] ml-4 pl-8 space-y-12">
           {timelineEntries.map((entry) => {
             const pub = entry.published!;
-            const startDateStr = formatDate(pub.startDate);
-            const endDateStr = pub.endDate ? formatDate(pub.endDate) : "Present";
+            const startDateStr = formatMonthYear(pub.startDate);
+            const endDateStr = pub.endDate ? formatMonthYear(pub.endDate) : "Present";
             const dateDisplay = pub.entryType === "MILESTONE" || !pub.endDate ? startDateStr : `${startDateStr} - ${endDateStr}`;
 
             return (

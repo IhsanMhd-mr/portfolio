@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { Shield } from "lucide-react";
+import { formatDateTime } from "@/lib/format-date";
 
 interface SecurityProps {
   loginMethod: string;
@@ -47,8 +48,8 @@ export default function SecuritySummary({
         {lastLoginAt && (
           <div>
             <p className="text-[var(--a-faint)] uppercase font-semibold">Last Successful Login</p>
-            <p className="mt-1 font-medium text-[var(--a-ink)]">
-              {new Date(lastLoginAt).toLocaleString()}
+            <p className="mt-1 font-medium text-[var(--a-ink)]" suppressHydrationWarning>
+              {formatDateTime(lastLoginAt)}
             </p>
           </div>
         )}

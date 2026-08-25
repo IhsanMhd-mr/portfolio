@@ -1,9 +1,11 @@
 import { requireAdmin, getValidatedOwner } from "@/lib/require-admin";
 import { CertificationService } from "@/services/certification.service";
 import db from "@/lib/database";
+import Link from "next/link";
 import dynamic from "next/dynamic";
 import { revalidatePath } from "next/cache";
-import { Award, Trash2, Eye, EyeOff, ArrowUp, ArrowDown } from "lucide-react";
+import { Award, Trash2, Eye, EyeOff, ArrowUp, ArrowDown, Edit } from "lucide-react";
+import PendingButton from "@/components/ui/PendingButton";
 
 const MediaPickerModal = dynamic(() => import("@/components/admin/MediaPickerModal"));
 const AddItemModal = dynamic(() => import("@/components/admin/AddItemModal"));
@@ -84,7 +86,7 @@ export default async function AdminCertificationsPage() {
             <MediaPickerModal name="mediaId" label="Certificate file (Media Library)" mode="single" />
           </div>
           <div className="space-y-1.5"><label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block">Description</label><textarea name="description" rows={2} className={`${inputCls} resize-y`} /></div>
-          <button type="submit" className="px-5 py-2 bg-[var(--a-primary)] hover:bg-[var(--a-primary-hover)] text-white text-xs font-semibold rounded-[var(--a-r-sm)] cursor-pointer border-none">Add Certification</button>
+          <PendingButton variant="icon"  className="px-5 py-2 bg-[var(--a-primary)] hover:bg-[var(--a-primary-hover)] text-white text-xs font-semibold rounded-[var(--a-r-sm)] cursor-pointer border-none">Add Certification</PendingButton>
         </form>
       </AddItemModal>
 
@@ -100,6 +102,13 @@ export default async function AdminCertificationsPage() {
               <p className="text-xs font-semibold text-[var(--a-ink)]">{c.title}</p>
               <p className="text-[10px] text-[var(--a-soft)] truncate">{c.issuer}{c.issueDate ? ` · ${new Date(c.issueDate).getFullYear()}` : ""}{c.credentialId ? ` · ${c.credentialId}` : ""}</p>
             </div>
+            <Link
+              href={`/admin/certifications/${c.id}/edit`}
+              className="p-1.5 text-[var(--a-soft)] hover:text-[var(--a-ink)] block"
+              aria-label={`Edit ${c.title}`}
+            >
+              <Edit size={14} />
+            </Link>
             {[
               { op: "up", icon: <ArrowUp size={14} />, disabled: i === 0, label: `Move ${c.title} up` },
               { op: "down", icon: <ArrowDown size={14} />, disabled: i === certs.length - 1, label: `Move ${c.title} down` },
@@ -109,10 +118,10 @@ export default async function AdminCertificationsPage() {
               <form key={b.op} action={rowAction}>
                 <input type="hidden" name="id" value={c.id} />
                 <input type="hidden" name="op" value={b.op} />
-                <button type="submit" disabled={b.disabled} aria-label={b.label}
+                <PendingButton variant="icon"  disabled={b.disabled} aria-label={b.label}
                   className={`p-1.5 border-none bg-transparent cursor-pointer disabled:opacity-30 ${b.op === "delete" ? "text-[var(--a-danger)]" : "text-[var(--a-soft)] hover:text-[var(--a-ink)]"}`}>
                   {b.icon}
-                </button>
+                </PendingButton>
               </form>
             ))}
           </div>

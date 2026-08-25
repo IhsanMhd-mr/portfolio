@@ -1,34 +1,32 @@
-import React from "react";
+import Skeleton, { SkeletonCard } from "@/components/ui/Skeleton";
 
 export default function DashboardLoading() {
   return (
-    <div className="space-y-8 animate-pulse">
-      {/* Header Skeleton */}
-      <div className="bg-[var(--a-surface)] border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] p-6 space-y-4">
-        <div className="h-6 w-48 bg-[var(--a-line)] rounded" />
-        <div className="h-4 w-72 bg-[var(--a-line)] rounded" />
-      </div>
+    <div className="space-y-8">
+      {/* Header card */}
+      <SkeletonCard>
+        <Skeleton className="h-6 w-48" />
+        <Skeleton className="h-4 w-72" />
+      </SkeletonCard>
 
-      {/* Stats Cards Skeleton */}
-      <div className="grid gap-6 grid-cols-2 lg:grid-cols-4">
-        {[...Array(4)].map((_, i) => (
-          <div key={i} className="p-6 border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] bg-[var(--a-surface)] space-y-3">
-            <div className="h-3 w-20 bg-[var(--a-line)] rounded" />
-            <div className="h-8 w-12 bg-[var(--a-line)] rounded" />
-          </div>
+      {/* Stat cards */}
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-6">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <SkeletonCard key={i}>
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-8 w-12" />
+          </SkeletonCard>
         ))}
       </div>
 
-      {/* Panels Skeleton */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {[...Array(6)].map((_, i) => (
-          <div key={i} className="bg-[var(--a-surface)] border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] p-6 space-y-4">
-            <div className="h-4 w-32 bg-[var(--a-line)] rounded" />
-            <div className="space-y-2">
-              <div className="h-3 w-full bg-[var(--a-line)] rounded" />
-              <div className="h-3 w-5/6 bg-[var(--a-line)] rounded" />
-            </div>
-          </div>
+      {/* Panels */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <SkeletonCard key={i}>
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-3 w-5/6" />
+          </SkeletonCard>
         ))}
       </div>
     </div>

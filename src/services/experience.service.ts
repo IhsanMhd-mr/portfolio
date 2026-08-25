@@ -40,7 +40,10 @@ export class ExperienceService {
           description: input.description || null,
           responsibilities: input.responsibilities || [],
           locationText: input.locationText || null,
-          workType: input.workType || "ON_SITE",
+          // Column is `WorkType?` — leave it unset rather than inventing a
+          // default. "ON_SITE" used to be the fallback here, which is not a
+          // member of the WorkType enum and threw at the Prisma boundary.
+          workType: input.workType || null,
           showOnResume: input.showOnResume ?? true,
           visible: input.visible ?? true,
           order: count + 1,

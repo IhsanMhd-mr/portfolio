@@ -5,6 +5,8 @@ import {
   Copy, Star, ArrowUp, ArrowDown, Search
 } from "lucide-react";
 import Pagination from "@/components/admin/Pagination";
+import { formatDateTime } from "@/lib/format-date";
+import PendingButton from "@/components/ui/PendingButton";
 import {
   toggleProjectVisibilityAction,
   softDeleteProjectAction,
@@ -221,13 +223,13 @@ export default async function AdminProjectsPage(props: PageProps) {
         </div>
 
         <form action={handleCreateProject}>
-          <button
-            type="submit"
+          <PendingButton variant="icon"
+            
             className="flex items-center gap-1.5 px-4 py-2 bg-[var(--a-primary)] hover:bg-[var(--a-primary-hover)] text-white text-xs font-semibold rounded-[var(--a-r-sm)] transition-colors cursor-pointer border-none"
           >
             <Plus size={14} />
             Create Project
-          </button>
+          </PendingButton>
         </form>
       </div>
 
@@ -298,6 +300,7 @@ export default async function AdminProjectsPage(props: PageProps) {
           {/* Keep filters query param */}
           <input type="hidden" name="filter" value={filter} />
 
+          {/* Invisible submit so Enter submits this GET filter form */}
           <button type="submit" className="hidden" />
         </form>
 
@@ -424,9 +427,9 @@ export default async function AdminProjectsPage(props: PageProps) {
                     )}
                   </div>
                   <div className="text-[9px] text-[var(--a-faint)] flex gap-4 pt-1">
-                    <span>Modified: {new Date(proj.updatedAt).toLocaleString()}</span>
+                    <span>Modified: {formatDateTime(proj.updatedAt)}</span>
                     {proj.published?.publishedAt && (
-                      <span>Published: {new Date(proj.published.publishedAt).toLocaleString()}</span>
+                      <span>Published: {formatDateTime(proj.published.publishedAt)}</span>
                     )}
                   </div>
                 </div>
@@ -437,22 +440,22 @@ export default async function AdminProjectsPage(props: PageProps) {
                   {filter !== "trash" && (
                     <div className="flex flex-col gap-0.5">
                       <form action={handleMove.bind(null, proj.id, "up")}>
-                        <button
-                          type="submit"
+                        <PendingButton
+                          variant="icon"
                           disabled={isFirstOnPage}
                           className="p-1 hover:bg-[var(--a-inset)] text-[var(--a-faint)] hover:text-[var(--a-soft)] disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
                         >
                           <ArrowUp size={12} />
-                        </button>
+                        </PendingButton>
                       </form>
                       <form action={handleMove.bind(null, proj.id, "down")}>
-                        <button
-                          type="submit"
+                        <PendingButton variant="icon"
+                          
                           disabled={isLastOnPage}
                           className="p-1 hover:bg-[var(--a-inset)] text-[var(--a-faint)] hover:text-[var(--a-soft)] disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
                         >
                           <ArrowDown size={12} />
-                        </button>
+                        </PendingButton>
                       </form>
                     </div>
                   )}
@@ -461,24 +464,24 @@ export default async function AdminProjectsPage(props: PageProps) {
                     <>
                       {/* Visibility Toggle */}
                       <form action={handleToggleVisibility.bind(null, proj.id, draft.visible)}>
-                        <button
-                          type="submit"
+                        <PendingButton variant="icon"
+                          
                           className="p-2 hover:bg-[var(--a-inset)] text-[var(--a-soft)] rounded-[var(--a-r-sm)] cursor-pointer border-none bg-transparent"
                           title={draft.visible ? "Hide project draft" : "Show project draft"}
                         >
                           {draft.visible ? <Eye size={14} /> : <EyeOff size={14} className="text-[var(--a-danger-ink)]" />}
-                        </button>
+                        </PendingButton>
                       </form>
 
                       {/* Duplicate */}
                       <form action={handleDuplicate.bind(null, proj.id)}>
-                        <button
-                          type="submit"
+                        <PendingButton variant="icon"
+                          
                           className="p-2 hover:bg-[var(--a-inset)] text-[var(--a-soft)] rounded-[var(--a-r-sm)] cursor-pointer border-none bg-transparent"
                           title="Duplicate project draft configuration"
                         >
                           <Copy size={14} />
-                        </button>
+                        </PendingButton>
                       </form>
 
                       {/* Edit */}
@@ -492,25 +495,25 @@ export default async function AdminProjectsPage(props: PageProps) {
 
                       {/* Soft Delete */}
                       <form action={handleSoftDelete.bind(null, proj.id)}>
-                        <button
-                          type="submit"
+                        <PendingButton variant="icon"
+                          
                           className="p-2 hover:bg-[var(--a-danger-bg)] text-[var(--a-danger-ink)] rounded-[var(--a-r-sm)] cursor-pointer border-none bg-transparent"
                           title="Move project to trash"
                         >
                           <Trash2 size={14} />
-                        </button>
+                        </PendingButton>
                       </form>
                     </>
                   ) : (
                     <>
                       {/* Restore */}
                       <form action={handleRestore.bind(null, proj.id)}>
-                        <button
-                          type="submit"
+                        <PendingButton variant="icon"
+                          
                           className="px-3 py-1 bg-[var(--a-success)] hover:opacity-90 text-white text-[10px] font-bold rounded cursor-pointer border-none"
                         >
                           Restore
-                        </button>
+                        </PendingButton>
                       </form>
 
                       {/* Permanent delete */}
@@ -522,13 +525,13 @@ export default async function AdminProjectsPage(props: PageProps) {
                           }
                         }}
                       >
-                        <button
-                          type="submit"
+                        <PendingButton variant="icon"
+                          
                           className="p-2 hover:bg-[var(--a-danger-bg)] text-[var(--a-danger-ink)] rounded-[var(--a-r-sm)] cursor-pointer border-none bg-transparent"
                           title="Permanently delete project"
                         >
                           <Trash2 size={14} />
-                        </button>
+                        </PendingButton>
                       </form>
                     </>
                   )}

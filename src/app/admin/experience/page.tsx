@@ -1,7 +1,9 @@
 import db from "@/lib/database";
 import dynamic from "next/dynamic";
-import { Briefcase, Trash2, Save, Eye, EyeOff, ArrowUp, ArrowDown } from "lucide-react";
+import Link from "next/link";
+import { Briefcase, Trash2, Save, Eye, EyeOff, ArrowUp, ArrowDown, Edit } from "lucide-react";
 import Pagination from "@/components/admin/Pagination";
+import PendingButton from "@/components/ui/PendingButton";
 import {
   createExperienceAction,
   updateExperienceAction,
@@ -71,7 +73,8 @@ export default async function AdminExperiencePage({ searchParams }: PageProps) {
     const locationText = formData.get("locationText") as string;
     const description = formData.get("description") as string;
     const logoId = formData.get("logoId") as string || null;
-    const workType = formData.get("workType") as any || "ON_SITE";
+    // Empty string means "not specified" — the column is nullable.
+    const workType = (formData.get("workType") as string) || null;
 
     if (!organization || !role || !startDateInput) return;
 
@@ -170,43 +173,52 @@ export default async function AdminExperiencePage({ searchParams }: PageProps) {
                     {/* Shift order */}
                     <div className="flex items-center gap-0.5">
                       <form action={handleMove.bind(null, exp.id, "up")}>
-                        <button
-                          type="submit"
+                        <PendingButton variant="icon"
+                          
                           disabled={isFirstOnPage}
                           className="p-1 hover:bg-[var(--a-inset)] text-[var(--a-faint)] hover:text-[var(--a-soft)] disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
                         >
                           <ArrowUp size={12} />
-                        </button>
+                        </PendingButton>
                       </form>
                       <form action={handleMove.bind(null, exp.id, "down")}>
-                        <button
-                          type="submit"
+                        <PendingButton variant="icon"
+                          
                           disabled={isLastOnPage}
                           className="p-1 hover:bg-[var(--a-inset)] text-[var(--a-faint)] hover:text-[var(--a-soft)] disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
                         >
                           <ArrowDown size={12} />
-                        </button>
+                        </PendingButton>
                       </form>
                     </div>
 
+                    {/* Edit */}
+                    <Link
+                      href={`/admin/experience/${exp.id}/edit`}
+                      className="p-1.5 hover:bg-[var(--a-inset)] rounded text-[var(--a-soft)] block"
+                      title="Edit experience"
+                    >
+                      <Edit size={14} />
+                    </Link>
+
                     {/* Visibility */}
                     <form action={handleToggleVisibility.bind(null, exp.id, draft.visible)}>
-                      <button
-                        type="submit"
+                      <PendingButton variant="icon"
+                        
                         className="p-1.5 hover:bg-[var(--a-inset)] rounded text-[var(--a-soft)] cursor-pointer border-none bg-transparent"
                       >
                         {draft.visible ? <Eye size={14} /> : <EyeOff size={14} className="text-[var(--a-danger-ink)]" />}
-                      </button>
+                      </PendingButton>
                     </form>
 
                     {/* Delete */}
                     <form action={handleDelete.bind(null, exp.id)}>
-                      <button
-                        type="submit"
+                      <PendingButton variant="icon"
+                        
                         className="p-1.5 hover:bg-[var(--a-danger-bg)] text-[var(--a-danger-ink)] rounded cursor-pointer border-none bg-transparent"
                       >
                         <Trash2 size={14} />
-                      </button>
+                      </PendingButton>
                     </form>
                   </div>
                 </div>
@@ -273,14 +285,18 @@ export default async function AdminExperiencePage({ searchParams }: PageProps) {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Work Type</label>
+                <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Employment Type</label>
+                {/* Values must match the WorkType enum in schema.prisma. */}
                 <select
                   name="workType"
                   className="w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-inset)] focus:outline-none"
                 >
-                  <option value="ON_SITE">On Site</option>
-                  <option value="HYBRID">Hybrid</option>
-                  <option value="REMOTE">Remote</option>
+                  <option value="">— Not specified —</option>
+                  <option value="FULL_TIME">Full Time</option>
+                  <option value="PART_TIME">Part Time</option>
+                  <option value="INTERNSHIP">Internship</option>
+                  <option value="FREELANCE">Freelance</option>
+                  <option value="VOLUNTEER">Volunteer</option>
                 </select>
               </div>
 
@@ -313,13 +329,13 @@ export default async function AdminExperiencePage({ searchParams }: PageProps) {
               />
             </div>
 
-            <button
-              type="submit"
+            <PendingButton variant="icon"
+              
               className="flex items-center justify-center gap-2 w-full py-2 bg-[var(--a-primary)] hover:bg-[var(--a-primary-hover)] text-white text-xs font-semibold rounded-[var(--a-r-sm)] transition-colors cursor-pointer border-none"
             >
               <Save size={14} />
               Add Experience
-            </button>
+            </PendingButton>
           </form>
           </AddItemModal>
         </div>

@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { Inbox, CheckCircle2, ArrowRight } from "lucide-react";
+import { formatDate } from "@/lib/format-date";
 
 interface Message {
   id: string;
@@ -75,8 +76,8 @@ export default function RecentMessages({ messages, onMarkRead }: MessagesProps) 
                         {msg.subject}
                       </p>
                     </div>
-                    <span className="text-[9px] text-[var(--a-faint)] shrink-0">
-                      {new Date(msg.createdAt).toLocaleDateString()}
+                    <span className="text-[9px] text-[var(--a-faint)] shrink-0" suppressHydrationWarning>
+                      {formatDate(msg.createdAt)}
                     </span>
                   </div>
 

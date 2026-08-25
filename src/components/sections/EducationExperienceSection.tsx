@@ -1,4 +1,5 @@
 import { Calendar, MapPin } from "lucide-react";
+import { formatMonthYear } from "@/lib/format-date";
 
 interface EducationExperienceSectionProps {
   education: any[];
@@ -30,11 +31,6 @@ export default function EducationExperienceSection({
     sortedEdu = sortedEdu.slice(0, settings.limit);
   }
 
-  function formatDate(dateStr: string) {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
-  }
-
   if (education.length === 0 && experience.length === 0) {
     return null;
   }
@@ -62,7 +58,7 @@ export default function EducationExperienceSection({
                 <div className="flex flex-wrap gap-4 text-xs text-[var(--ink-soft)] mt-1 mb-3">
                   <span className="flex items-center gap-1">
                     <Calendar size={12} />
-                    {formatDate(exp.startDate)} - {exp.isCurrent || !exp.endDate ? "Present" : formatDate(exp.endDate)}
+                    {formatMonthYear(exp.startDate)} - {exp.isCurrent || !exp.endDate ? "Present" : formatMonthYear(exp.endDate)}
                   </span>
                   {exp.locationText && (
                     <span className="flex items-center gap-1">
@@ -104,7 +100,7 @@ export default function EducationExperienceSection({
                 <div className="flex items-center gap-1 text-xs text-[var(--ink-soft)] mt-1 mb-3">
                   <Calendar size={12} />
                   <span>
-                    {formatDate(edu.startDate)} - {edu.isCurrent || !edu.endDate ? "Present" : formatDate(edu.endDate)}
+                    {formatMonthYear(edu.startDate)} - {edu.isCurrent || !edu.endDate ? "Present" : formatMonthYear(edu.endDate)}
                   </span>
                   {edu.grade && (
                     <span className="ml-3 px-2 py-0.5 border border-solid border-[var(--line)] rounded-[var(--radius-xs)] bg-[var(--bg-inset)]">

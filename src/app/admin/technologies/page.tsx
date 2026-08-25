@@ -1,9 +1,11 @@
 import db from "@/lib/database";
 import dynamic from "next/dynamic";
 import { revalidatePath } from "next/cache";
-import { Cpu, Trash2, Save, Eye, EyeOff, ArrowUp, ArrowDown } from "lucide-react";
+import Link from "next/link";
+import { Cpu, Trash2, Save, Eye, EyeOff, ArrowUp, ArrowDown, Edit } from "lucide-react";
 import AutoSubmitCheckbox from "@/components/admin/AutoSubmitCheckbox";
 import Pagination from "@/components/admin/Pagination";
+import PendingButton from "@/components/ui/PendingButton";
 
 const MediaPickerModal = dynamic(() => import("@/components/admin/MediaPickerModal"));
 const AddItemModal = dynamic(() => import("@/components/admin/AddItemModal"));
@@ -176,22 +178,22 @@ export default async function AdminTechnologiesPage(props: PageProps) {
                     {/* Shift order */}
                     <div className="flex items-center gap-0.5">
                       <form action={handleMove.bind(null, tech.id, "up")}>
-                        <button
-                          type="submit"
+                        <PendingButton
+                          variant="icon"
                           disabled={isFirstOnPage}
                           className="p-1 hover:bg-[var(--a-inset)] text-[var(--a-faint)] hover:text-[var(--a-soft)] disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
                         >
                           <ArrowUp size={12} />
-                        </button>
+                        </PendingButton>
                       </form>
                       <form action={handleMove.bind(null, tech.id, "down")}>
-                        <button
-                          type="submit"
+                        <PendingButton
+                          variant="icon"
                           disabled={isLastOnPage}
                           className="p-1 hover:bg-[var(--a-inset)] text-[var(--a-faint)] hover:text-[var(--a-soft)] disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
                         >
                           <ArrowDown size={12} />
-                        </button>
+                        </PendingButton>
                       </form>
                     </div>
 
@@ -212,24 +214,33 @@ export default async function AdminTechnologiesPage(props: PageProps) {
                       </form>
                     </div>
 
+                    {/* Edit */}
+                    <Link
+                      href={`/admin/technologies/${tech.id}/edit`}
+                      className="p-1 hover:bg-[var(--a-inset)] rounded text-[var(--a-soft)] block"
+                      title="Edit technology"
+                    >
+                      <Edit size={14} />
+                    </Link>
+
                     {/* Visibility */}
                     <form action={handleToggleFlag.bind(null, tech.id, "visible", draft.visible)}>
-                      <button
-                        type="submit"
+                      <PendingButton
+                        variant="icon"
                         className="p-1 hover:bg-[var(--a-inset)] rounded text-[var(--a-soft)] cursor-pointer border-none bg-transparent"
                       >
                         {draft.visible ? <Eye size={14} /> : <EyeOff size={14} className="text-[var(--a-danger-ink)]" />}
-                      </button>
+                      </PendingButton>
                     </form>
 
                     {/* Delete */}
                     <form action={handleDelete.bind(null, tech.id)}>
-                      <button
-                        type="submit"
+                      <PendingButton
+                        variant="icon"
                         className="p-1 hover:bg-[var(--a-danger-bg)] text-[var(--a-danger-ink)] rounded cursor-pointer border-none bg-transparent"
                       >
                         <Trash2 size={14} />
-                      </button>
+                      </PendingButton>
                     </form>
                   </div>
                 </div>
@@ -303,13 +314,13 @@ export default async function AdminTechnologiesPage(props: PageProps) {
               />
             </div>
 
-            <button
-              type="submit"
-              className="flex items-center justify-center gap-2 w-full py-2 bg-[var(--a-primary)] hover:bg-[var(--a-primary-hover)] text-white text-xs font-semibold rounded-[var(--a-r-sm)] transition-colors cursor-pointer border-none"
+            <PendingButton
+              className="flex items-center justify-center gap-2 w-full py-2 bg-[var(--a-primary)] hover:bg-[var(--a-primary-hover)] text-white text-xs font-semibold rounded-[var(--a-r-sm)] transition-colors cursor-pointer border-none disabled:opacity-60"
+              pendingLabel="Adding…"
             >
               <Save size={14} />
               Add Technology
-            </button>
+            </PendingButton>
           </form>
           </AddItemModal>
         </div>

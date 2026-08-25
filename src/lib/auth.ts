@@ -37,16 +37,31 @@ function sha256(text: string): string {
   return crypto.createHash("sha256").update(text).digest("hex");
 }
 
+/**
+ * Failure ceilings are counted separately per identifier and per IP.
+ *
+ * A single OR'd counter would mean one admin's failed attempts lock out every
+ * other admin behind the same IP/NAT — harmless when there was only ever one
+ * account, a real cross-user lockout once there are two. Splitting them keeps
+ * the targeted-account limit tight while leaving enough headroom for several
+ * people on one network; the IP ceiling still stops credential spraying across
+ * many usernames from one source.
+ */
+const MAX_FAILURES_PER_IDENTIFIER = 10;
+const MAX_FAILURES_PER_IP = 30;
+
 async function assertNotRateLimited(email: string, ip: string) {
   const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
-  const attempts = await db.loginAttempt.count({
-    where: {
-      OR: [{ emailHash: sha256(email) }, { ipHash: sha256(ip) }],
-      success: false,
-      createdAt: { gte: fifteenMinutesAgo },
-    },
-  });
-  if (attempts >= 10) throw new RateLimitedError();
+  const [identifierFailures, ipFailures] = await Promise.all([
+    db.loginAttempt.count({
+      where: { emailHash: sha256(email), success: false, createdAt: { gte: fifteenMinutesAgo } },
+    }),
+    db.loginAttempt.count({
+      where: { ipHash: sha256(ip), success: false, createdAt: { gte: fifteenMinutesAgo } },
+    }),
+  ]);
+  if (identifierFailures >= MAX_FAILURES_PER_IDENTIFIER) throw new RateLimitedError();
+  if (ipFailures >= MAX_FAILURES_PER_IP) throw new RateLimitedError();
 }
 
 async function recordLoginAttempt(email: string, ip: string, success: boolean) {

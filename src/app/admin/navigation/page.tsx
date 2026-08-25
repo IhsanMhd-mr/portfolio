@@ -1,8 +1,10 @@
 import { requireAdmin, getValidatedOwner } from "@/lib/require-admin";
 import db from "@/lib/database";
+import Link from "next/link";
 import { NavItemService } from "@/services/nav-item.service";
 import { revalidatePath } from "next/cache";
-import { Navigation, Plus, Trash2, Eye, EyeOff, ArrowUp, ArrowDown } from "lucide-react";
+import { Navigation, Plus, Trash2, Eye, EyeOff, ArrowUp, ArrowDown, Edit } from "lucide-react";
+import PendingButton from "@/components/ui/PendingButton";
 
 export const metadata = { title: "Navigation — Admin" };
 
@@ -64,7 +66,7 @@ export default async function AdminNavigationPage() {
           <div className="space-y-1.5"><label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block">Label *</label><input name="label" required className={inputCls} placeholder="Projects" /></div>
           <div className="space-y-1.5"><label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block">Target *</label><input name="target" required className={inputCls} placeholder="/projects or #contact" /></div>
         </div>
-        <button type="submit" className="px-5 py-2 bg-[var(--a-primary)] hover:bg-[var(--a-primary-hover)] text-white text-xs font-semibold rounded-[var(--a-r-sm)] cursor-pointer border-none">Add Item</button>
+        <PendingButton variant="icon"  className="px-5 py-2 bg-[var(--a-primary)] hover:bg-[var(--a-primary-hover)] text-white text-xs font-semibold rounded-[var(--a-r-sm)] cursor-pointer border-none">Add Item</PendingButton>
       </form>
 
       <div className="p-6 border border-solid border-[var(--a-line)] rounded-[var(--a-r-md)] bg-[var(--a-surface)] space-y-2" style={{ boxShadow: "var(--a-shadow)" }}>
@@ -78,6 +80,13 @@ export default async function AdminNavigationPage() {
               <p className="text-xs font-semibold text-[var(--a-ink)]">{n.label}</p>
               <p className="text-[10px] text-[var(--a-soft)] font-mono truncate">{n.target}</p>
             </div>
+            <Link
+              href={`/admin/navigation/${n.id}/edit`}
+              className="p-1.5 text-[var(--a-soft)] hover:text-[var(--a-ink)] block"
+              aria-label={`Edit ${n.label}`}
+            >
+              <Edit size={14} />
+            </Link>
             {[
               { op: "up", icon: <ArrowUp size={14} />, disabled: i === 0, label: `Move ${n.label} up` },
               { op: "down", icon: <ArrowDown size={14} />, disabled: i === items.length - 1, label: `Move ${n.label} down` },
@@ -87,10 +96,10 @@ export default async function AdminNavigationPage() {
               <form key={b.op} action={rowAction}>
                 <input type="hidden" name="id" value={n.id} />
                 <input type="hidden" name="op" value={b.op} />
-                <button type="submit" disabled={b.disabled} aria-label={b.label}
+                <PendingButton variant="icon"  disabled={b.disabled} aria-label={b.label}
                   className={`p-1.5 border-none bg-transparent cursor-pointer disabled:opacity-30 ${b.op === "delete" ? "text-[var(--a-danger)]" : "text-[var(--a-soft)] hover:text-[var(--a-ink)]"}`}>
                   {b.icon}
-                </button>
+                </PendingButton>
               </form>
             ))}
           </div>

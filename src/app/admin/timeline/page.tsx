@@ -1,7 +1,9 @@
 import db from "@/lib/database";
 import dynamic from "next/dynamic";
-import { Milestone, Trash2, Save, Eye, EyeOff, ArrowUp, ArrowDown } from "lucide-react";
+import Link from "next/link";
+import { Milestone, Trash2, Save, Eye, EyeOff, ArrowUp, ArrowDown, Edit } from "lucide-react";
 import Pagination from "@/components/admin/Pagination";
+import PendingButton from "@/components/ui/PendingButton";
 import {
   createTimelineEntryAction,
   updateTimelineEntryAction,
@@ -156,43 +158,52 @@ export default async function AdminTimelinePage({ searchParams }: PageProps) {
                     {/* Shift order */}
                     <div className="flex items-center gap-0.5">
                       <form action={handleMove.bind(null, entry.id, "up")}>
-                        <button
-                          type="submit"
+                        <PendingButton variant="icon"
+                          
                           disabled={isFirstOnPage}
                           className="p-1 hover:bg-[var(--a-inset)] text-[var(--a-faint)] hover:text-[var(--a-soft)] disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
                         >
                           <ArrowUp size={12} />
-                        </button>
+                        </PendingButton>
                       </form>
                       <form action={handleMove.bind(null, entry.id, "down")}>
-                        <button
-                          type="submit"
+                        <PendingButton variant="icon"
+                          
                           disabled={isLastOnPage}
                           className="p-1 hover:bg-[var(--a-inset)] text-[var(--a-faint)] hover:text-[var(--a-soft)] disabled:opacity-30 cursor-pointer border-none bg-transparent rounded"
                         >
                           <ArrowDown size={12} />
-                        </button>
+                        </PendingButton>
                       </form>
                     </div>
 
+                    {/* Edit */}
+                    <Link
+                      href={`/admin/timeline/${entry.id}/edit`}
+                      className="p-1.5 hover:bg-[var(--a-inset)] rounded text-[var(--a-soft)] block"
+                      title="Edit timeline entry"
+                    >
+                      <Edit size={14} />
+                    </Link>
+
                     {/* Visibility */}
                     <form action={handleToggleVisibility.bind(null, entry.id, draft.visible)}>
-                      <button
-                        type="submit"
+                      <PendingButton variant="icon"
+                        
                         className="p-1.5 hover:bg-[var(--a-inset)] rounded text-[var(--a-soft)] cursor-pointer border-none bg-transparent"
                       >
                         {draft.visible ? <Eye size={14} /> : <EyeOff size={14} className="text-[var(--a-danger-ink)]" />}
-                      </button>
+                      </PendingButton>
                     </form>
 
                     {/* Delete */}
                     <form action={handleDeleteEntry.bind(null, entry.id)}>
-                      <button
-                        type="submit"
+                      <PendingButton variant="icon"
+                        
                         className="p-1.5 hover:bg-[var(--a-danger-bg)] text-[var(--a-danger-ink)] rounded cursor-pointer border-none bg-transparent"
                       >
                         <Trash2 size={14} />
-                      </button>
+                      </PendingButton>
                     </form>
                   </div>
                 </div>
@@ -279,13 +290,13 @@ export default async function AdminTimelinePage({ searchParams }: PageProps) {
               />
             </div>
 
-            <button
-              type="submit"
+            <PendingButton variant="icon"
+              
               className="flex items-center justify-center gap-2 w-full py-2 bg-[var(--a-primary)] hover:bg-[var(--a-primary-hover)] text-white text-xs font-semibold rounded-[var(--a-r-sm)] transition-colors cursor-pointer border-none"
             >
               <Save size={14} />
               Add Timeline Event
-            </button>
+            </PendingButton>
           </form>
           </AddItemModal>
         </div>
