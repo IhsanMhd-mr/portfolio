@@ -20,11 +20,17 @@
  *
  * ─── WHY IT WORKS THIS WAY ──────────────────────────────────────────────────
  *
- * Direction matters. Local PostgreSQL is 17.x and Neon is 18.x. pg_dump 17
- * can dump an older-or-equal server and restore into a newer one, so
- * local -> cloud is supported. The reverse is NOT: pg_dump 17 refuses to dump
- * from an 18.x server, which is why the safety backup above goes through
- * Prisma (portable, version-independent) rather than pg_dump.
+ * Server versions matter, because pg_dump refuses to dump from a server whose
+ * major version is newer than its own. As of 2026-08-26 local is 17.6 and the
+ * Neon database is 17.11 — same major, so pg_dump 17 handles both directions
+ * and the safety backup could in principle use it.
+ *
+ * It deliberately does not. The previous Neon database was 18.6, where
+ * pg_dump 17 could restore *into* cloud but could not dump *from* it, and a
+ * cloud upgrade would silently reintroduce that. The Prisma-based snapshot is
+ * version-independent, so the backup keeps working whatever Neon runs next.
+ * If you ever point this at a cloud database on a newer major than your local
+ * client, the restore direction still works; only pg_dump-from-cloud breaks.
  *
  * Prisma's `?schema=public` parameter is not valid libpq syntax and makes psql
  * and pg_dump fail with "invalid URI query parameter", so it is stripped from
