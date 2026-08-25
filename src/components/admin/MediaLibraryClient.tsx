@@ -36,6 +36,9 @@ export default function MediaLibraryClient({ mediaAssets, total, page, totalPage
   // Metadata edit states
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editAlt, setEditAlt] = useState("");
+  const [editFilename, setEditFilename] = useState("");
+  const [editKind, setEditKind] = useState("IMAGE");
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   const refreshPage = () => {
     window.location.reload();
@@ -129,13 +132,25 @@ export default function MediaLibraryClient({ mediaAssets, total, page, totalPage
     setErrorMsg(null);
     setSuccessMsg(null);
 
+    if (!editFilename.trim()) {
+      setErrorMsg("Filename cannot be empty.");
+      return;
+    }
+
+    setSavingId(id);
     try {
-      await updateMediaMetadataAction(id, editAlt || null);
+      await updateMediaMetadataAction(id, {
+        altText: editAlt,
+        filename: editFilename,
+        kind: editKind,
+      });
       setSuccessMsg("Metadata updated successfully.");
       setEditingId(null);
       refreshPage();
     } catch (err: any) {
       setErrorMsg(err.message || "Failed to update metadata.");
+    } finally {
+      setSavingId(null);
     }
   };
 
@@ -236,21 +251,42 @@ export default function MediaLibraryClient({ mediaAssets, total, page, totalPage
                       <div className="space-y-1 pt-1.5 border-t border-solid border-[var(--a-line)]">
                         <input
                           type="text"
+                          value={editFilename}
+                          onChange={(e) => setEditFilename(e.target.value)}
+                          placeholder="Filename..."
+                          aria-label="Filename"
+                          className="w-full px-1.5 py-0.5 border border-solid border-[var(--a-line)] rounded text-[9px] font-mono focus:outline-none"
+                        />
+                        <select
+                          value={editKind}
+                          onChange={(e) => setEditKind(e.target.value)}
+                          aria-label="Media kind"
+                          className="w-full px-1.5 py-0.5 border border-solid border-[var(--a-line)] rounded text-[9px] font-mono focus:outline-none"
+                        >
+                          <option value="IMAGE">IMAGE</option>
+                          <option value="LOGO">LOGO</option>
+                          <option value="DOCUMENT">DOCUMENT</option>
+                        </select>
+                        <input
+                          type="text"
                           value={editAlt}
                           onChange={(e) => setEditAlt(e.target.value)}
                           placeholder="Alt text description..."
+                          aria-label="Alt text"
                           className="w-full px-1.5 py-0.5 border border-solid border-[var(--a-line)] rounded text-[9px] focus:outline-none"
                         />
                         <div className="flex gap-1">
                           <button
                             onClick={() => handleSaveMetadata(asset.id)}
-                            className="px-1.5 py-0.5 bg-[var(--a-success)] text-white rounded text-[8px] border-none cursor-pointer"
+                            disabled={savingId === asset.id}
+                            className="px-1.5 py-0.5 bg-[var(--a-success)] text-white rounded text-[8px] border-none cursor-pointer disabled:opacity-60"
                           >
-                            Save
+                            {savingId === asset.id ? "Saving…" : "Save"}
                           </button>
                           <button
                             onClick={() => setEditingId(null)}
-                            className="px-1.5 py-0.5 bg-[var(--a-line-hover)] text-[var(--a-ink)] rounded text-[8px] border-none cursor-pointer"
+                            disabled={savingId === asset.id}
+                            className="px-1.5 py-0.5 bg-[var(--a-line-hover)] text-[var(--a-ink)] rounded text-[8px] border-none cursor-pointer disabled:opacity-60"
                           >
                             Cancel
                           </button>
@@ -265,10 +301,12 @@ export default function MediaLibraryClient({ mediaAssets, total, page, totalPage
                           onClick={() => {
                             setEditingId(asset.id);
                             setEditAlt(asset.altText || "");
+                            setEditFilename(asset.filename);
+                            setEditKind(asset.kind);
                           }}
                           className="text-[9px] text-[var(--a-primary)] hover:underline cursor-pointer border-none bg-transparent"
                         >
-                          Edit Alt
+                          Edit
                         </button>
                       </div>
                     )}

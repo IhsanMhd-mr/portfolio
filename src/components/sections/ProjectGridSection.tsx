@@ -46,7 +46,6 @@ export default function ProjectGridSection({ projects, settings, isPreview = fal
               >
                 <div className="relative aspect-video w-full overflow-hidden bg-[var(--bg-inset)] border-b border-solid border-[var(--line)]">
                   {thumbnail ? (
-                    // eslint-disable-next-line @next/next/no-img-element
                     <img 
                       src={thumbnail} 
                       alt={project.title} 

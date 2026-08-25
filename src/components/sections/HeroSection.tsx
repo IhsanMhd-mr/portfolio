@@ -101,7 +101,6 @@ export default function HeroSection({ profile, settings, isPreview = false }: He
             }}
           >
             {profileImageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={profileImageUrl}
                 alt={fullName || ""}

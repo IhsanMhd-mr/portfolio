@@ -162,7 +162,6 @@ export default function ProjectsFilterWrapper({
             {/* Thumbnail */}
             <div className="relative aspect-video w-full overflow-hidden bg-[var(--bg-inset)] border-b border-solid border-[var(--line)]">
               {project.thumbnailUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={project.thumbnailUrl}
                   alt={project.title}

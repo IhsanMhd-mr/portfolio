@@ -218,7 +218,6 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
         {/* 4. Main Cover Image */}
         {coverAsset?.url && (
           <div className="pm-case-media w-full aspect-video rounded-[var(--radius-md)] overflow-hidden border border-solid border-[var(--line)]">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img 
               src={coverAsset.url} 
               alt={pub.title} 
@@ -279,7 +278,6 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
               )}
               {architectureAsset?.url && (
                 <div className="w-full aspect-video rounded-[var(--radius-sm)] overflow-hidden border border-solid border-[var(--line)] p-4 bg-[var(--bg-inset)]">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img 
                     src={architectureAsset.url} 
                     alt="System Architecture Diagram" 
@@ -338,7 +336,6 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
               {project.images.map((img) => (
                 <div key={img.id} className="space-y-1.5 border border-solid border-slate-100 p-2 bg-slate-50/50 rounded">
                   <div className="aspect-video w-full rounded overflow-hidden bg-[var(--bg-inset)] border border-solid border-[var(--line)]">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={img.media.url} alt={img.caption || "Gallery"} className="w-full h-full object-cover" />
                   </div>
                   {img.caption && (
