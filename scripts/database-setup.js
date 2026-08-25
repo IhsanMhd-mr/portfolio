@@ -27,6 +27,12 @@ const path = require("path");
 const projectRoot = path.resolve(__dirname, "..");
 
 // Allowlist ONLY — operation names map to fixed argument arrays.
+//
+// `reset` destroys all data and re-applies migrations. It does NOT seed: the
+// demo seeder is deliberately unwired in prisma.config.ts (see the comment
+// there — it used to write a fictional identity into production on every
+// reset, and Prisma 7 removed the `--skip-seed` flag that would have stopped
+// it). initialize.js runs immediately after and creates what is required.
 const ALLOWED_OPERATIONS = {
   migrate: ["prisma", "migrate", "dev"],
   deploy: ["prisma", "migrate", "deploy"],

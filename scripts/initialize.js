@@ -272,15 +272,18 @@ async function ensureSiteProfile() {
     return;
   }
 
+  // Bootstrap an EMPTY profile. These five columns are NOT NULL so they must be
+  // written, but "" is what the public site treats as absent — it renders
+  // nothing rather than publishing an invented identity, an unowned email
+  // address, or a tagline the owner never wrote. The nullable fields are simply
+  // omitted. Same rule as src/app/admin/settings/page.tsx and admin/profile.
   await db.siteProfile.create({
     data: {
-      fullName: "Portfolio Owner",
-      logoText: "PO",
-      title: "Software Engineer",
-      tagline: "Engineering software as craft with precision and intent.",
-      aboutBio: "Edit this bio from Admin → Profile.",
-      contactEmail: "owner@example.com",
-      availabilityStatus: "Open to work",
+      fullName: "",
+      logoText: "",
+      title: "",
+      aboutBio: "",
+      contactEmail: "",
     },
   });
   await audit("DEFAULT_SETTINGS_CREATED", "SiteProfile", null, "Default site profile created by initialize.js");
