@@ -124,7 +124,39 @@ overrides — not recommended.
 
 ---
 
-## 5. Horizontal overflow on mobile — NOT REPRODUCED 🟢
+## 4b. Admin: horizontal overflow on mobile — FIXED ✅
+
+**Found by the admin sweep** (the surface that was previously unreachable without a login).
+Four routes scrolled the whole page sideways at 375 px:
+
+| Route | scrollWidth before | after |
+|---|---:|---:|
+| `/admin/audit-log` | 886 | **375** |
+| `/admin/projects` | 586 | **375** |
+| `/admin/profile` | 489 | **375** |
+| `/admin/page-builder` | 391 | **375** |
+
+**Cause.** `src/app/admin/layout.tsx:80` — the content shell
+`<div className="flex-1 flex flex-col pl-0 md:pl-[248px]">` is a **flex item**, so it
+defaults to `min-width: auto` and refuses to shrink below its content's intrinsic width.
+Wide content (the audit-log table, long headings) stretched it past the viewport. The
+`overflow-x-hidden min-w-0` already present on `<main>` could not help, because its *parent*
+had already expanded.
+
+**Fix.** Added `min-w-0` to that shell — one class. Verified by injecting `min-width:0` at
+runtime first (886→375, 586→375, 489→375, 391→375), then applied and re-swept: all four
+now clean at 375 px, desktop unchanged.
+
+A useful side effect: audit-log's table wrapper already had `overflow-x-auto`, which was
+inert while the ancestors refused to shrink. It now scrolls properly (341 px visible of
+852 px content) instead of the content being unreachable.
+
+**Not a bug:** `/admin/preview` issues a second request to itself. `enablePreviewModeAction()`
+is a server action called in `useEffect` (`admin/preview/page.tsx:23`); Next.js refreshes the
+route after a server action so the newly-set cookie is visible. Expected behaviour, one extra
+request on one page — left alone.
+
+## 5. Horizontal overflow on PUBLIC pages — NOT REPRODUCED 🟢
 
 Tested 320 / 375 / 390 / landscape, all three templates, Edge and Chromium, scrolling the
 full page. **`scrollWidth === clientWidth` in every case** — no horizontal page scroll.

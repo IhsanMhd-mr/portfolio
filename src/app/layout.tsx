@@ -113,6 +113,7 @@ export const metadata: Metadata = {
    Root Layout
    ========================================================================== */
 
+import { headers } from "next/headers";
 import { resolvePreviewMode } from "@/lib/preview-mode";
 import { PublicContentService } from "@/services/public-content.service";
 import { ThemeProvider } from "@/components/providers/theme-provider";
@@ -125,6 +126,28 @@ export default async function RootLayout({
   // Session-validated, not cookie-trusted — see lib/preview-mode.ts
   const isPreview = await resolvePreviewMode();
 
+  /**
+   * The admin zone does not use the public template.
+   * `[data-admin="true"]` (src/styles/admin.css) redefines every template token
+   * admin renders with, so resolving which public skin is active costs three
+   * queries (pages + page_versions + templates) whose result is discarded on
+   * every admin request.
+   *
+   * `/admin/templates` is the one exception: it live-previews template
+   * switching by writing `data-template` client-side, so it still wants the
+   * real value server-rendered to avoid flashing the wrong skin first.
+   *
+   * NOTE the direction of the test. `x-pathname` is set by proxy.ts, whose
+   * matcher is ["/admin/:path*", "/"] — it is EMPTY on /about, /projects, etc.
+   * So this must skip only when we positively know we're on an admin route;
+   * inverting it ("resolve only if known") would strip the template from every
+   * non-homepage public page.
+   */
+  const headersList = await headers();
+  const pathname = headersList.get("x-pathname") || "";
+  const skipTemplate =
+    pathname.startsWith("/admin") && pathname !== "/admin/templates";
+
   let templateKey = "MODERN_GLASS";
   let defaultTheme = "light";
 
@@ -132,8 +155,9 @@ export default async function RootLayout({
     // Both go through PublicContentService so they share its request-cached
     // page/profile reads with the page and its metadata, instead of issuing a
     // third independent copy of the same two queries per render.
+    // getSiteProfile() is always needed — admin reads defaultTheme from it.
     const [resolvedTemplateKey, siteProfile] = await Promise.all([
-      PublicContentService.resolveTemplateKey(isPreview),
+      skipTemplate ? Promise.resolve(templateKey) : PublicContentService.resolveTemplateKey(isPreview),
       PublicContentService.getSiteProfile(),
     ]);
     templateKey = resolvedTemplateKey;

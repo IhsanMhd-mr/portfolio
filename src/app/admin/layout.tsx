@@ -76,8 +76,16 @@ export default async function AdminLayout({
       {/* 1. Left Sidebar Navigation */}
       <AdminSidebar />
 
-      {/* 2. Right Workbench Content Shell */}
-      <div className="flex-1 flex flex-col pl-0 md:pl-[248px]">
+      {/* 2. Right Workbench Content Shell
+          min-w-0 is load-bearing: as a flex item this defaults to
+          min-width:auto, which refuses to shrink below its content's intrinsic
+          width. Wide content (the audit-log table, long headings) therefore
+          stretched this shell past the viewport and scrolled the whole admin
+          page sideways on mobile — the `overflow-x-hidden` on <main> below
+          could not help, because its parent had already expanded. With
+          min-w-0 the chain can shrink, which also lets the table's own
+          `overflow-x-auto` wrapper scroll properly instead of being clipped. */}
+      <div className="flex-1 flex flex-col min-w-0 pl-0 md:pl-[248px]">
         {/* Top bar (60px height) */}
         <header
           className="h-[60px] border-b border-solid border-[var(--a-line)] bg-[var(--a-surface)] px-4 md:px-8 flex items-center justify-between fixed top-0 right-0 z-[190] w-full md:w-[calc(100%-248px)]"

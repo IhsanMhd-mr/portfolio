@@ -10,8 +10,28 @@ Last verified: 2026-08-24 (branch `test`).
 
 ## Frozen baseline
 
+⚠️ **The query count depends on runtime state.** The headline figure below is the
+*published + active snapshot* case. Two other states legitimately measure higher — do not
+treat them as regressions:
+
+| State | Queries | Section structure queried | `flattenOrdered` serial? |
+|---|---:|---|---|
+| **Published + active snapshot** (the baseline) | **23** | no | n/a |
+| **Preview** (owner previewing drafts) | **26** | yes — `section_groups` ×1, `page_sections` ×2 | **yes** |
+| **Published, no snapshot yet** (fresh install) | ~26 | yes | yes |
+
+The extra three come from `resolveSections()` falling through to
+`SectionGroupService.flattenOrdered()` (`public-content.service.ts:342` preview,
+`:355` no-snapshot) instead of parsing the stored snapshot. **In those states there is a
+genuine serial stage:** measured in a preview request, the section queries execute at
+positions **24, 25 and 26 of 26** — dead last, after the whole parallel wave. On Neon
+(~250 ms/query) that adds roughly 250–750 ms.
+
+The "no waterfall" property documented below therefore holds for the **published+snapshot
+path only**. A fresh install measuring 26 is expected, not a regression.
+
 ```text
-GET /
+GET /  (published + active snapshot)
 Prisma queries:            23
 IN(NULL) queries:           0
 Duplicate query groups:     0
@@ -19,6 +39,10 @@ Duplicate query groups:     0
 React key warnings:         0
 Blank technology tags:      0
 ```
+
+**Admin routes:** 3 queries (`site_profiles` + its 2 media relations). The public template
+is deliberately not resolved there — see "Admin exemption" below. `/admin/templates` is the
+exception at 6.
 
 ```text
 tsc:                 PASS
@@ -131,10 +155,33 @@ root layout rendering concurrently. Evidence: `pages` executes at position **11 
 (mid-stream, not last) and `pages`/`page_versions`/`templates` each appear exactly
 **once** per request.
 
-⚠️ **Latent fragility:** those two tail awaits are free *only because* the root layout
-independently calls `resolveTemplateKey`. If that call is ever removed, lines 287–288
-become a real serial stage after the `Promise.all`. If you touch `src/app/layout.tsx`,
-re-check that `pages` still executes mid-stream.
+⚠️ **Cache-order invariant — read before touching `src/app/layout.tsx`.**
+
+Those two tail awaits (`public-content.service.ts:287-288`) are free *only because* the root
+layout calls `resolveTemplateKey` concurrently, warming the `getHomePageRecord` cache while
+the `Promise.all` is still in flight.
+
+Removing that call would **not change the query count** — `getHomePageRecord` runs either
+way. It would convert 3 cached reads into a **serial stage** after the `Promise.all`
+(~250–750 ms on Neon). The cost is invisible to query-count checks, so a regression here
+would pass every test in this document while making the page slower.
+
+**If you modify the root layout, re-verify that `pages` still executes mid-stream** (around
+position 11 of 23), not last.
+
+**Admin exemption (intentional).** `src/app/layout.tsx` skips `resolveTemplateKey()` when
+`x-pathname` starts with `/admin`, because `[data-admin="true"]` in `src/styles/admin.css`
+redefines every template token the admin renders with — the resolved value was discarded.
+This does **not** weaken the invariant above: `getHomePageData` never runs on admin routes,
+so there are no tail awaits to keep warm there.
+
+Two traps if you edit that condition:
+1. `/admin/templates` is deliberately **excluded** from the skip — it live-previews template
+   switching by writing `data-template` client-side, so it needs the real value server-rendered.
+2. The test must be "**skip if** `startsWith('/admin')`", never "resolve only if known".
+   `proxy.ts`'s matcher is `["/admin/:path*", "/"]`, so `x-pathname` is **empty** on
+   `/about`, `/projects`, etc. Inverting it strips the template from every non-homepage
+   public route.
 
 ---
 

@@ -233,18 +233,27 @@ export default function StackGameSection({
     }
     const floatingBalls: FloatingBall[] = [];
     if (mode === "FLOATING_BALLS") {
+      // Ball size and spawn inset both scale with the canvas. A fixed 35px
+      // radius is ~20% of a 172px phone canvas (vs ~4% on desktop), and the
+      // old hardcoded 60px inset left only `width - 120` of spawn range —
+      // 52px at 320px viewport. 35 stays the desktop cap so wide canvases
+      // are unchanged.
+      const ballRadius = Math.min(35, Math.max(14, width * 0.09)) * ballSize;
+      const ballInset = ballRadius + 8;
+      const ballSpan = Math.max(1, width - ballInset * 2);
+
       displayNames.forEach((name, i) => {
         // Same spawn velocities as before, captured so the magnitude can be
         // restored later without changing any spawn behavior.
         const vx = (Math.random() - 0.5) * 3;
         const vy = (Math.random() - 0.5) * 3;
         floatingBalls.push({
-          x: Math.random() * (width - 120) + 60,
+          x: Math.random() * ballSpan + ballInset,
           y: Math.random() * (height - 80) + 40,
           vx,
           vy,
           initialSpeed: Math.hypot(vx, vy),
-          radius: 35 * ballSize,
+          radius: ballRadius,
           name,
           color: i % 2 === 0 ? accentColor : accentAltColor,
         });
@@ -267,10 +276,18 @@ export default function StackGameSection({
 
     const spawnBlock = () => {
       const name = displayNames[Math.floor(Math.random() * displayNames.length)];
+      // Block width and spawn range scale with the canvas. The old constants
+      // assumed a wide canvas: a fixed 100px block with `width - 150` of range
+      // left just a 22px spawn band on a 172px phone canvas, so every block
+      // dropped from nearly the same spot. 100 remains the desktop cap.
+      // Read per spawn, so a resize is picked up immediately.
+      const blockWidth = Math.min(100, Math.max(48, width * 0.28));
+      const inset = 20;
+      const span = Math.max(1, width - blockWidth - inset * 2);
       currentBlock = {
-        x: Math.random() * (width - 150) + 20,
+        x: Math.random() * span + inset,
         y: 0,
-        width: 100,
+        width: blockWidth,
         height: 30,
         name,
         color: accentColor,

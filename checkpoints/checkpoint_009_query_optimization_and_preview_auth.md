@@ -84,7 +84,21 @@ The rotating-sphere radius was hardcoded to `150` px while the projection
 per frame (so resize works): `r = min(150, extent·P/(P+extent))`. Desktop keeps 150 and is
 visually unchanged; 375 px yields ≈ 90. Verified at 320 / 375 / 390 / desktop.
 
-## 7. Environment & deployment
+## 7. Admin: mobile horizontal overflow
+
+An admin-wide sweep (Edge, 375 px and 1280 px, all 18 admin routes) found four routes
+scrolling the entire page sideways: `/admin/audit-log` (886 px), `/admin/projects` (586),
+`/admin/profile` (489), `/admin/page-builder` (391).
+
+**Cause:** the content shell in `src/app/admin/layout.tsx` is a flex item and so defaulted
+to `min-width: auto`, refusing to shrink below its content. The `overflow-x-hidden min-w-0`
+already on `<main>` was ineffective because its parent had expanded first.
+
+**Fix:** added `min-w-0` to that shell. All four routes now measure exactly 375 px; desktop
+unchanged. The audit-log table's existing `overflow-x-auto` wrapper — previously inert —
+now scrolls correctly (341 px of 852 px visible) rather than the content being unreachable.
+
+## 8. Environment & deployment
 
 - `dev` / `dev:cloud` scripts select local Postgres vs Neon via `DB_TARGET`; both
   connection strings live in `.env`.
@@ -107,6 +121,7 @@ visually unchanged; 375 px yields ≈ 90. Verified at 320 / 375 / 390 / desktop.
 | `GET /` query count | ✅ 23 (baseline held) |
 | Public routes (7) | ✅ all 200 |
 | Admin routes unauthenticated | ✅ 307 redirect |
+| Admin routes @375px (18 routes) | ✅ no horizontal overflow |
 | Forced password-change flow | ✅ login → change → dashboard |
 | Owner preview | ✅ still renders drafts |
 | Canary leak test | ✅ 0 for anonymous |
