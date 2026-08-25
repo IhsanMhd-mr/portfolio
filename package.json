@@ -14,6 +14,7 @@
     "admin:init": "npm run initialize",
     "admin:super": "node --env-file=.env scripts/initialise_admin.js",
     "content:clear": "node --env-file=.env scripts/clear-descriptions.js",
+    "content:push-cloud": "node --env-file=.env scripts/push-content-to-cloud.js",
     "seed": "node --env-file=.env scripts/seed-content.js",
     "db:setup": "node scripts/database-setup.js deploy",
     "db:migrate": "node scripts/database-setup.js migrate",
