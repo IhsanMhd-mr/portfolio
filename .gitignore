@@ -52,3 +52,6 @@ skills-lock.json
 
 # private local notes (admin credentials — never commit)
 /privateReadme.md
+
+# throwaway verification harness output
+_verify_shots/
