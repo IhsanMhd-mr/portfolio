@@ -92,36 +92,97 @@ If that is what you want:
   process.exit(0);
 }
 
-const stamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 15);
+// YYYYMMDDHHMMSS. Stop at 14 chars: the stripped ISO string continues
+// ".sssZ", so slicing 15 kept the separating dot and produced "...010..json".
+const stamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14);
 const dumpFile = path.resolve(projectRoot, "..", `local-to-cloud-${stamp}.sql`);
+const backupFile = path.resolve(projectRoot, "..", `cloud-backup-${stamp}.json`);
 
-// 1. Dump local. --clean --if-exists is what actually drops the cloud objects
-//    on restore; --no-owner --no-acl avoids Neon role errors (neondb_owner).
-console.log("\n[1/2] Dumping local...");
-const dump = spawnSync(
-  pgDump,
-  ["--clean", "--if-exists", "--no-owner", "--no-acl", "--file", dumpFile, local],
-  { stdio: "inherit" }
-);
-if (dump.status !== 0) fail("pg_dump failed — cloud has NOT been touched.");
-console.log(`      wrote ${dumpFile}`);
+/**
+ * Snapshot every table in cloud to JSON before anything is dropped.
+ *
+ * Uses Prisma rather than pg_dump on purpose: pg_dump refuses to read a server
+ * whose major version is newer than its own, so a cloud upgrade would silently
+ * disable the backup exactly when it matters. Models are enumerated from the
+ * DMMF so this cannot go stale when the schema gains a table.
+ */
+async function backupCloud() {
+  const { Pool } = require("pg");
+  const { PrismaPg } = require("@prisma/adapter-pg");
+  const { PrismaClient, Prisma } = require("@prisma/client");
 
-// 2. Restore into cloud, aborting on the first error rather than half-applying.
-console.log("[2/2] Restoring into cloud...");
-const restore = spawnSync(psql, [cloud, "-v", "ON_ERROR_STOP=1", "-f", dumpFile], {
-  stdio: "inherit",
-});
-if (restore.status !== 0) {
-  fail(
-    `psql failed. Cloud may be PARTIALLY updated — inspect it before using it.\n` +
-      `The dump is kept at ${dumpFile}.`
-  );
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    max: 2,
+    connectionTimeoutMillis: 30000,
+  });
+  const db = new PrismaClient({ adapter: new PrismaPg(pool) });
+
+  try {
+    const out = {};
+    let total = 0;
+    for (const model of Prisma.dmmf.datamodel.models) {
+      const key = model.name.charAt(0).toLowerCase() + model.name.slice(1);
+      if (typeof db[key]?.findMany !== "function") continue;
+      const rows = await db[key].findMany();
+      out[key] = rows;
+      total += rows.length;
+    }
+    // Dates serialise natively; BigInt does not.
+    fs.writeFileSync(
+      backupFile,
+      JSON.stringify(out, (_k, v) => (typeof v === "bigint" ? String(v) : v), 1)
+    );
+    return total;
+  } finally {
+    await db.$disconnect();
+    await pool.end();
+  }
 }
 
-console.log(`
+(async () => {
+  // 1. Back up cloud FIRST — the next step drops it.
+  console.log("\n[1/3] Backing up cloud...");
+  let backedUp;
+  try {
+    backedUp = await backupCloud();
+  } catch (e) {
+    fail(`Cloud backup failed, so nothing was dropped: ${e.message}`);
+  }
+  console.log(`      ${backedUp} row(s) -> ${backupFile}`);
+
+  // 2. Dump local. --clean --if-exists is what actually drops the cloud objects
+  //    on restore; --no-owner --no-acl avoids Neon role errors (neondb_owner).
+  console.log("[2/3] Dumping local...");
+  const dump = spawnSync(
+    pgDump,
+    ["--clean", "--if-exists", "--no-owner", "--no-acl", "--file", dumpFile, local],
+    { stdio: "inherit" }
+  );
+  if (dump.status !== 0) fail("pg_dump failed — cloud has NOT been touched.");
+  console.log(`      wrote ${dumpFile}`);
+
+  // 3. Restore into cloud, aborting on the first error rather than half-applying.
+  console.log("[3/3] Restoring into cloud...");
+  const restore = spawnSync(psql, [cloud, "-v", "ON_ERROR_STOP=1", "-f", dumpFile], {
+    stdio: "inherit",
+  });
+  if (restore.status !== 0) {
+    fail(
+      `psql failed. Cloud may be PARTIALLY updated — inspect it before using it.\n` +
+        `Cloud's previous contents: ${backupFile}\n` +
+        `The dump is kept at ${dumpFile}.`
+    );
+  }
+
+  console.log(`
 Done. Cloud is now a copy of local.
+
+  cloud backup : ${backupFile}
+  dump used    : ${dumpFile}
 
 Next:
   - Cloud logins are the LOCAL passwords now. Update privateReadme.md.
   - Verify: npm run db:verify
 `);
+})();
