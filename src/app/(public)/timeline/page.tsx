@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import db from "@/lib/database";
 import { PublicContentService } from "@/services/public-content.service";
 import Link from "next/link";
 import { Calendar, MapPin, Link2 } from "lucide-react";
@@ -22,39 +21,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function TimelinePage() {
-  const timelineEntriesRaw = await db.timelineEntry.findMany({
-    where: { deletedAt: null },
-    include: {
-      versions: { where: { state: "PUBLISHED", visible: true } },
-      linkedProject: {
-        include: {
-          versions: { where: { state: "PUBLISHED", visible: true }, take: 1 }
-        }
-      }
-    },
-  });
-
-  const timelineEntries = timelineEntriesRaw
-    .map((entry) => {
-      const published = entry.versions[0];
-      const projectTitle = entry.linkedProject?.versions[0]?.title || entry.linkedProject?.slug || "";
-      const projectSlug = entry.linkedProject?.slug;
-
-      return {
-        ...entry,
-        published,
-        projectTitle,
-        projectSlug,
-      };
-    })
-    .filter((e) => e.published);
-
-  // Sort by manual published order or newest first if order is identical
-  timelineEntries.sort((a, b) => {
-    const oDiff = (a.published?.order || 0) - (b.published?.order || 0);
-    if (oDiff !== 0) return oDiff;
-    return new Date(b.published?.startDate || 0).getTime() - new Date(a.published?.startDate || 0).getTime();
-  });
+  const { entries: timelineEntries } =
+    await PublicContentService.getTimelinePageData();
 
   return (
     <div

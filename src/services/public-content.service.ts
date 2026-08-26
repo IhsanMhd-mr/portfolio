@@ -7,6 +7,7 @@ import {
   attachPublished,
   sortPublished,
 } from "./published-version";
+import { byOrderThenNewest } from "@/lib/content-order";
 
 /**
  * PublicContentService — the STABLE CORE of the public site.
@@ -461,6 +462,179 @@ export class PublicContentService {
     technologies.sort((a, b) => (a.pub?.order || 0) - (b.pub?.order || 0));
 
     return { profile, education, experience, technologies };
+  });
+
+  /**
+   * Everything /projects renders.
+   *
+   * The thumbnail URL comes from a relation include. The route previously
+   * loaded the ENTIRE mediaAsset table and resolved each project's thumbnail
+   * with a linear `.find()` over it — O(projects x media) in application code,
+   * plus a full-table read that grew with the media library rather than with
+   * the page. getHomePageData already selected the thumbnail this way.
+   */
+  static getProjectsPageData = cache(async () => {
+    const [projectsRaw, technologiesRaw] = await Promise.all([
+      db.project.findMany({
+        where: { deletedAt: null },
+        include: {
+          versions: {
+            where: PUBLISHED_VISIBLE,
+            include: { thumbnail: { select: { url: true } } },
+          },
+          technologies: {
+            include: {
+              technology: { include: { versions: { where: PUBLISHED_VISIBLE } } },
+            },
+            orderBy: { order: "asc" },
+          },
+        },
+      }),
+      db.technology.findMany({
+        where: { deletedAt: null },
+        include: { versions: { where: PUBLISHED_VISIBLE } },
+      }),
+    ]);
+
+    const technologies = technologiesRaw
+      .map((tech) => ({
+        id: tech.id,
+        name: tech.versions[0]?.name || tech.slug,
+        category: tech.versions[0]?.category || "OTHER",
+      }))
+      .filter((t) => t.name);
+
+    const projects = projectsRaw
+      .map((p) => {
+        const pub = p.versions[0];
+        if (!pub) return null;
+        return {
+          id: p.id,
+          title: pub.title,
+          slug: p.slug,
+          summary: pub.summary,
+          category: pub.category,
+          startDate: pub.startDate ? pub.startDate.toISOString() : null,
+          liveDemoUrl: pub.liveDemoUrl,
+          githubUrl: pub.githubUrl,
+          manualOrder: pub.manualOrder,
+          thumbnailUrl: pub.thumbnail?.url ?? null,
+          thumbnailId: pub.thumbnailId,
+          technologies: p.technologies
+            .map((pt) => ({
+              id: pt.technology.id,
+              name: pt.technology.versions[0]?.name || pt.technology.slug,
+            }))
+            .filter((t) => t.name),
+        };
+      })
+      .filter((p) => p !== null);
+
+    projects.sort((a, b) => (a.manualOrder || 0) - (b.manualOrder || 0));
+
+    return { projects, technologies };
+  });
+
+  /**
+   * One project's detail page, or null.
+   *
+   * Cover and architecture images are relation includes. The route used to
+   * load every mediaAsset row to resolve exactly two ids, and did it AFTER the
+   * related-projects query — a third serial stage for data that depends on
+   * neither.
+   *
+   * Cached so generateMetadata and the page body share one query set rather
+   * than issuing the same lookup twice per request.
+   */
+  static getProjectDetail = cache(async (slug: string) => {
+    const project = await db.project.findUnique({
+      where: { slug },
+      include: {
+        versions: {
+          // Published AND visible: filtering on state alone let a project
+          // marked not-visible render at its own URL while being correctly
+          // hidden from every listing.
+          where: PUBLISHED_VISIBLE,
+          include: { thumbnail: { select: { url: true } } },
+        },
+        technologies: {
+          include: {
+            technology: { include: { versions: { where: { state: "PUBLISHED" } } } },
+          },
+          orderBy: { order: "asc" },
+        },
+        images: { include: { media: true }, orderBy: { order: "asc" } },
+      },
+    });
+
+    if (!project || project.deletedAt || !project.versions[0]) return null;
+    const pub = project.versions[0];
+
+    // Cover and architecture images are fetched by id, and ONLY when an id is
+    // present. Including them as relations looked tidier but made Prisma issue
+    // `WHERE id IN (NULL)` for every unset image — a wasted round trip that
+    // docs/query-baseline.md tracks as a regression signal. Conditional
+    // lookups cost 0-2 queries instead of an unconditional 2, and still avoid
+    // the whole-table scan this replaced.
+    const [coverImage, architectureImage] = await Promise.all([
+      pub.coverImageId
+        ? db.mediaAsset.findUnique({ where: { id: pub.coverImageId } })
+        : Promise.resolve(null),
+      pub.architectureImageId
+        ? db.mediaAsset.findUnique({ where: { id: pub.architectureImageId } })
+        : Promise.resolve(null),
+    ]);
+
+    const relatedRaw = await db.project.findMany({
+      where: {
+        id: { not: project.id },
+        deletedAt: null,
+        versions: { some: { ...PUBLISHED_VISIBLE, category: pub.category } },
+      },
+      include: { versions: { where: PUBLISHED_VISIBLE } },
+      take: 3,
+    });
+
+    const relatedProjects = relatedRaw
+      .map((rp) => ({ ...rp, ...rp.versions[0] }))
+      .filter((rp) => rp.title);
+
+    return { project, pub, relatedProjects, coverImage, architectureImage };
+  });
+
+  /** Everything /timeline renders. */
+  static getTimelinePageData = cache(async () => {
+    const raw = await db.timelineEntry.findMany({
+      where: { deletedAt: null },
+      include: {
+        versions: { where: PUBLISHED_VISIBLE },
+        linkedProject: {
+          include: { versions: { where: PUBLISHED_VISIBLE, take: 1 } },
+        },
+      },
+    });
+
+    const entries = raw
+      .map((entry) => ({
+        ...entry,
+        published: entry.versions[0],
+        projectTitle: entry.linkedProject?.versions[0]?.title || entry.linkedProject?.slug || "",
+        projectSlug: entry.linkedProject?.slug,
+      }))
+      .filter((e) => e.published);
+
+    entries.sort((a, b) => byOrderThenNewest(a.published, b.published));
+
+    return { entries };
+  });
+
+  /** Everything /contact renders. */
+  static getContactPageData = cache(async () => {
+    const [profile, socialLinks] = await Promise.all([
+      PublicContentService.getSiteProfile(),
+      db.socialLink.findMany({ where: { visible: true }, orderBy: { order: "asc" } }),
+    ]);
+    return { profile, socialLinks };
   });
 
   private static toSectionData(s: any): SectionData {
