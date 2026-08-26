@@ -6,6 +6,7 @@ import { ArrowLeft, Save, Briefcase, Eye, Star, Link as LinkIcon, FileText, Imag
 import PendingButton from "@/components/ui/PendingButton";
 import { updateProjectAction } from "../../actions";
 import GalleryManager from "@/components/admin/projects/GalleryManager";
+import TechnologyPicker from "@/components/admin/TechnologyPicker";
 
 const MediaPickerModal = dynamic(() => import("@/components/admin/MediaPickerModal"));
 
@@ -301,26 +302,14 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
             <Star size={16} className="text-[var(--a-primary)]" />
             Technologies Used
           </h3>
-          <div className="grid gap-4 sm:grid-cols-4">
-            {allTechs.map((tech) => {
-              const name = tech.versions.find((v) => v.state === "DRAFT")?.name || tech.slug;
-              const isLinked = project.technologies.some((t) => t.technologyId === tech.id);
-              return (
-                <div key={tech.id} className="flex items-center gap-2 p-2 border border-solid border-[var(--a-line)] hover:bg-[var(--a-inset)] rounded">
-                  <input
-                    type="checkbox"
-                    id={`tech_${tech.id}`}
-                    name={`tech_${tech.id}`}
-                    defaultChecked={isLinked}
-                    className="cursor-pointer"
-                  />
-                  <label htmlFor={`tech_${tech.id}`} className="text-xs text-[var(--a-ink)] cursor-pointer">
-                    {name}
-                  </label>
-                </div>
-              );
-            })}
-          </div>
+          <TechnologyPicker
+            variant="cards"
+            technologies={allTechs.map((tech) => ({
+              id: tech.id,
+              name: tech.versions.find((v) => v.state === "DRAFT")?.name || tech.slug,
+            }))}
+            selectedIds={project.technologies.map((t) => t.technologyId)}
+          />
         </div>
 
         {/* 4. Detailed Case Study Card */}

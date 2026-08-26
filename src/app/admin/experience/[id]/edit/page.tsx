@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Save, Briefcase } from "lucide-react";
 import PendingButton from "@/components/ui/PendingButton";
+import TechnologyPicker from "@/components/admin/TechnologyPicker";
 import { updateExperienceAction } from "../../actions";
 
 const MediaPickerModal = dynamic(() => import("@/components/admin/MediaPickerModal"));
@@ -154,25 +155,14 @@ export default async function EditExperiencePage({ params }: EditExperiencePageP
 
         <div className="space-y-1">
           <label className="text-[10px] font-mono text-[var(--a-soft)] uppercase block font-bold">Skills / Tech Used</label>
-          <div className="p-2.5 border border-solid border-[var(--a-line)] rounded bg-[var(--a-inset)]/50 max-h-40 overflow-y-auto grid grid-cols-2 gap-1.5">
-            {allTechs.map((tech) => {
-              const name = tech.versions[0]?.name || tech.slug;
-              return (
-                <div key={tech.id} className="flex items-center gap-1.5">
-                  <input
-                    type="checkbox"
-                    name={`tech_${tech.id}`}
-                    id={`tech_${tech.id}`}
-                    defaultChecked={linkedTechIds.has(tech.id)}
-                    className="cursor-pointer"
-                  />
-                  <label htmlFor={`tech_${tech.id}`} className="text-[10px] text-[var(--a-ink)] truncate cursor-pointer">
-                    {name}
-                  </label>
-                </div>
-              );
-            })}
-          </div>
+          <TechnologyPicker
+            variant="compact"
+            technologies={allTechs.map((tech) => ({
+              id: tech.id,
+              name: tech.versions[0]?.name || tech.slug,
+            }))}
+            selectedIds={[...linkedTechIds]}
+          />
         </div>
 
         <div className="space-y-1">
