@@ -1,4 +1,5 @@
 import db from "@/lib/database";
+import { requireAdmin } from "@/lib/require-admin";
 import { revalidatePath } from "next/cache";
 import { Settings, Save } from "lucide-react";
 import PendingButton from "@/components/ui/PendingButton";
@@ -25,6 +26,10 @@ export default async function AdminSettingsPage() {
   // Server action to update settings
   async function updateProfile(formData: FormData) {
     "use server";
+    // Server Actions are independently invocable POST endpoints — the admin
+    // layout guards page RENDERING, not this. Without its own check, anyone
+    // able to reach the action id could invoke it unauthenticated.
+    await requireAdmin();
     const id = formData.get("id") as string;
     const fullName = formData.get("fullName") as string;
     const logoText = formData.get("logoText") as string;

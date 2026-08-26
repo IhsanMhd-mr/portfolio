@@ -45,3 +45,55 @@ describe("public route boundary", () => {
     expect(offenders.map((f) => path.relative(root, f))).toEqual([]);
   });
 });
+
+/**
+ * Server Actions authorize themselves.
+ *
+ * A Server Action compiles to an independently invocable POST endpoint. The
+ * admin layout's requireAdmin() guards page RENDERING and does nothing for a
+ * direct invocation, so an inline action that mutates the database without its
+ * own check is reachable by anyone who can obtain its action id.
+ *
+ * Three pages were in that state — settings, game and messages — and the
+ * messages one soft-deleted any contact message by id.
+ *
+ * Delegating to an action in actions.ts counts: those call requireAdmin via
+ * getAuditContext. Only actions that hit `db` directly must guard inline.
+ */
+describe("server action authorization", () => {
+  const DB_MUTATION = /db\.[a-zA-Z]+\.(update|create|delete|upsert|updateMany|deleteMany|createMany)/;
+  const AUTH = /requireAdmin|getValidatedOwner/;
+
+  /**
+   * Split a file into one chunk per inline action.
+   *
+   * Checking the file as a whole is not enough — and this test was written that
+   * way first, then verified by deleting a guard: it still passed, because a
+   * sibling action in the same file supplied the matching `requireAdmin`. Each
+   * action body has to be inspected on its own.
+   */
+  function actionBodies(src: string): string[] {
+    const parts = src.split('"use server"');
+    return parts.slice(1); // everything before the first marker is module scope
+  }
+
+  it("every inline server action that writes to the database authorizes itself", () => {
+    const root = path.resolve(__dirname, "../../src/app/admin");
+    const offenders: string[] = [];
+
+    for (const file of filesUnder(root)) {
+      const src = readFileSync(file, "utf8");
+      if (!src.includes('"use server"')) continue;
+      actionBodies(src).forEach((body, i) => {
+        if (DB_MUTATION.test(body) && !AUTH.test(body)) {
+          offenders.push(`${path.relative(root, file)} (action #${i + 1})`);
+        }
+      });
+    }
+
+    expect(
+      offenders,
+      "inline server actions that write to the database must call requireAdmin()"
+    ).toEqual([]);
+  });
+});
