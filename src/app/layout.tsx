@@ -133,9 +133,22 @@ export default async function RootLayout({
    * queries (pages + page_versions + templates) whose result is discarded on
    * every admin request.
    *
-   * `/admin/templates` is the one exception: it live-previews template
-   * switching by writing `data-template` client-side, so it still wants the
-   * real value server-rendered to avoid flashing the wrong skin first.
+   * This skips ALL admin routes. `/admin/templates` used to be excepted so its
+   * live preview started from the real skin, but that exception was doing
+   * nothing useful and could not work in the common case:
+   *
+   *   - The page resolves its own skin anyway. admin/templates/page.tsx fetches
+   *     /api/publish in a useEffect and writes `data-template` onto
+   *     documentElement itself, overwriting whatever was server-rendered.
+   *   - A root layout is shared by every route, and the App Router does not
+   *     re-render shared layouts on client-side navigation. Reaching
+   *     /admin/templates from the sidebar — the normal way in — never re-ran
+   *     this code, so the exception simply did not apply.
+   *
+   * So it only ever fired on a hard load, where it spent three queries whose
+   * result was immediately replaced. Trade-off of removing it: on a hard load
+   * of /admin/templates the preview cards may show the default skin for the few
+   * hundred ms before that effect runs.
    *
    * NOTE the direction of the test. `x-pathname` is set by proxy.ts, whose
    * matcher is ["/admin/:path*", "/"] — it is EMPTY on /about, /projects, etc.
@@ -145,8 +158,7 @@ export default async function RootLayout({
    */
   const headersList = await headers();
   const pathname = headersList.get("x-pathname") || "";
-  const skipTemplate =
-    pathname.startsWith("/admin") && pathname !== "/admin/templates";
+  const skipTemplate = pathname.startsWith("/admin");
 
   let templateKey = "MODERN_GLASS";
   let defaultTheme = "light";

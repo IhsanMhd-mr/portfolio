@@ -11,10 +11,35 @@ interface LoginFormProps {
   standalone?: boolean;
 }
 
+const DEFAULT_NEXT = "/admin/dashboard";
+
+/**
+ * Constrains the post-login destination to a same-origin absolute path.
+ *
+ * `?next=` is attacker-controllable, and this value is handed to
+ * `window.location.assign()` below. Without this guard,
+ * `/admin/login?next=https://evil.com` would be a post-authentication open
+ * redirect — the worst kind, because the user has just proven they trust this
+ * site and will carry that trust to wherever they land.
+ *
+ * proxy.ts only ever sets `next` to an internal `pathname`, so nothing
+ * legitimate is rejected here.
+ */
+function safeNextTarget(raw: string | null): string {
+  if (!raw) return DEFAULT_NEXT;
+  // Must be a rooted path. This rejects absolute URLs ("https://evil.com") and
+  // scheme-like values ("javascript:...") outright.
+  if (!raw.startsWith("/")) return DEFAULT_NEXT;
+  // "//evil.com" is protocol-relative, and browsers normalise the backslash
+  // forms ("/\evil.com", "/\\evil.com") to the same thing. Both leave the origin.
+  if (raw.startsWith("//") || raw.startsWith("/\\")) return DEFAULT_NEXT;
+  return raw;
+}
+
 export default function LoginForm({ onSuccess, standalone = false }: LoginFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextTarget = searchParams.get("next") || "/admin/dashboard";
+  const nextTarget = safeNextTarget(searchParams.get("next"));
 
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -75,14 +100,29 @@ export default function LoginForm({ onSuccess, standalone = false }: LoginFormPr
         triggerShake();
       } else {
         if (onSuccess) onSuccess();
-        router.push(nextTarget);
+        // A real browser navigation, NOT router.push().
+        //
+        // /admin/login and every other admin route share src/app/admin/layout.tsx,
+        // and that layout branches its whole shell on isLoginPage. The App Router
+        // does not re-render shared layouts on client-side navigation (partial
+        // rendering swaps only the page slot), so router.push() left the dashboard
+        // mounted inside the narrow, sidebar-less login shell until a manual
+        // refresh. A full load re-renders the layout with the correct x-pathname.
+        //
+        // It is also the right thing after authenticating: it discards any client
+        // router cache still holding logged-out state.
+        window.location.assign(nextTarget);
+        // Deliberately stay in the loading state. assign() only *schedules* the
+        // navigation, so clearing it here would flash the button back to
+        // "Sign in" while the browser is still leaving the page, and briefly
+        // invite a second submit.
+        return;
       }
     } catch {
       setErrorType("INVALID_CREDENTIALS");
       triggerShake();
-    } finally {
-      setIsLoading(false);
     }
+    setIsLoading(false);
   };
 
   const handleGoogleSignIn = async () => {
