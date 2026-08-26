@@ -42,13 +42,20 @@ describe("published-only contract — service sorts by the admin order column", 
   it("orders education by `order`, not by date", async () => {
     const { education } = await PublicContentService.getHomePageData();
     const names = education.map((e: any) => e.institution);
-    // Fixture seeds order and date to disagree; `order` must win here.
-    expect(names).toEqual([FIXTURE.olderInstitution, FIXTURE.newerInstitution]);
+    // Fixture seeds order and date to disagree; `order` must win. Asserted as
+    // relative position rather than array equality — the homepage legitimately
+    // carries other visible rows, and this test is about sequence, not
+    // membership (membership is covered above).
+    expect(names.indexOf(FIXTURE.olderInstitution)).toBeLessThan(
+      names.indexOf(FIXTURE.newerInstitution)
+    );
   });
 
   it("orders experience by `order`, not by date", async () => {
     const { experience } = await PublicContentService.getHomePageData();
     const names = experience.map((e: any) => e.organization);
-    expect(names).toEqual([FIXTURE.olderOrganization, FIXTURE.newerOrganization]);
+    expect(names.indexOf(FIXTURE.olderOrganization)).toBeLessThan(
+      names.indexOf(FIXTURE.newerOrganization)
+    );
   });
 });

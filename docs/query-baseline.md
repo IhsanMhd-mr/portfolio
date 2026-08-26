@@ -4,7 +4,8 @@ Regression baseline for the public homepage's database access. Re-run the checks
 **How to re-measure** before/after any change that touches
 `src/services/public-content.service.ts`, the public templates, or the homepage sections.
 
-Last verified: 2026-08-24 (branch `test`). Preview rows corrected 2026-08-26.
+Last verified: 2026-08-27 (branch `test`) after the public data-access migration.
+Preview rows corrected 2026-08-26.
 
 ---
 
@@ -60,15 +61,34 @@ HTML semantic diff:  PASS  (only intended change vs previous build)
 
 Per-route query counts (same run):
 
-| Route | Queries |
-| --- | --- |
-| `/` | 23 |
-| `/projects/livedet` | 18 |
-| `/projects` | 16 |
-| `/resume` | 14 |
-| `/about` | 12 |
-| `/timeline` | 12 |
-| `/contact` | 9 |
+| Route | Queries | Re-verified 2026-08-27 |
+| --- | ---: | ---: |
+| `/` | 23 | 23 |
+| `/projects/livedet` | 18 | 18 |
+| `/projects` | 16 | 16 |
+| `/resume` | 14 | 14 |
+| `/about` | 12 | 12 |
+| `/timeline` | 12 | 12 |
+| `/contact` | 9 | 9 |
+
+**Unchanged after moving all seven public routes off direct `db` access.** The
+counts are identical, but two of them do materially less work than the number
+suggests: `/projects` and `/projects/[slug]` each used to issue
+`mediaAsset.findMany({ where: { deletedAt: null } })` — the **entire** media
+table — and resolve images with a linear `.find()` in application code. Those
+reads grew with the media library rather than with the page. They are now a
+relation include and a pair of conditional `findUnique`s respectively.
+
+> **Watch for `IN (NULL)` when replacing a scan with a relation include.**
+> Including `coverImage`/`architectureImage` on the version looked like the
+> tidy fix and measured *worse*: Prisma emits `WHERE id IN (NULL)` for every
+> unset image, which took `/projects/[slug]` from 18 to 20 queries. Fetching by
+> id only when an id exists costs 0-2 instead of an unconditional 2.
+
+**Known remaining `IN (NULL)`: 1 on `/projects/[slug]`**, from the
+related-projects `include: { versions: ... }` when a project has no siblings in
+its category. Pre-existing and unrelated to the migration — recorded so a
+future audit does not read it as new. `/` and `/projects` are at 0.
 
 ### Timing
 

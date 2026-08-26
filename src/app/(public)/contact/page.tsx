@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import db from "@/lib/database";
 import { PublicContentService } from "@/services/public-content.service";
 import ContactForm from "@/components/public/ContactForm";
 import { Mail, MapPin, Clock, MessageSquare } from "lucide-react";
@@ -22,11 +21,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function ContactPage() {
-  const profile = await PublicContentService.getSiteProfile();
-  const socialLinks = await db.socialLink.findMany({
-    where: { visible: true },
-    orderBy: { order: "asc" },
-  });
+  const { profile, socialLinks } = await PublicContentService.getContactPageData();
 
   // No invented contact details: an unset field hides its row entirely rather
   // than publishing a placeholder address a visitor could actually email.

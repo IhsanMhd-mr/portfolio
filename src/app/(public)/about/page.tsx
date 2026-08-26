@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import db from "@/lib/database";
 import { PublicContentService } from "@/services/public-content.service";
 import Link from "next/link";
 import { ArrowRight, Briefcase, GraduationCap, MapPin, Mail, Award, BookOpen, Target } from "lucide-react";
@@ -31,48 +30,12 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function AboutPage() {
-  const [profile, educationRaw, experienceRaw] = await Promise.all([
-    PublicContentService.getSiteProfile(),
-    db.education.findMany({
-      where: { deletedAt: null },
-      include: { versions: { where: { state: "PUBLISHED", visible: true } } },
-    }),
-    db.experience.findMany({
-      where: { deletedAt: null },
-      include: { versions: { where: { state: "PUBLISHED", visible: true } } },
-    }),
-  ]);
+  const { profile, education, experience } = await PublicContentService.getAboutPageData();
 
   const fullName = text(profile?.fullName);
   const title = text(profile?.title);
   const identity = [fullName, title].filter(Boolean).join(" · ");
   const cvUrl = profile?.cvFile?.url || "/resume";
-
-  const education = educationRaw
-    .map((e) => ({
-      ...e,
-      pub: e.versions[0],
-    }))
-    .filter((e) => e.pub);
-
-  education.sort((a, b) => {
-    const oDiff = (a.pub?.order || 0) - (b.pub?.order || 0);
-    if (oDiff !== 0) return oDiff;
-    return new Date(b.pub?.startDate || 0).getTime() - new Date(a.pub?.startDate || 0).getTime();
-  });
-
-  const experience = experienceRaw
-    .map((e) => ({
-      ...e,
-      pub: e.versions[0],
-    }))
-    .filter((e) => e.pub);
-
-  experience.sort((a, b) => {
-    const oDiff = (a.pub?.order || 0) - (b.pub?.order || 0);
-    if (oDiff !== 0) return oDiff;
-    return new Date(b.pub?.startDate || 0).getTime() - new Date(a.pub?.startDate || 0).getTime();
-  });
 
   return (
     <div

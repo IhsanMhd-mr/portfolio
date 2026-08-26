@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import { cache } from "react";
-import db from "@/lib/database";
 import { notFound } from "next/navigation";
+import { PublicContentService } from "@/services/public-content.service";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { ArrowLeft, Calendar, User, CheckCircle2, Globe, FileText, ChevronRight, Image as ImageIcon } from "lucide-react";
@@ -14,65 +13,17 @@ interface ProjectDetailPageProps {
 /** The public site only ever renders published content. */
 const PUBLIC_STATE = "PUBLISHED" as const;
 
-/**
- * The project row plus every relation the page body needs, fetched once per
- * request. generateMetadata and the component both call this; React `cache()`
- * collapses them into a single query set instead of two independent lookups of
- * the same row. Includes the superset of relations so the richer body render
- * is satisfied by the same cached result the lighter metadata pass triggers.
- *
- * Filters on `visible` as well as `state`. Filtering only on `state` meant a
- * PUBLISHED version marked `visible: false` still populated `versions[0]`, so
- * the guards below let it through and the detail page rendered it to anyone
- * holding the URL — while `/projects` and the homepage correctly hid it, which
- * is what made the leak easy to miss. The related-projects query further down
- * already filtered on `visible`; this one did not.
- *
- * There is deliberately no `state` parameter. Both callers only ever wanted
- * PUBLISHED, and a parameter that can express DRAFT is a parameter someone can
- * pass DRAFT to — the constant makes an unpublished read unrepresentable here.
- */
-const getProjectBySlug = cache(async (slug: string) => {
-  const versionWhere = { state: PUBLIC_STATE, visible: true } as const;
-  return db.project.findUnique({
-    where: { slug },
-    include: {
-      versions: { where: versionWhere },
-      technologies: {
-        include: {
-          technology: {
-            // NOTE: technology versions are filtered by state only, matching
-            // the previous behaviour. A technology hidden via `visible: false`
-            // still contributes its chip here, whereas the homepage drops it.
-            // That inconsistency is real but separate from this fix, and
-            // changing it alters which chips render — deferred deliberately.
-            include: { versions: { where: { state: PUBLIC_STATE } } },
-          },
-        },
-        orderBy: { order: "asc" },
-      },
-      images: { include: { media: true }, orderBy: { order: "asc" } },
-    },
-  });
-});
-
 export async function generateMetadata({ params }: ProjectDetailPageProps): Promise<Metadata> {
   const { slug } = await params;
 
   // Mirrors the page body's lookup + visibility rules below, sharing the same
   // request-cached query.
-  const project = await getProjectBySlug(slug);
+  const data = await PublicContentService.getProjectDetail(slug);
+  if (!data) notFound();
 
-  if (!project || project.deletedAt || !project.versions[0]) {
-    notFound();
-  }
-
-  const pub = project.versions[0];
-
+  const { pub, coverImage } = data;
   const description = pub.summary || `Case study: ${pub.title}`;
-  const coverAsset = pub.coverImageId
-    ? await db.mediaAsset.findUnique({ where: { id: pub.coverImageId } })
-    : null;
+  const coverAsset = coverImage;
 
   return {
     title: `${pub.title} — Project`,
@@ -91,50 +42,12 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
   
   // Find project with active state version (request-cached — generateMetadata
   // above already resolved this exact query)
-  const project = await getProjectBySlug(slug);
+  const data = await PublicContentService.getProjectDetail(slug);
+  if (!data) notFound();
 
-  // Verify project existence and visibility. Neither an unpublished project nor
-  // one marked `visible: false` can be selected at all — the query pins both
-  // rules — so either simply 404s here.
-  if (!project || project.deletedAt || !project.versions[0]) {
-    notFound();
-  }
-
-  const pub = project.versions[0];
-
-  // Load related projects
-  const relatedProjectsRaw = await db.project.findMany({
-    where: {
-      id: { not: project.id },
-      deletedAt: null,
-      versions: {
-        some: {
-          state: PUBLIC_STATE,
-          category: pub.category,
-          visible: true,
-        },
-      },
-    },
-    include: {
-      versions: { where: { state: PUBLIC_STATE } },
-    },
-    take: 3,
-  });
-
-  const relatedProjects = relatedProjectsRaw
-    .map((rp) => ({
-      ...rp,
-      ...rp.versions[0],
-    }))
-    .filter((rp) => rp.title);
-
-  // Load media references
-  const allMedia = await db.mediaAsset.findMany({
-    where: { deletedAt: null },
-  });
-
-  const coverAsset = allMedia.find((m) => m.id === pub.coverImageId);
-  const architectureAsset = allMedia.find((m) => m.id === pub.architectureImageId);
+  const { project, pub, relatedProjects, coverImage, architectureImage } = data;
+  const coverAsset = coverImage;
+  const architectureAsset = architectureImage;
 
   const categoryLabel = pub.category.replace("_", " ");
 

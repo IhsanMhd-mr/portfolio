@@ -12,7 +12,7 @@ describe("test harness", () => {
 
   it("seeded the fixture", async () => {
     expect(await db.project.count()).toBe(3);
-    expect(await db.education.count()).toBe(3);
+    expect(await db.education.count()).toBe(4);
     expect(await db.experience.count()).toBe(2);
     expect(await db.pageSection.count()).toBe(9);
     const page = await db.page.findUnique({ where: { key: "home" } });
