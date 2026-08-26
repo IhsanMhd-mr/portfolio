@@ -34,6 +34,16 @@ export const PROMOTED_FIELDS = {
     "challenges", "solutionsDetail", "testing", "results", "lessonsLearned",
     "liveDemoUrl", "githubUrl", "reportUrl", "thumbnailId", "coverImageId",
     "architectureImageId", "visible", "manualOrder",
+    // These three were missing from the original promotion list, so editing them
+    // in admin and publishing left the live site unchanged permanently — the
+    // draft held the new value and the published row kept the old one forever.
+    // All three have public readers:
+    //   status       → rendered at (public)/projects/[slug]/page.tsx
+    //   featured     → selects the Featured Projects section in all 3 templates
+    //   showOnResume → inclusion on (public)/resume
+    // The omission was project-specific: showOnResume is promoted for technology,
+    // education and experience, and status is promoted for timeline entries.
+    "status", "featured", "showOnResume",
   ],
   technology: [
     "name", "category", "experienceLabel", "description", "logoId",

@@ -123,7 +123,7 @@ export default async function AdminProjectsPage(props: PageProps) {
       state: "DRAFT" as const,
       title: q ? { contains: q, mode: "insensitive" as const } : undefined,
       category: categoryFilter ? (categoryFilter as any) : undefined,
-      status: filter === "archived" ? "ARCHIVED" as const : (statusFilter ? (statusFilter as any) : undefined),
+      status: statusFilter ? (statusFilter as any) : undefined,
       featured: filter === "featured" ? true : undefined,
       visible: filter === "hidden" ? false : (filter === "visible" ? true : undefined),
       project: {
@@ -276,8 +276,9 @@ export default async function AdminProjectsPage(props: PageProps) {
               <option value="PLANNED">Planned</option>
               <option value="IN_PROGRESS">In Progress</option>
               <option value="COMPLETED">Completed</option>
-              <option value="MAINTAINED">Maintained</option>
-              <option value="ARCHIVED">Archived</option>
+              {/* MAINTAINED and ARCHIVED were offered here but are not members of
+                  the ProjectStatus enum (COMPLETED | IN_PROGRESS | PLANNED), so
+                  selecting either sent an invalid value into the where clause. */}
             </select>
           </div>
 
@@ -346,14 +347,8 @@ export default async function AdminProjectsPage(props: PageProps) {
           >
             Hidden
           </Link>
-          <Link
-            href={`/admin/projects?filter=archived&q=${q}&category=${categoryFilter}&status=${statusFilter}&tech=${techFilter}`}
-            className={`px-3 py-1 rounded-[var(--a-r-sm)] transition-colors ${
-              filter === "archived" ? "bg-[var(--a-primary)] text-white" : "hover:bg-[var(--a-inset)]"
-            }`}
-          >
-            Archived
-          </Link>
+          {/* No "Archived" tab: ProjectStatus has no ARCHIVED member, so the
+              filter could never match anything. Use Trash Bin for soft-deleted. */}
           <Link
             href={`/admin/projects?filter=trash&q=${q}&category=${categoryFilter}&status=${statusFilter}&tech=${techFilter}`}
             className={`px-3 py-1 rounded-[var(--a-r-sm)] transition-colors ${

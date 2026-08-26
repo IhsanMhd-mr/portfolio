@@ -236,3 +236,115 @@ local — set `DATABASE_URL="$DATABASE_URL_LOCAL"` explicitly instead.
 
 - `dashboard.service.ts:217` returns a hardcoded `5` for `pendingChangeCount` with a
   `// Using standard mock placeholder` comment. Pre-existing; out of scope here.
+
+---
+
+# Addendum 2 — deep bug scan: four fixes
+
+A full scan of the status/publish surface found 10 bugs. Four were fixed; six are recorded
+in `docs/open-issues.md` §8. Three items initially suspected turned out **not** to be bugs
+and are listed there too.
+
+## N1. Three `ProjectVersion` columns were never promoted on publish (the significant one)
+
+`PROMOTED_FIELDS.project` — inherited verbatim from the original `POST /api/publish` — omitted
+13 columns. Three have public readers:
+
+| Column | Read by | Symptom |
+|---|---|---|
+| `status` | `(public)/projects/[slug]/page.tsx:183,191` | Project status edits never reached the live page |
+| `featured` | `FeaturedProjectsSection`, `OtherProjectsSection`, all 3 templates | Featuring never changed the live homepage |
+| `showOnResume` | `(public)/resume/page.tsx` | Resume inclusion never changed |
+
+The draft held the new value and the published row kept the old one **permanently** — and
+because the diff shares `PROMOTED_FIELDS`, the UI truthfully reported "nothing to publish".
+Both halves were blind to the same columns at once.
+
+The omission was project-specific: `showOnResume` is promoted for technology, education and
+experience; `status` is promoted for timeline entries. Only project omitted them.
+
+**Fix:** added `status`, `featured`, `showOnResume` to `PROMOTED_FIELDS.project`. One edit
+fixes promotion and detection together, because the list is shared. The other 10 columns
+have no public reader today and were left — recorded as open issue 8.1.
+
+**Verified end-to-end** against the local DB and a running server:
+
+| Step | Result |
+|---|---|
+| Baseline | nothing pending |
+| Flip `draft.status` COMPLETED → IN_PROGRESS | — |
+| `GET /api/publish` | ✅ detects it, names LIVEDET (silent before the fix) |
+| `POST /api/publish` | version 17 |
+| `PUBLISHED.status` | ✅ COMPLETED → **IN_PROGRESS** (never changed before) |
+| `/projects/livedet` | ✅ renders **"In Progress"**, was "COMPLETED" |
+| Restore + republish | ✅ back to COMPLETED, diff clean |
+
+The same cycle was run for `featured` and confirmed at the data layer (PUBLISHED row
+promoted). Note its *render* impact could not be shown on this site: the homepage has no
+Featured Projects section enabled (its sections are Hero, About, Tech Stack, Education,
+Other Projects, Contact), so `featured` currently changes no visible output here.
+
+## N2. Dead `ARCHIVED` project filter
+
+`admin/projects/page.tsx` built `status: "ARCHIVED"`, but `ProjectStatus` is
+`COMPLETED | IN_PROGRESS | PLANNED`. An `as const` cast kept TypeScript quiet. The status
+dropdown also offered `MAINTAINED`, equally non-existent.
+
+**Fix:** removed the Archived tab, both invalid dropdown options, and the filter branch.
+Soft-deleted projects remain reachable via Trash Bin (`deletedAt`), a different axis.
+
+## A1. Dashboard always read "5 Unpublished Changes"
+
+`dashboard.service.ts:217` returned a hardcoded `5` (`// Using standard mock placeholder`);
+the correct value computed at `:191` was dead code, shadowed by the literal.
+
+**Fix:** `pendingChangeCount` now comes from `computePublishDiff()`, joined into the
+existing `Promise.all` so it adds no round-trip latency:
+`changedEntities.length + (hasTemplateDiff ? 1 : 0) + (hasSectionsDiff ? 1 : 0)`.
+The dashboard card and the publish page now agree instead of contradicting each other.
+
+**Verified:** one pending change → card reads **"1 Unpublished Changes"**; clean →
+**"Your live portfolio is up to date"**, matching `GET /api/publish`.
+
+## A2. Dashboard "draft projects" always equalled the total
+
+`:103` counted projects having *any* DRAFT version — but every project always has one, that
+being the editing model. The number could never be anything but the total.
+
+**Fix:** the triple now describes **live** state throughout:
+
+| Count | Definition |
+|---|---|
+| `published` | has a PUBLISHED version with `visible: true` |
+| `draft` | has **no** PUBLISHED version (never went live) |
+| `hidden` | has a PUBLISHED version with `visible: false` |
+
+This also resolves the axis mismatch where `hidden` was querying DRAFT while `published`
+queried PUBLISHED. **Verified:** `published + draft + hidden === total` (5 = 5), and
+`draft === total` is now false where it was previously always true.
+
+## Verification
+
+| Check | Result |
+|---|---|
+| `tsc --noEmit` | ✅ clean |
+| `eslint --quiet` | ✅ clean |
+| N1 status → live page | ✅ full chain, then restored |
+| N1 featured → published row | ✅ promoted (no render impact on this site's sections) |
+| A1 dashboard count | ✅ 1 when one change, "up to date" when none |
+| A2 project triple | ✅ sums to total; draft no longer equals total |
+| Local DB left clean | ✅ all 5 projects DRAFT/PUBLISHED titles match, diff empty |
+
+## Documentation
+
+`architecture.md` was refreshed: the stale `getHomePageData(isPreview)` pipeline corrected,
+and a new §4 **Content Status Lifecycle** added — the two independent status axes, every
+record and writer on each, the `PROMOTED_FIELDS` / `PROMOTION_DEFAULTS` promotion contract,
+and N1 written up as the worked example of what a missing entry costs.
+
+## Process note
+
+A verification script used `findFirst` with no stable ordering to revert a temporary edit,
+and matched a *different* row than the one it had dirtied, leaving a stray `(tmp)` title in
+the local database. Caught and cleaned by matching on the marker rather than re-running the
+selection. Mutating verification scripts must select by recorded id, never re-query.

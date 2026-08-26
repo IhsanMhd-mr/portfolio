@@ -1,4 +1,5 @@
 import db from "@/lib/database";
+import { computePublishDiff } from "./publish-diff.service";
 
 export interface DashboardOverviewData {
   projectCounts: {
@@ -92,8 +93,15 @@ export class DashboardService {
       currentUser,
       recentFailedLoginCount,
       currentSession,
+      publishDiff,
     ] = await Promise.all([
       db.project.count({ where: { deletedAt: null } }),
+      // All three counts below describe LIVE state, so the group is coherent.
+      // "draft" previously counted projects having any DRAFT version — but every
+      // project always has one (that is the editing model), so it could never be
+      // anything but the total. It now means "never went live". "hidden" moved
+      // from DRAFT to PUBLISHED for the same reason: mixing the draft axis and
+      // the live axis inside one card made the numbers unreadable.
       db.project.count({
         where: {
           deletedAt: null,
@@ -103,13 +111,13 @@ export class DashboardService {
       db.project.count({
         where: {
           deletedAt: null,
-          versions: { some: { state: "DRAFT" } }
+          versions: { none: { state: "PUBLISHED" } }
         }
       }),
       db.project.count({
         where: {
           deletedAt: null,
-          versions: { some: { visible: false, state: "DRAFT" } }
+          versions: { some: { state: "PUBLISHED", visible: false } }
         }
       }),
       db.technology.count({ where: { deletedAt: null } }),
@@ -160,6 +168,11 @@ export class DashboardService {
         where: { sid: currentSid },
         include: { account: true },
       }),
+      // Real draft-vs-live comparison rather than Page.hasUnpublishedChanges,
+      // which is a sticky one-way latch (~40 service writes set it true, only a
+      // publish clears it). Joined into this batch so it costs no extra
+      // round-trip latency. Returns null only if the home page row is missing.
+      computePublishDiff("home").catch(() => null),
     ]);
 
     // 2. Map Template Keys and versions
@@ -187,8 +200,14 @@ export class DashboardService {
         }
       : null;
 
-    // Calculate pending change count
-    const pendingChangeCount = pageDetails?.hasUnpublishedChanges ? 1 : 0; // standard indicator
+    // How many distinct things are waiting to go live. Counts the same three
+    // axes the publish page reports, so the dashboard card and that page agree
+    // instead of contradicting each other.
+    const pendingChangeCount = publishDiff
+      ? publishDiff.changedEntities.length +
+        (publishDiff.hasTemplateDiff ? 1 : 0) +
+        (publishDiff.hasSectionsDiff ? 1 : 0)
+      : 0;
 
     // 3. Security Summary details
     const loginMethod = currentSession?.loginMethod || "LOCAL";
@@ -214,7 +233,7 @@ export class DashboardService {
       mediaCount,
       unreadMessageCount,
       homepageSectionCount: pageDetails?.sections.length || 0,
-      pendingChangeCount: pageDetails?.hasUnpublishedChanges ? 5 : 0, // Using standard mock placeholder or actual computed difference
+      pendingChangeCount,
       activeTemplate,
       draftTemplate,
       recentActivity: recentActivity.map((log) => ({

@@ -214,3 +214,29 @@ exists — see item 3.)
 
 **Checkpoint 009** to be written once the above land, following the existing
 `checkpoints/checkpoint_00N_*.md` convention (currently at 008).
+
+---
+
+# 8. Deep-scan findings — open (recorded, not scheduled)
+
+From a full scan of the status/publish surface. The four fixed items from that scan
+(project promotion gaps, dead `ARCHIVED` filter, and two wrong dashboard numbers) are
+written up in `checkpoints/checkpoint_009_*.md`; these are the ones deliberately left.
+
+| # | Sev | Finding |
+|---|---|---|
+| 8.1 | Med | **10 `ProjectVersion` columns still unpromoted.** `fullDescription`, `metrics`, `showOnHomepage`, `showOnTimeline`, `documentationUrl`, `videoUrl`, `presentationUrl`, `seoTitle`, `seoDescription`, `publishedAt` are absent from `PROMOTED_FIELDS.project`. No public page reads any of them today, so the bug is currently unobservable — but the moment one is rendered, edits to it will silently never go live. Fix when a reader is added, or pre-emptively as a batch. |
+| 8.2 | Med | **The publish diff counts soft-deleted entities.** `collectChangedEntities` (`publish-diff.service.ts`) queries the version tables without filtering the parent's `deletedAt`, so a deleted project can appear by name in "waiting to go live". |
+| 8.3 | Med | **Publish promotes soft-deleted entities' drafts.** `POST /api/publish` selects `{ state: "DRAFT" }` with no `deletedAt` filter. Not a leak — every public read filters `deletedAt` — but it is silent wasted writes. Note the trade-off before "fixing": promoting them keeps the PUBLISHED row in sync for a later `restore()`. Decide deliberately, and fix 8.2 with it. |
+| 8.4 | Med | **`versionNumber` is computed outside the publish transaction.** `api/publish/route.ts` reads the latest version with `db` rather than `tx`, then creates inside the transaction. Two concurrent publishes compute the same number and collide on `@@unique([pageId, versionNumber])`, surfacing as a raw 500. Single-admin site, so low likelihood. Fix: move the lookup inside the transaction and retry on P2002. |
+| 8.5 | Low | **Duplicate technology add returns 500.** Both `POST /api/technologies` and `TechnologyService.createTechnology` check-then-create; a race (or a slug colliding after `slugify`) raises P2002, which is unhandled. Should fall through to the existing friendly "already exists → select it" path. |
+| 8.6 | Low | **`technology.order = count + 1`** (`technology.service.ts`) collides once any technology is soft-deleted, since the count excludes deleted rows. |
+
+### Checked during the same scan and found NOT to be bugs
+
+- `revalidatePath` after publish omits `/about` and `/contact` — **moot**: the root layout
+  awaits `headers()`, so every route already renders dynamically.
+- The section snapshot omits group membership — **fine**: groups only affect flattened
+  order, and the snapshot captures the flattened result.
+- `@@unique([entityId, state])` is present on all five version tables, so the diff's
+  Map-based DRAFT↔PUBLISHED pairing cannot mis-pair.
