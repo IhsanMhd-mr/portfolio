@@ -21,6 +21,7 @@
     "db:push": "node scripts/database-setup.js push",
     "db:reset": "node scripts/database-setup.js reset --yes",
     "db:verify": "node --env-file=.env scripts/verify-initialization.js",
+    "check:promoted": "node scripts/check-promoted-fields.js",
     "deploy:setup": "node scripts/database-setup.js deploy",
     "lint": "eslint"
   },

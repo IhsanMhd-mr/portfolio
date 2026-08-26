@@ -348,3 +348,112 @@ A verification script used `findFirst` with no stable ordering to revert a tempo
 and matched a *different* row than the one it had dirtied, leaving a stray `(tmp)` title in
 the local database. Caught and cleaned by matching on the marker rather than re-running the
 selection. Mutating verification scripts must select by recorded id, never re-query.
+
+---
+
+# Addendum 3 — the 6 open issues closed (+2 more)
+
+Closes `docs/open-issues.md` §8. Scoping turned up a seventh problem, and the work exposed
+an eighth (a regression it caused). Both are covered here.
+
+## Correction to Addendum 2
+
+Addendum 2 and the plan stated `publishedAt` is "never written". **That was wrong.**
+`scripts/populate-from-cv.js` and `scripts/seed-content.js` both set it at seed time. The
+accurate statement is that it was never written *by the publish flow* — so the admin project
+list's "Published: <date>" did render, but froze at the seed date and never advanced on any
+subsequent publish. The fix below is the same either way; the description was not.
+
+## What changed
+
+**8.1 — the remaining project columns.** Added `fullDescription`, `metrics`,
+`showOnHomepage`, `showOnTimeline`, `documentationUrl`, `videoUrl`, `presentationUrl`,
+`seoTitle`, `seoDescription` to `PROMOTED_FIELDS.project`. Scoping confirmed the gap was
+**project-only**: the other four version models were already complete.
+
+`metrics` needed care — it is a *nullable* Json column, so Prisma rejects a bare `null` on
+write (plain null means "leave unchanged"); it needs the `Prisma.DbNull` sentinel. Caught by
+`tsc`, not at runtime.
+
+**New — `publishedAt` now stamped at publish time** on all five entity types, so the admin
+"Published:" date reflects the publish that actually made the row live. Deliberately kept
+out of `PROMOTED_FIELDS`; including it would make every entity compare unequal forever.
+
+**8.2 + 8.3 — soft-deleted content excluded from both halves.** `collectChangedEntities` and
+all five promotion queries now filter `deletedAt: null`. Deleted entities stop appearing in
+"waiting to go live" and publishing no longer writes to them. Consequence, by design: a
+deleted entity's PUBLISHED row freezes, so after `restore()` its draft may differ and it
+correctly reappears as a pending change.
+
+**8.4 — version-number race.** The max-lookup moved inside the transaction (`tx`), plus a
+retry-once on P2002. Being precise: moving the read inside the transaction does **not**
+serialize concurrent publishes at READ COMMITTED — the `@@unique([pageId, versionNumber])`
+constraint plus the retry is what actually closes it. The response now returns the version
+actually written rather than a value computed before the transaction.
+
+**8.5 — duplicate skill add.** `POST /api/technologies` catches P2002 and falls through to
+the existing "already exists → select it" path. The re-read is scoped `deletedAt: null`, so
+a soft-deleted technology owning the slug raises a real error instead of silently linking
+deleted content.
+
+**8.6 — technology ordering.** `count + 1` → `max(order) + 1`.
+
+**New — `npm run check:promoted`.** `scripts/check-promoted-fields.js` reads the Prisma DMMF
+and fails if any version-table column is in neither `PROMOTED_FIELDS` nor an explicit
+`IGNORED` set, and fails in reverse for a listed column the schema no longer has. This is
+the actual fix for the 8.1 *class* — a doc note is what failed the first time.
+
+## Regression this work caused, and its fix
+
+After adding the `deletedAt` joins, **publishing broke**:
+
+```
+Transaction API error: A query cannot be executed on an expired transaction.
+The timeout for this transaction was 5000 ms, however 5881 ms passed.
+```
+
+The transaction was already doing an N+1 `findFirst` per draft row across five entity types;
+the extra join tipped it past Prisma's 5 s default. Fixed at the root — each entity type now
+loads its PUBLISHED rows in **one** query and pairs them through a Map (five `findFirst`
+loops removed) — with the timeout also raised to 30 s as headroom for cold Neon connects,
+explicitly documented as headroom rather than budget.
+
+## Verification
+
+| Check | Result |
+|---|---|
+| `tsc --noEmit`, `eslint --quiet` | ✅ clean |
+| `npm run check:promoted` | ✅ 5 models, 81 columns, no drift |
+| Guard actually detects drift | ✅ removed `featured` → named it, **exit 1**; restored → exit 0 |
+| 8.1 detection | ✅ `seoTitle`/`showOnHomepage` edit now reported (invisible before) |
+| 8.1 promotion | ✅ after publish, PUBLISHED carries both |
+| `publishedAt` | ✅ advanced from the frozen seed date to the publish time |
+| 8.2 diff | ✅ soft-deleted project with a dirty draft **not** listed |
+| 8.3 promotion | ✅ its PUBLISHED row untouched — `publishedAt` identical before/after, while every other entity got a fresh stamp |
+| restore path | ✅ after `restore()` it reappears as pending; publish syncs it |
+| 8.5 race | ✅ two concurrent identical POSTs → 201 + 200, **same id**, no 500 |
+| 8.6 ordering | ✅ new technology got `max+1`, no duplicate orders |
+| Regression | ✅ publish succeeds again; full cycle ends with empty diff and "up to date" |
+| Both DBs left clean | ✅ local and Neon: empty diff, zero probe rows, 5 live projects |
+
+Two honest caveats: the 8.5 test cannot distinguish whether the P2002 branch or the existing
+pre-check resolved the race (timing-dependent) — only that the observable outcome is correct.
+And the 8.6 dataset has no soft-deleted technologies, so it demonstrates correct assignment
+rather than reproducing the old collision, which needs `count < max`.
+
+## Process failure worth recording
+
+A verification round ran against **Neon instead of local**. A backgrounded `npm run dev`
+reported failure and never wrote its log, but port 3000 was still served by an **earlier
+`dev:cloud` process**. Requests succeeded, so the setup looked fine — while publishes were
+landing on the cloud database. Caught because the returned version number (15) disagreed with
+local's (18).
+
+Impact: one publish on Neon, content-neutral (drafts already matched published), leaving a
+normal version row and `publishedAt` stamps. Verified afterwards — Neon has an empty diff,
+zero probe rows, all five projects in sync.
+
+**Lesson:** a server answering on the expected port is not evidence it is the server you
+started. Assert which database is in play — by writing a marker to the intended DB and
+confirming the app sees it — before trusting any result. That check is what finally
+identified the mix-up, and it should come first, not last.

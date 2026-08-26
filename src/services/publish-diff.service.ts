@@ -44,6 +44,15 @@ export const PROMOTED_FIELDS = {
     // The omission was project-specific: showOnResume is promoted for technology,
     // education and experience, and status is promoted for timeline entries.
     "status", "featured", "showOnResume",
+    // The rest of the gap. No public page reads these today, but a column absent
+    // from this list is invisible to BOTH the promotion and the change detection
+    // at once — so the moment one is rendered it would silently never go live.
+    // scripts/check-promoted-fields.js now fails the build on any new omission.
+    "fullDescription", "metrics", "showOnHomepage", "showOnTimeline",
+    "documentationUrl", "videoUrl", "presentationUrl", "seoTitle", "seoDescription",
+    // NOTE: `publishedAt` is deliberately NOT here. It is stamped at publish time
+    // by POST /api/publish rather than copied from the draft; including it would
+    // make every entity compare unequal on every check.
   ],
   technology: [
     "name", "category", "experienceLabel", "description", "logoId",
@@ -253,18 +262,24 @@ export async function computePublishDiff(pageKey = "home"): Promise<PublishDiff 
  * `@@unique([entityId, state])` guarantees at most one version per state, so a
  * Map keyed by the parent id is an exact pairing. Ten queries total rather than
  * one lookup per draft row.
+ *
+ * Soft-deleted parents are excluded, matching the same filter POST /api/publish
+ * applies. Without it a deleted project appeared by name in "waiting to go live",
+ * where the admin could neither see nor act on it.
  */
 async function collectChangedEntities(): Promise<ChangedEntity[]> {
   const changed: ChangedEntity[] = [];
 
+  const live = (relation: string) => ({ where: { [relation]: { deletedAt: null } } });
+
   const [
     projects, technologies, timeline, education, experience,
   ] = await Promise.all([
-    db.projectVersion.findMany(),
-    db.technologyVersion.findMany(),
-    db.timelineEntryVersion.findMany(),
-    db.educationVersion.findMany(),
-    db.experienceVersion.findMany(),
+    db.projectVersion.findMany(live("project")),
+    db.technologyVersion.findMany(live("technology")),
+    db.timelineEntryVersion.findMany(live("timelineEntry")),
+    db.educationVersion.findMany(live("education")),
+    db.experienceVersion.findMany(live("experience")),
   ]);
 
   const groups = [

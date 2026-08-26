@@ -119,19 +119,43 @@ export async function POST(request: Request) {
 
   // Same audit shape as admin/technologies/actions.ts getAuditContext().
   const reqHeaders = await headers();
-  const created = await TechnologyService.createTechnology(
-    { name, slug },
-    {
-      actorId: context.userId,
-      loginMethod: context.loginMethod,
-      loginAccountId: context.loginAccountId,
-      ipAddress: reqHeaders.get("x-forwarded-for") || reqHeaders.get("x-real-ip") || undefined,
-      userAgent: reqHeaders.get("user-agent") || undefined,
-    }
-  );
+  try {
+    const created = await TechnologyService.createTechnology(
+      { name, slug },
+      {
+        actorId: context.userId,
+        loginMethod: context.loginMethod,
+        loginAccountId: context.loginAccountId,
+        ipAddress: reqHeaders.get("x-forwarded-for") || reqHeaders.get("x-real-ip") || undefined,
+        userAgent: reqHeaders.get("user-agent") || undefined,
+      }
+    );
 
-  return NextResponse.json(
-    { id: created.tech.id, name: created.draft.name, existed: false },
-    { status: 201 }
-  );
+    return NextResponse.json(
+      { id: created.tech.id, name: created.draft.name, existed: false },
+      { status: 201 }
+    );
+  } catch (error: any) {
+    // The duplicate check above is check-then-create, so two requests for the
+    // same name can both pass it and race to the insert. The loser hits the slug
+    // unique constraint. That is the same situation the check was guarding
+    // against, so resolve it the same way — return the row that won — instead of
+    // surfacing a 500 for what is really "that skill already exists".
+    const isDuplicate =
+      error?.code === "P2002" || /already exists/i.test(error?.message ?? "");
+    if (isDuplicate) {
+      // `deletedAt: null` matters here: the service's own slug check is not
+      // scoped to live rows, so a soft-deleted technology can own the slug and
+      // block creation. Handing that row back would silently link deleted
+      // content to the project, so let it fall through to a real error instead.
+      const winner = await db.technology.findFirst({
+        where: { slug, deletedAt: null },
+        select: DRAFT_NAME_SELECT,
+      });
+      if (winner) {
+        return NextResponse.json({ ...toPickerShape(winner as TechRow), existed: true });
+      }
+    }
+    throw error;
+  }
 }

@@ -217,7 +217,14 @@ exists — see item 3.)
 
 ---
 
-# 8. Deep-scan findings — open (recorded, not scheduled)
+# 8. Deep-scan findings — ALL CLOSED ✅
+
+**All six are now fixed** (plus a seventh found while scoping, and a regression the
+work exposed). See `checkpoints/checkpoint_009_*.md` Addendum 3 for the write-ups and
+verification. `npm run check:promoted` now fails the build if the promotion contract
+drifts again, which is what item 8.1 was really about.
+
+The table below is kept as the record of what was found.
 
 From a full scan of the status/publish surface. The four fixed items from that scan
 (project promotion gaps, dead `ARCHIVED` filter, and two wrong dashboard numbers) are

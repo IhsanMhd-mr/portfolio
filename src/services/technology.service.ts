@@ -32,7 +32,14 @@ export class TechnologyService {
       throw new Error(`Technology with slug '${slug}' already exists.`);
     }
 
-    const count = await db.technology.count({ where: { deletedAt: null } });
+    // Next order = max + 1, not count + 1. Counting non-deleted rows produced a
+    // number that collided with existing orders as soon as any technology had
+    // been soft-deleted (5 rows, orders 1..6, count+1 = 6 → duplicate).
+    const maxOrder = await db.technologyVersion.aggregate({
+      where: { state: "DRAFT", technology: { deletedAt: null } },
+      _max: { order: true },
+    });
+    const nextOrder = (maxOrder._max.order ?? 0) + 1;
 
     return await db.$transaction(async (tx) => {
       const tech = await tx.technology.create({
@@ -53,7 +60,7 @@ export class TechnologyService {
           showInGame: input.showInGame ?? false,
           showOnResume: input.showOnResume ?? false,
           visible: input.visible ?? true,
-          order: count + 1,
+          order: nextOrder,
           logoId: input.logoId || null,
         },
       });

@@ -122,6 +122,7 @@ per state, which is what lets DRAFT and PUBLISHED be paired by parent id.
 | `PageVersion` | `isActive`, `versionNumber`, `snapshot` | `POST /api/publish` **only** |
 | `PageSection`, `SectionGroup` | `visible`, `order`, `groupId` | page-builder actions |
 | `Template` | `isActiveLive` | `POST /api/publish` **only** |
+| the five `*Version` tables | `publishedAt` | stamped with the publish time by `POST /api/publish`. **Not** a promoted field — copying the draft's value would be meaningless, and including it in `PROMOTED_FIELDS` would make every entity compare unequal on every check |
 | `Certification`, social links, `SiteProfile` | `visible` / direct fields | **applied immediately — no draft state.** Edits here are live at once |
 
 **`hasUnpublishedChanges` is a hint, not a source of truth.** It is a sticky
@@ -152,6 +153,24 @@ the promotion (`POST /api/publish`) and the change detection (`GET /api/publish`
 > value **permanently**, and because the diff shares the same list, the UI
 > truthfully reported "nothing to publish". A column absent from this list is
 > invisible to both halves of the system at once.
+>
+> **`npm run check:promoted` enforces this.** `scripts/check-promoted-fields.js`
+> reads the Prisma DMMF and fails if any version-table column is in neither
+> `PROMOTED_FIELDS` nor the script's explicit `IGNORED` set — and fails the other
+> way too, if the list names a column the schema no longer has. A comment asking
+> people to remember is what failed the first time; run this instead.
+
+### Cost discipline inside the publish transaction
+
+Promotion runs in one interactive transaction, and Prisma's default timeout is
+5 s. It has already been exceeded once: adding a `deletedAt` join to the DRAFT
+queries pushed a transaction that was doing an N+1 `findFirst` per draft row past
+the limit, and publishing started failing outright.
+
+The fix was to batch — each entity type now loads its PUBLISHED rows in one query
+and pairs them through a Map, the same technique the diff uses. The timeout is
+also set explicitly (30 s, with cold Neon connects measured at 5–14 s), but that
+is headroom, **not** licence to add per-row queries back into the loop.
 
 ### Axis 2 — editorial status (independent of publishing)
 
