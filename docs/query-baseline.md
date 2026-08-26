@@ -4,27 +4,32 @@ Regression baseline for the public homepage's database access. Re-run the checks
 **How to re-measure** before/after any change that touches
 `src/services/public-content.service.ts`, the public templates, or the homepage sections.
 
-Last verified: 2026-08-24 (branch `test`).
+Last verified: 2026-08-24 (branch `test`). Preview rows corrected 2026-08-26.
 
 ---
 
 ## Frozen baseline
 
 ⚠️ **The query count depends on runtime state.** The headline figure below is the
-*published + active snapshot* case. Two other states legitimately measure higher — do not
-treat them as regressions:
+*published + active snapshot* case. One other state legitimately measures higher — do not
+treat it as a regression:
 
 | State | Queries | Section structure queried | `flattenOrdered` serial? |
 |---|---:|---|---|
 | **Published + active snapshot** (the baseline) | **23** | no | n/a |
-| **Preview** (owner previewing drafts) | **26** | yes — `section_groups` ×1, `page_sections` ×2 | **yes** |
 | **Published, no snapshot yet** (fresh install) | ~26 | yes | yes |
 
+> **Updated 2026-08-26: the preview row is gone because the feature is.** This table
+> previously listed a third state, "Preview (owner previewing drafts)", at 26 queries.
+> Preview mode has since been removed entirely (`src/lib/preview-mode.ts` deleted, the
+> `isPreview` parameter dropped from `PublicContentService` — see `docs/open-issues.md`
+> item 3). The public site now resolves PUBLISHED content unconditionally, so that state
+> is no longer reachable and its measurements are not comparable to anything current.
+
 The extra three come from `resolveSections()` falling through to
-`SectionGroupService.flattenOrdered()` (`public-content.service.ts:342` preview,
-`:355` no-snapshot) instead of parsing the stored snapshot. **In those states there is a
-genuine serial stage:** measured in a preview request, the section queries execute at
-positions **24, 25 and 26 of 26** — dead last, after the whole parallel wave. On Neon
+`SectionGroupService.flattenOrdered()` (`public-content.service.ts:355`) instead of
+parsing the stored snapshot. **In that state there is a genuine serial stage:** the
+section queries execute dead last, after the whole parallel wave. On Neon
 (~250 ms/query) that adds roughly 250–750 ms.
 
 The "no waterfall" property documented below therefore holds for the **published+snapshot

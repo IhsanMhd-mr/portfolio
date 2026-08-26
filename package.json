@@ -23,7 +23,11 @@
     "db:verify": "node --env-file=.env scripts/verify-initialization.js",
     "check:promoted": "node scripts/check-promoted-fields.js",
     "deploy:setup": "node scripts/database-setup.js deploy",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:http": "cross-env TEST_HTTP=1 vitest run"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",
@@ -54,7 +58,8 @@
     "prisma": "^7.8.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
   },
   "prisma": {
     "schema": "src/prisma/schema.prisma",
