@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Save, Briefcase } from "lucide-react";
 import PendingButton from "@/components/ui/PendingButton";
 import TechnologyPicker from "@/components/admin/TechnologyPicker";
+import { TechnologyService } from "@/services/technology.service";
 import { updateExperienceAction } from "../../actions";
 
 const MediaPickerModal = dynamic(() => import("@/components/admin/MediaPickerModal"));
@@ -57,10 +58,9 @@ export default async function EditExperiencePage({ params }: EditExperiencePageP
 
     const endDateInput = formData.get("endDate") as string;
 
-    const technologyIds: string[] = [];
-    allTechs.forEach((t) => {
-      if (formData.get(`tech_${t.id}`) === "on") technologyIds.push(t.id);
-    });
+    // Read from the submitted form, not from allTechs — the picker can create a
+    // skill inline, and that one is absent from the server-rendered list.
+    const technologyIds = await TechnologyService.resolveSelectedIds(formData);
 
     await updateExperienceAction(id, {
       organization,

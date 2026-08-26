@@ -32,6 +32,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...except the template, which carries names only and never values.
+!.env.example
 
 # auto-written dev admin credentials (scripts/initialize.js) — never commit
 .admin-credentials.local

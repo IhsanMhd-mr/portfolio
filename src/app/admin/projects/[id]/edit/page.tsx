@@ -7,6 +7,7 @@ import PendingButton from "@/components/ui/PendingButton";
 import { updateProjectAction } from "../../actions";
 import GalleryManager from "@/components/admin/projects/GalleryManager";
 import TechnologyPicker from "@/components/admin/TechnologyPicker";
+import { TechnologyService } from "@/services/technology.service";
 
 const MediaPickerModal = dynamic(() => import("@/components/admin/MediaPickerModal"));
 
@@ -96,13 +97,9 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
     const coverImageId = formData.get("coverImageId") as string || null;
     const architectureImageId = formData.get("architectureImageId") as string || null;
 
-    // Parse technology selections
-    const selectedTechIds: string[] = [];
-    allTechs.forEach((t) => {
-      if (formData.get(`tech_${t.id}`) === "on") {
-        selectedTechIds.push(t.id);
-      }
-    });
+    // Read from the submitted form, not from allTechs — the picker can create a
+    // skill inline, and that one is absent from the server-rendered list.
+    const selectedTechIds = await TechnologyService.resolveSelectedIds(formData);
 
     // Parse gallery selections
     const gallery: { mediaId: string; caption?: string }[] = [];

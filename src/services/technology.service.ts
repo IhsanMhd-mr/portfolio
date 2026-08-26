@@ -17,6 +17,37 @@ export interface TechnologyInput {
 
 export class TechnologyService {
   /**
+   * Resolves the `tech_<id>` checkboxes in a submitted form to a validated list
+   * of technology ids.
+   *
+   * Read the ids out of the SUBMITTED FORM, not out of the technology list the
+   * page was rendered with. TechnologyPicker can create a skill inline (POST
+   * /api/technologies) and immediately render a `tech_<newId>` checkbox for it.
+   * The server-rendered list predates that skill, so iterating it silently
+   * dropped any newly-added skill on save — the user ticked it, the form
+   * carried it, and it never got linked.
+   *
+   * That list was also acting as an implicit allowlist, so with it gone the ids
+   * are re-validated here against live, non-deleted rows. Client-supplied keys
+   * therefore cannot link a soft-deleted technology or a fabricated id (which
+   * would otherwise surface as a foreign-key error at insert time).
+   */
+  static async resolveSelectedIds(formData: FormData): Promise<string[]> {
+    const PREFIX = "tech_";
+    const submitted: string[] = [];
+    for (const [key, value] of formData.entries()) {
+      if (key.startsWith(PREFIX) && value === "on") submitted.push(key.slice(PREFIX.length));
+    }
+    if (submitted.length === 0) return [];
+
+    const live = await db.technology.findMany({
+      where: { id: { in: submitted }, deletedAt: null },
+      select: { id: true },
+    });
+    return live.map((t) => t.id);
+  }
+
+  /**
    * Create a new technology with its DRAFT version
    */
   static async createTechnology(
