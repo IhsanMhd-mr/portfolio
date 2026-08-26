@@ -1,11 +1,9 @@
-import db from "@/lib/database";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { revalidatePath } from "next/cache";
 import { ArrowLeft, Save, Navigation } from "lucide-react";
 import PendingButton from "@/components/ui/PendingButton";
-import { getValidatedOwner } from "@/lib/require-admin";
 import { NavItemService } from "@/services/nav-item.service";
+import { updateNavItemAction } from "../../actions";
 
 const inputCls =
   "w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-inset)] focus:outline-none focus:border-[var(--a-primary)]";
@@ -18,29 +16,16 @@ export default async function EditNavItemPage({ params }: EditNavItemPageProps) 
   const { id } = await params;
 
   // Nav items are unversioned — edits apply immediately.
-  const item = await db.navItem.findUnique({ where: { id } });
+  const item = await NavItemService.getById(id);
   if (!item) notFound();
 
   async function handleUpdate(formData: FormData) {
     "use server";
-    const owner = await getValidatedOwner();
-    if (!owner) return;
-
-    const label = String(formData.get("label") || "").trim().slice(0, 60);
-    const target = String(formData.get("target") || "").trim().slice(0, 200);
-    // Route or hash only — no external URLs in the primary nav, matching the
-    // same guard on the create path.
-    if (!label || !target || !/^[/#]/.test(target)) return;
-
-    await NavItemService.update(
-      id,
-      { label, target },
-      { actorId: owner.userId, loginMethod: owner.loginMethod, loginAccountId: owner.loginAccountId }
-    );
-
-    revalidatePath("/admin/navigation");
-    revalidatePath("/");
-    redirect("/admin/navigation");
+    const result = await updateNavItemAction(id, {
+      label: String(formData.get("label") || ""),
+      target: String(formData.get("target") || ""),
+    });
+    if (result.success) redirect("/admin/navigation");
   }
 
   return (

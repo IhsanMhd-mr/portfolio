@@ -1,12 +1,10 @@
-import db from "@/lib/database";
 import dynamic from "next/dynamic";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { revalidatePath } from "next/cache";
 import { ArrowLeft, Save, Award } from "lucide-react";
 import PendingButton from "@/components/ui/PendingButton";
-import { getValidatedOwner } from "@/lib/require-admin";
 import { CertificationService } from "@/services/certification.service";
+import { updateCertificationAction } from "../../actions";
 
 const MediaPickerModal = dynamic(() => import("@/components/admin/MediaPickerModal"));
 
@@ -26,41 +24,23 @@ export default async function EditCertificationPage({ params }: EditCertificatio
 
   // Certifications are unversioned — edits apply immediately, matching the
   // create flow on the list page.
-  const cert = await db.certification.findUnique({
-    where: { id },
-    include: { media: { select: { filename: true, url: true } } },
-  });
+  const cert = await CertificationService.getById(id);
 
   if (!cert) notFound();
 
   async function handleUpdate(formData: FormData) {
     "use server";
-    const owner = await getValidatedOwner();
-    if (!owner) return;
-
-    const title = String(formData.get("title") || "").trim();
-    const issuer = String(formData.get("issuer") || "").trim();
-    if (!title || !issuer) return;
-
-    const dateRaw = String(formData.get("issueDate") || "");
-
-    await CertificationService.update(
-      id,
-      {
-        title: title.slice(0, 160),
-        issuer: issuer.slice(0, 160),
-        issueDate: dateRaw ? new Date(dateRaw) : null,
-        description: String(formData.get("description") || "").trim().slice(0, 2000) || null,
-        credentialId: String(formData.get("credentialId") || "").trim().slice(0, 120) || null,
-        credentialUrl: String(formData.get("credentialUrl") || "").trim().slice(0, 2000) || null,
-        mediaId: String(formData.get("mediaId") || "") || null,
-      },
-      { actorId: owner.userId, loginMethod: owner.loginMethod, loginAccountId: owner.loginAccountId }
-    );
-
-    revalidatePath("/admin/certifications");
-    revalidatePath("/");
-    redirect("/admin/certifications");
+    const result = await updateCertificationAction(id, {
+      title: String(formData.get("title") || ""),
+      issuer: String(formData.get("issuer") || ""),
+      issueDate: String(formData.get("issueDate") || ""),
+      description: String(formData.get("description") || ""),
+      credentialId: String(formData.get("credentialId") || ""),
+      credentialUrl: String(formData.get("credentialUrl") || ""),
+      mediaId: String(formData.get("mediaId") || ""),
+    });
+    // Stay on the form when validation fails, so the value is not lost.
+    if (result.success) redirect("/admin/certifications");
   }
 
   return (

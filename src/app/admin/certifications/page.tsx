@@ -1,9 +1,8 @@
-import { requireAdmin, getValidatedOwner } from "@/lib/require-admin";
+import { requireAdmin } from "@/lib/require-admin";
+import { createCertificationAction, certificationRowAction } from "./actions";
 import { CertificationService } from "@/services/certification.service";
-import db from "@/lib/database";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { revalidatePath } from "next/cache";
 import { Award, Trash2, Eye, EyeOff, ArrowUp, ArrowDown, Edit } from "lucide-react";
 import PendingButton from "@/components/ui/PendingButton";
 
@@ -22,47 +21,24 @@ export default async function AdminCertificationsPage() {
 
   async function createAction(formData: FormData) {
     "use server";
-    const owner = await getValidatedOwner();
-    if (!owner) return;
-    const title = String(formData.get("title") || "").trim();
-    const issuer = String(formData.get("issuer") || "").trim();
-    if (!title || !issuer) return;
-    const dateRaw = String(formData.get("issueDate") || "");
-    await CertificationService.create(
-      {
-        title: title.slice(0, 160),
-        issuer: issuer.slice(0, 160),
-        issueDate: dateRaw ? new Date(dateRaw) : null,
-        description: String(formData.get("description") || "").trim().slice(0, 2000) || null,
-        credentialId: String(formData.get("credentialId") || "").trim().slice(0, 120) || null,
-        credentialUrl: String(formData.get("credentialUrl") || "").trim().slice(0, 2000) || null,
-        mediaId: String(formData.get("mediaId") || "") || null,
-      },
-      { actorId: owner.userId, loginMethod: owner.loginMethod, loginAccountId: owner.loginAccountId }
-    );
-    revalidatePath("/admin/certifications");
-    revalidatePath("/");
+    // Auth, validation, persistence and revalidation all live in the action.
+    await createCertificationAction({
+      title: String(formData.get("title") || ""),
+      issuer: String(formData.get("issuer") || ""),
+      issueDate: String(formData.get("issueDate") || ""),
+      description: String(formData.get("description") || ""),
+      credentialId: String(formData.get("credentialId") || ""),
+      credentialUrl: String(formData.get("credentialUrl") || ""),
+      mediaId: String(formData.get("mediaId") || ""),
+    });
   }
 
   async function rowAction(formData: FormData) {
     "use server";
-    const owner = await getValidatedOwner();
-    if (!owner) return;
-    const ctx = { actorId: owner.userId, loginMethod: owner.loginMethod, loginAccountId: owner.loginAccountId };
-    const id = String(formData.get("id") || "");
-    const op = String(formData.get("op") || "");
-
-    if (op === "delete") {
-      await CertificationService.remove(id, ctx);
-    } else if (op === "toggle") {
-      const current = await db.certification.findUnique({ where: { id } });
-      if (!current) return;
-      await CertificationService.update(id, { title: current.title, issuer: current.issuer, visible: !current.visible }, ctx);
-    } else if (op === "up" || op === "down") {
-      await CertificationService.moveOrder(id, op, ctx);
-    }
-    revalidatePath("/admin/certifications");
-    revalidatePath("/");
+    await certificationRowAction(
+      String(formData.get("id") || ""),
+      String(formData.get("op") || "") as "delete" | "toggle" | "up" | "down"
+    );
   }
 
   return (
