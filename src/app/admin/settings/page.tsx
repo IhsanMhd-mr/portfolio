@@ -1,76 +1,38 @@
-import db from "@/lib/database";
 import { requireAdmin } from "@/lib/require-admin";
-import { revalidatePath } from "next/cache";
+import { SiteProfileService } from "@/services/site-profile.service";
+import { updateSettingsAction } from "./actions";
 import { Settings, Save } from "lucide-react";
 import PendingButton from "@/components/ui/PendingButton";
 
 export default async function AdminSettingsPage() {
-  let profile = await db.siteProfile.findFirst();
+  await requireAdmin("/admin/settings");
+  const profile = await SiteProfileService.getOrCreate();
 
-  if (!profile) {
-    profile = await db.siteProfile.create({
-      // Bootstrap an EMPTY profile. These columns are NOT NULL so they must be
-      // written, but "" is what the public site treats as absent — it renders
-      // nothing rather than publishing a fictional identity and an unowned
-      // email address that the owner never entered.
-      data: {
-        fullName: "",
-        logoText: "",
-        title: "",
-        aboutBio: "",
-        contactEmail: "",
-      },
-    });
-  }
-
-  // Server action to update settings
+  /**
+   * Thin wrapper: unpack the form, hand it to the action.
+   *
+   * The action owns auth, Zod validation, persistence and
+   * revalidation. This used to be fourteen `formData.get() as string`
+   * casts feeding a Prisma update inline.
+   */
   async function updateProfile(formData: FormData) {
     "use server";
-    // Server Actions are independently invocable POST endpoints — the admin
-    // layout guards page RENDERING, not this. Without its own check, anyone
-    // able to reach the action id could invoke it unauthenticated.
-    await requireAdmin();
-    const id = formData.get("id") as string;
-    const fullName = formData.get("fullName") as string;
-    const logoText = formData.get("logoText") as string;
-    const title = formData.get("title") as string;
-    const tagline = formData.get("tagline") as string;
-    const contactEmail = formData.get("contactEmail") as string;
-    const locationText = formData.get("locationText") as string;
-    const availabilityStatus = formData.get("availabilityStatus") as string;
-    const heroIntro = formData.get("heroIntro") as string;
-    const aboutBio = formData.get("aboutBio") as string;
-    const technicalInterests = formData.get("technicalInterests") as string;
-    const developmentApproach = formData.get("developmentApproach") as string;
-    const currentGoals = formData.get("currentGoals") as string;
-    const defaultTheme = formData.get("defaultTheme") as string;
-
-    await db.siteProfile.update({
-      where: { id },
-      data: {
-        fullName,
-        logoText,
-        title,
-        tagline,
-        contactEmail,
-        locationText,
-        availabilityStatus,
-        heroIntro,
-        aboutBio,
-        technicalInterests,
-        developmentApproach,
-        currentGoals,
-        defaultTheme,
-      },
+    const value = (key: string) => (formData.get(key) as string | null) ?? undefined;
+    await updateSettingsAction({
+      fullName: value("fullName"),
+      logoText: value("logoText"),
+      title: value("title"),
+      tagline: value("tagline"),
+      contactEmail: value("contactEmail"),
+      locationText: value("locationText"),
+      availabilityStatus: value("availabilityStatus"),
+      heroIntro: value("heroIntro"),
+      aboutBio: value("aboutBio"),
+      technicalInterests: value("technicalInterests"),
+      developmentApproach: value("developmentApproach"),
+      currentGoals: value("currentGoals"),
+      defaultTheme: value("defaultTheme"),
     });
-
-    // Mark changes on page
-    await db.page.update({
-      where: { key: "home" },
-      data: { hasUnpublishedChanges: true },
-    });
-
-    revalidatePath("/admin/settings");
   }
 
   return (

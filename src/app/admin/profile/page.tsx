@@ -1,4 +1,5 @@
-import db from "@/lib/database";
+import { SiteProfileService } from "@/services/site-profile.service";
+import { SocialLinkService } from "@/services/social-link.service";
 import dynamic from "next/dynamic";
 import { requireAdmin } from "@/lib/require-admin";
 import ProfileForm from "@/components/admin/profile/ProfileForm";
@@ -12,26 +13,8 @@ export const metadata = { title: "Profile & Social Handles — Admin" };
 export default async function AdminProfilePage() {
   await requireAdmin("/admin/profile");
 
-  let profile = await db.siteProfile.findFirst({
-    include: { profileImage: true, cvFile: true },
-  });
-
-  if (!profile) {
-    profile = await db.siteProfile.create({
-      // Bootstrap an EMPTY profile — see the matching comment in
-      // src/app/admin/settings/page.tsx. Never seed a fictional identity.
-      data: {
-        fullName: "",
-        logoText: "",
-        title: "",
-        aboutBio: "",
-        contactEmail: "",
-      },
-      include: { profileImage: true, cvFile: true },
-    });
-  }
-
-  const socialHandles = await db.socialLink.findMany({ orderBy: { order: "asc" } });
+  const profile = await SiteProfileService.getOrCreateWithMedia();
+  const socialHandles = await SocialLinkService.list();
 
   return (
     <div className="space-y-8 max-w-4xl">
