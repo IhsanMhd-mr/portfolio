@@ -17,6 +17,49 @@ export interface EducationInput {
 }
 
 export class EducationService {
+  /**
+   * One page of DRAFT rows for the admin list.
+   *
+   * Queries the *Version table rather than the parent: `order` lives on the
+   * version, and Prisma cannot orderBy a to-many relation's field from the
+   * parent model, so sorting and pagination have to happen at this boundary
+   * to stay in the database rather than in memory.
+   */
+  static async listDraftPage(page: number, pageSize: number) {
+    const [total, drafts] = await Promise.all([
+      db.educationVersion.count({ where: { state: "DRAFT" } }),
+      db.educationVersion.findMany({
+        where: { state: "DRAFT" },
+        orderBy: [{ order: "asc" }, { id: "asc" }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: { education: true, logo: { select: { url: true } } },
+      }),
+    ]);
+
+    return {
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      items: drafts.map((draft) => ({ id: draft.education.id, draft })),
+    };
+  }
+
+  /** The DRAFT version for the editor. Null when missing or soft-deleted. */
+  static async getDraftById(id: string) {
+    const education = await db.education.findUnique({
+      where: { id },
+      include: {
+        versions: {
+          where: { state: "DRAFT" },
+          take: 1,
+          include: { logo: { select: { filename: true, url: true } } },
+        },
+      },
+    });
+    if (!education || education.deletedAt || !education.versions[0]) return null;
+    return { education, draft: education.versions[0] };
+  }
+
   static async createEducation(
     input: Partial<EducationInput>,
     auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }

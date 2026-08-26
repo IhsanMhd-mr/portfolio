@@ -1,11 +1,11 @@
-import db from "@/lib/database";
+import { ExperienceService } from "@/services/experience.service";
+import { TechnologyService } from "@/services/technology.service";
 import dynamic from "next/dynamic";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Save, Briefcase } from "lucide-react";
 import PendingButton from "@/components/ui/PendingButton";
 import TechnologyPicker from "@/components/admin/TechnologyPicker";
-import { TechnologyService } from "@/services/technology.service";
 import { updateExperienceAction } from "../../actions";
 
 const MediaPickerModal = dynamic(() => import("@/components/admin/MediaPickerModal"));
@@ -25,29 +25,14 @@ export default async function EditExperiencePage({ params }: EditExperiencePageP
   const { id } = await params;
 
   // Read the DRAFT version, plus the technology list for the skills checklist.
-  const [experience, allTechs] = await Promise.all([
-    db.experience.findUnique({
-      where: { id },
-      include: {
-        versions: {
-          where: { state: "DRAFT" },
-          take: 1,
-          include: { logo: { select: { filename: true, url: true } } },
-        },
-        technologies: { select: { technologyId: true } },
-      },
-    }),
-    db.technology.findMany({
-      where: { deletedAt: null },
-      include: { versions: { where: { state: "DRAFT" }, take: 1, orderBy: { createdAt: "desc" } } },
-    }),
+  const [found, allTechs] = await Promise.all([
+    ExperienceService.getDraftById(id),
+    TechnologyService.listForPicker(),
   ]);
 
-  if (!experience || experience.deletedAt) notFound();
-  const draft = experience.versions[0];
-  if (!draft) notFound();
+  if (!found) notFound();
+  const { experience, draft, linkedTechIds } = found;
 
-  const linkedTechIds = new Set(experience.technologies.map((t) => t.technologyId));
 
   async function handleUpdate(formData: FormData) {
     "use server";

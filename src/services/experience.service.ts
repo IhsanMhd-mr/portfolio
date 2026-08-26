@@ -19,6 +19,69 @@ export interface ExperienceInput {
 }
 
 export class ExperienceService {
+  /**
+   * One page of DRAFT rows for the admin list.
+   *
+   * Queries the *Version table rather than the parent: `order` lives on the
+   * version, and Prisma cannot orderBy a to-many relation's field from the
+   * parent model, so sorting and pagination have to happen at this boundary
+   * to stay in the database rather than in memory.
+   */
+  static async listDraftPage(page: number, pageSize: number) {
+    const [total, drafts] = await Promise.all([
+      db.experienceVersion.count({ where: { state: "DRAFT" } }),
+      db.experienceVersion.findMany({
+        where: { state: "DRAFT" },
+        orderBy: [{ order: "asc" }, { id: "asc" }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          logo: { select: { url: true } },
+          experience: {
+            include: {
+              technologies: {
+                include: {
+                  technology: { include: { versions: { where: { state: "DRAFT" }, take: 1 } } },
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      items: drafts.map((draft) => ({
+        id: draft.experience.id,
+        draft,
+        technologies: draft.experience.technologies,
+      })),
+    };
+  }
+
+  /** The DRAFT version plus its linked technology ids, for the editor. */
+  static async getDraftById(id: string) {
+    const experience = await db.experience.findUnique({
+      where: { id },
+      include: {
+        versions: {
+          where: { state: "DRAFT" },
+          take: 1,
+          include: { logo: { select: { filename: true, url: true } } },
+        },
+        technologies: { select: { technologyId: true } },
+      },
+    });
+    if (!experience || experience.deletedAt || !experience.versions[0]) return null;
+    return {
+      experience,
+      draft: experience.versions[0],
+      linkedTechIds: new Set(experience.technologies.map((t) => t.technologyId)),
+    };
+  }
+
   static async createExperience(
     input: Partial<ExperienceInput>,
     auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
