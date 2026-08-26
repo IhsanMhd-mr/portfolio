@@ -4,61 +4,54 @@ import { safeRequireAdmin } from "@/lib/require-admin";
 import { recordAudit } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { SectionGroupService } from "@/services/section-group.service";
+import {
+  computePublishDiff,
+  buildSectionsSnapshot,
+  PROMOTED_FIELDS,
+  PROMOTION_DEFAULTS,
+  pickPromoted,
+} from "@/services/publish-diff.service";
 
-// GET - Compile summary of differences between draft configuration and active live snapshot
+// GET - Real draft-vs-live difference (template, section snapshot, entity content)
 export async function GET(request: Request) {
-  const { context, response } = await safeRequireAdmin(request);
+  const { response } = await safeRequireAdmin(request);
   if (response) return response;
 
   try {
     const page = await db.page.findUnique({
       where: { key: "home" },
-      include: {
-        draftTemplate: true,
-        versions: { where: { isActive: true }, take: 1 },
-      },
+      select: { id: true, hasUnpublishedChanges: true },
     });
 
     if (!page) {
       return NextResponse.json({ error: "Page not found" }, { status: 404 });
     }
 
-    const draftTemplateName = page.draftTemplate?.name || "None";
-    const draftTemplateKey = page.draftTemplate?.key || "MODERN_GLASS";
-    // Same ordering algorithm used for preview/publish (Phase 5) — includes
-    // hidden groups here since this is an admin-facing diff summary, not
-    // the public render path.
-    const draftSections = await SectionGroupService.flattenOrdered(page.id, { visibleGroupsOnly: false });
-
-    const activeVersion = page.versions?.[0];
-    let publishedTemplateKey = "None";
-    let publishedSectionsCount = 0;
-    let hasTemplateDiff = false;
-    let hasSectionsCountDiff = false;
-
-    if (activeVersion) {
-      publishedTemplateKey = activeVersion.templateKey;
-      hasTemplateDiff = draftTemplateKey !== publishedTemplateKey;
-      const snapshot = typeof activeVersion.snapshot === "string"
-        ? JSON.parse(activeVersion.snapshot)
-        : activeVersion.snapshot;
-      if (Array.isArray(snapshot)) publishedSectionsCount = snapshot.length;
-      hasSectionsCountDiff = draftSections.length !== publishedSectionsCount;
-    } else {
-      hasTemplateDiff = true;
-      hasSectionsCountDiff = true;
+    const diff = await computePublishDiff("home");
+    if (!diff) {
+      return NextResponse.json({ error: "Page not found" }, { status: 404 });
     }
 
+    const anyChange = diff.hasTemplateDiff || diff.hasSectionsDiff || diff.hasContentDiff;
+
+    // Self-heal the sticky latch. `hasUnpublishedChanges` is set true by every
+    // service write and cleared only on publish, so an edit that was reverted
+    // (template A→B→A being the reported case) left it stuck true forever.
+    // Now that we can tell there is genuinely nothing to publish, clear it —
+    // this is also what drops the "unpublished changes" chip in the admin
+    // sidebar, which reads the same flag on every admin page load.
+    if (!anyChange && page.hasUnpublishedChanges) {
+      await db.page.update({ where: { id: page.id }, data: { hasUnpublishedChanges: false } });
+    }
+
+    // The admin-facing section list still shows hidden groups — it is a summary
+    // of what exists, not of what would ship.
+    const allSections = await SectionGroupService.flattenOrdered(page.id, { visibleGroupsOnly: false });
+
     return NextResponse.json({
-      hasUnpublishedChanges: page.hasUnpublishedChanges,
-      draftTemplate: draftTemplateName,
-      draftTemplateKey,
-      publishedTemplate: publishedTemplateKey,
-      hasTemplateDiff,
-      draftSectionsCount: draftSections.length,
-      publishedSectionsCount,
-      hasSectionsCountDiff,
-      sectionsList: draftSections.map((s) => ({
+      ...diff,
+      hasUnpublishedChanges: anyChange,
+      sectionsList: allSections.map((s) => ({
         id: s.id,
         label: s.internalLabel,
         type: s.type,
@@ -99,17 +92,9 @@ export async function POST(request: Request) {
     // been excluded from what actually ships (their own `visible` flag is
     // still carried per-entry for the admin diff view / potential rollback).
     const orderedSections = await SectionGroupService.flattenOrdered(page.id, { visibleGroupsOnly: true });
-    const sectionsSnapshot = orderedSections.map((s, index) => ({
-      id: s.id,
-      type: s.type,
-      internalLabel: s.internalLabel,
-      order: index, // final render position — array order is authoritative, not the per-container DB value
-      visible: s.visible,
-      settings: typeof s.settings === "string" ? JSON.parse(s.settings) : s.settings || {},
-      animationPresetSlug: s.animationPresetSlug,
-      animationDelay: s.animationDelay,
-      animationStagger: s.animationStagger,
-    }));
+    // buildSectionsSnapshot is shared with the GET diff, so the snapshot we
+    // write is byte-for-byte the thing the diff compared against.
+    const sectionsSnapshot = buildSectionsSnapshot(orderedSections);
 
     const auditCtx = {
       actorId: context.userId,
@@ -126,32 +111,7 @@ export async function POST(request: Request) {
         const pub = await tx.projectVersion.findFirst({
           where: { projectId: draft.projectId, state: "PUBLISHED" },
         });
-        const data = {
-          title: draft.title,
-          summary: draft.summary,
-          category: draft.category,
-          startDate: draft.startDate,
-          endDate: draft.endDate,
-          myRole: draft.myRole,
-          problem: draft.problem,
-          solution: draft.solution,
-          mainFeatures: draft.mainFeatures,
-          systemArchitecture: draft.systemArchitecture,
-          developmentProcess: draft.developmentProcess,
-          challenges: draft.challenges,
-          solutionsDetail: draft.solutionsDetail,
-          testing: draft.testing,
-          results: draft.results,
-          lessonsLearned: draft.lessonsLearned,
-          liveDemoUrl: draft.liveDemoUrl,
-          githubUrl: draft.githubUrl,
-          reportUrl: draft.reportUrl,
-          thumbnailId: draft.thumbnailId,
-          coverImageId: draft.coverImageId,
-          architectureImageId: draft.architectureImageId,
-          visible: draft.visible,
-          manualOrder: draft.manualOrder,
-        };
+        const data = pickPromoted(draft, PROMOTED_FIELDS.project);
         if (pub) {
           await tx.projectVersion.update({ where: { id: pub.id }, data });
         } else {
@@ -169,18 +129,7 @@ export async function POST(request: Request) {
         const pub = await tx.technologyVersion.findFirst({
           where: { technologyId: draft.technologyId, state: "PUBLISHED" },
         });
-        const data = {
-          name: draft.name,
-          category: draft.category,
-          experienceLabel: draft.experienceLabel,
-          description: draft.description,
-          logoId: draft.logoId,
-          showInStack: draft.showInStack,
-          showInGame: draft.showInGame,
-          showOnResume: draft.showOnResume,
-          visible: draft.visible,
-          order: draft.order,
-        };
+        const data = pickPromoted(draft, PROMOTED_FIELDS.technology);
         if (pub) {
           await tx.technologyVersion.update({ where: { id: pub.id }, data });
         } else {
@@ -198,17 +147,11 @@ export async function POST(request: Request) {
         const pub = await tx.timelineEntryVersion.findFirst({
           where: { timelineEntryId: draft.timelineEntryId, state: "PUBLISHED" },
         });
+        // externalLinks is a non-nullable Json column; PROMOTION_DEFAULTS holds
+        // the same coercion the diff applies before comparing.
         const data = {
-          title: draft.title,
-          entryType: draft.entryType,
-          startDate: draft.startDate,
-          endDate: draft.endDate,
-          description: draft.description,
-          status: draft.status,
-          externalLinks: draft.externalLinks || {},
-          visible: draft.visible,
-          order: draft.order,
-          imageId: draft.imageId,
+          ...pickPromoted(draft, PROMOTED_FIELDS.timelineEntry),
+          externalLinks: draft.externalLinks ?? (PROMOTION_DEFAULTS.timelineEntry.externalLinks as object),
         };
         if (pub) {
           await tx.timelineEntryVersion.update({ where: { id: pub.id }, data });
@@ -227,20 +170,7 @@ export async function POST(request: Request) {
         const pub = await tx.educationVersion.findFirst({
           where: { educationId: draft.educationId, state: "PUBLISHED" },
         });
-        const data = {
-          institution: draft.institution,
-          qualification: draft.qualification,
-          startDate: draft.startDate,
-          endDate: draft.endDate,
-          isCurrent: draft.isCurrent,
-          grade: draft.grade,
-          description: draft.description,
-          modules: draft.modules,
-          showOnResume: draft.showOnResume,
-          visible: draft.visible,
-          order: draft.order,
-          logoId: draft.logoId,
-        };
+        const data = pickPromoted(draft, PROMOTED_FIELDS.education);
         if (pub) {
           await tx.educationVersion.update({ where: { id: pub.id }, data });
         } else {
@@ -258,20 +188,10 @@ export async function POST(request: Request) {
         const pub = await tx.experienceVersion.findFirst({
           where: { experienceId: draft.experienceId, state: "PUBLISHED" },
         });
+        // responsibilities is a non-nullable Json column; see PROMOTION_DEFAULTS.
         const data = {
-          organization: draft.organization,
-          role: draft.role,
-          startDate: draft.startDate,
-          endDate: draft.endDate,
-          isCurrent: draft.isCurrent,
-          description: draft.description,
-          responsibilities: draft.responsibilities || [],
-          locationText: draft.locationText,
-          workType: draft.workType,
-          showOnResume: draft.showOnResume,
-          visible: draft.visible,
-          order: draft.order,
-          logoId: draft.logoId,
+          ...pickPromoted(draft, PROMOTED_FIELDS.experience),
+          responsibilities: draft.responsibilities ?? (PROMOTION_DEFAULTS.experience.responsibilities as object),
         };
         if (pub) {
           await tx.experienceVersion.update({ where: { id: pub.id }, data });

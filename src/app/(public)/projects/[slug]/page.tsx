@@ -3,7 +3,6 @@ import { cache } from "react";
 import db from "@/lib/database";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
-import { resolvePreviewMode } from "@/lib/preview-mode";
 import Link from "next/link";
 import { ArrowLeft, Calendar, User, CheckCircle2, Globe, FileText, ChevronRight, Image as ImageIcon } from "lucide-react";
 import { Github } from "@/components/public/Icons";
@@ -11,6 +10,9 @@ import { Github } from "@/components/public/Icons";
 interface ProjectDetailPageProps {
   params: Promise<{ slug: string }>;
 }
+
+/** The public site only ever renders published content. */
+const PUBLIC_STATE = "PUBLISHED" as const;
 
 /**
  * The project row plus every relation the page body needs, fetched once per
@@ -40,23 +42,15 @@ const getProjectBySlug = cache(async (slug: string, state: "DRAFT" | "PUBLISHED"
 export async function generateMetadata({ params }: ProjectDetailPageProps): Promise<Metadata> {
   const { slug } = await params;
 
-  // Session-validated, not cookie-trusted — see lib/preview-mode.ts
-  const isPreview = await resolvePreviewMode();
-  const state = isPreview ? "DRAFT" : "PUBLISHED";
-
   // Mirrors the page body's lookup + visibility rules below, sharing the same
   // request-cached query.
-  const project = await getProjectBySlug(slug, state);
+  const project = await getProjectBySlug(slug, PUBLIC_STATE);
 
   if (!project || project.deletedAt || !project.versions[0]) {
     notFound();
   }
 
   const pub = project.versions[0];
-
-  if (pub.state === "DRAFT" && !isPreview) {
-    notFound();
-  }
 
   const description = pub.summary || `Case study: ${pub.title}`;
   const coverAsset = pub.coverImageId
@@ -78,25 +72,18 @@ export async function generateMetadata({ params }: ProjectDetailPageProps): Prom
 export default async function ProjectDetailPage({ params }: ProjectDetailPageProps) {
   const { slug } = await params;
   
-  // Session-validated, not cookie-trusted — see lib/preview-mode.ts
-  const isPreview = await resolvePreviewMode();
-  const state = isPreview ? "DRAFT" : "PUBLISHED";
-
   // Find project with active state version (request-cached — generateMetadata
   // above already resolved this exact query)
-  const project = await getProjectBySlug(slug, state);
+  const project = await getProjectBySlug(slug, PUBLIC_STATE);
 
-  // Verify project existence and visibility
+  // Verify project existence and visibility. Drafts can no longer be selected
+  // at all — the query is pinned to PUBLISHED — so an unpublished project
+  // simply 404s here.
   if (!project || project.deletedAt || !project.versions[0]) {
     notFound();
   }
 
   const pub = project.versions[0];
-
-  // Hide draft projects from general public
-  if (pub.state === "DRAFT" && !isPreview) {
-    notFound();
-  }
 
   // Load related projects
   const relatedProjectsRaw = await db.project.findMany({
@@ -105,14 +92,14 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
       deletedAt: null,
       versions: {
         some: {
-          state,
+          state: PUBLIC_STATE,
           category: pub.category,
-          visible: state === "DRAFT" ? undefined : true,
+          visible: true,
         },
       },
     },
     include: {
-      versions: { where: { state } },
+      versions: { where: { state: PUBLIC_STATE } },
     },
     take: 3,
   });
@@ -232,7 +219,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
             <h4 className="text-mono-label text-[var(--ink-faint)]" style={{ fontSize: "11px" }}>Technology Worked With</h4>
             <div className="flex flex-wrap gap-2">
               {project.technologies.map((t) => {
-                const name = t.technology.versions.find((v) => v.state === state)?.name || t.technology.slug;
+                const name = t.technology.versions.find((v) => v.state === PUBLIC_STATE)?.name || t.technology.slug;
                 return (
                   <span 
                     key={t.technology.id} 

@@ -7,10 +7,9 @@ import { text, initials } from "@/lib/text";
 interface HeroSectionProps {
   profile: any;
   settings?: any;
-  isPreview?: boolean;
 }
 
-export default function HeroSection({ profile, settings, isPreview = false }: HeroSectionProps) {
+export default function HeroSection({ profile, settings }: HeroSectionProps) {
   // No fallback prose: an empty field renders nothing at all. See src/lib/text.ts.
   const title = text(settings?.title) || text(profile?.title);
   const fullName = text(settings?.fullName) || text(profile?.fullName);
@@ -108,13 +107,11 @@ export default function HeroSection({ profile, settings, isPreview = false }: He
               />
             ) : (
               /* Initials come from the real name — the old "JD" default was the
-                 initials of a fictional "Jane Doe" placeholder. The upload hint
-                 is authoring guidance, so it shows only in admin preview. */
+                 initials of a fictional "Jane Doe" placeholder. */
               <div className="w-full h-full flex flex-col justify-center items-center text-[var(--ink-faint)] p-6 text-center">
                 <span className="text-6xl font-bold font-display opacity-20 mb-4">
                   {text(profile?.logoText) || initials(fullName)}
                 </span>
-                {isPreview && <p className="text-small">Upload profile image in Media / Settings</p>}
               </div>
             )}
           </div>

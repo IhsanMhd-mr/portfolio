@@ -1,7 +1,7 @@
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import Link from "next/link";
 import { headers } from "next/headers";
-import { Eye, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { requireAdmin } from "@/lib/require-admin";
 import db from "@/lib/database";
 import ThemeToggle from "@/components/theme/theme-toggle";
@@ -134,14 +134,6 @@ export default async function AdminLayout({
 
             {/* Actions list — labels collapse to icon-only below md; "View Live Site" hides entirely below sm */}
             <div className="flex items-center gap-2">
-              <Link
-                href="/admin/preview"
-                prefetch={false}
-                className="flex items-center gap-1.5 text-xs font-semibold px-2 md:px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-[var(--a-soft)] hover:text-[var(--a-ink)] hover:border-[var(--a-ink)] transition-colors bg-[var(--a-surface)]"
-              >
-                <Eye size={14} />
-                <span className="hidden md:inline">Preview Draft</span>
-              </Link>
               <a
                 href="/"
                 target="_blank"

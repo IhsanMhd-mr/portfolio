@@ -49,12 +49,6 @@ export default function TemplateSummary({
 
       <div className="flex gap-2 pt-2 border-t border-solid border-[var(--a-line)]">
         <Link
-          href="/admin/preview"
-          className="flex-1 text-center text-xs font-semibold px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-[var(--a-soft)] hover:text-[var(--a-ink)] transition-colors bg-[var(--a-surface)]"
-        >
-          Preview Template
-        </Link>
-        <Link
           href="/admin/templates"
           className="flex-1 text-center text-xs font-semibold px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-[var(--a-soft)] hover:text-[var(--a-ink)] transition-colors bg-[var(--a-surface)]"
         >

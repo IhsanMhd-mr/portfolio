@@ -5,15 +5,15 @@ import { SectionGroupService } from "./section-group.service";
 /**
  * PublicContentService — the STABLE CORE of the public site.
  *
- * Owns the entire "what does a visitor (or previewing owner) see" resolution:
- * draft-vs-published version selection, visibility filtering, section snapshot
- * loading, and template-key resolution. Routes and layouts must not query the
- * database for public content directly — they call this service and render.
+ * Owns the entire "what does a visitor see" resolution: version selection,
+ * visibility filtering, section snapshot loading, and template-key resolution.
+ * Routes and layouts must not query the database for public content directly —
+ * they call this service and render.
  *
- * Contract: `isPreview` is the ONLY switch. true → DRAFT versions + draft
- * sections/template (already authorized upstream via the httpOnly preview
- * cookie set by an admin-only action); false → PUBLISHED versions + the
- * active PageVersion snapshot.
+ * Contract: the public site renders PUBLISHED content and nothing else —
+ * PUBLISHED entity versions plus the active PageVersion snapshot. There is no
+ * draft-preview path; the admin previews by publishing. Anything unpublished
+ * or `visible: false` is filtered out in SQL and can never reach a response.
  *
  * Every resolver here is wrapped in React `cache()`. Next.js runs
  * generateMetadata() and the page component as separate passes over the same
@@ -102,15 +102,14 @@ export class PublicContentService {
    * Full homepage dataset for the active template, resolved for the given
    * publish state.
    */
-  static getHomePageData = cache(async (isPreview: boolean): Promise<HomePageData> => {
-    const state = isPreview ? ("DRAFT" as const) : ("PUBLISHED" as const);
+  static getHomePageData = cache(async (): Promise<HomePageData> => {
+    const state = "PUBLISHED" as const;
 
     // Visibility is filtered in SQL rather than by a JS pass over every row.
-    // Preview intentionally keeps hidden rows so the owner can see them.
     // `@@unique([entityId, state])` guarantees at most one version per state,
     // so an entity whose only version is hidden simply comes back with an
     // empty `versions` array and is dropped by the `.filter()` passes below.
-    const versionWhere = isPreview ? { state } : { state, visible: true };
+    const versionWhere = { state, visible: true };
 
     const [
       profile,
@@ -238,11 +237,10 @@ export class PublicContentService {
           },
         },
       }),
-      // Certifications apply immediately (no draft state, like social links) —
-      // preview and published both see the same visible-filtered list.
+      // Certifications apply immediately (no draft state, like social links).
       // `media` is not selected: the section renders no certificate image.
       db.certification.findMany({
-        where: isPreview ? undefined : { visible: true },
+        where: { visible: true },
         orderBy: { order: "asc" },
       }),
       db.gameSettings.findFirst(),
@@ -284,8 +282,8 @@ export class PublicContentService {
       .filter((e) => e.organization);
     experience.sort((a, b) => (a.order || 0) - (b.order || 0));
 
-    const sections = await PublicContentService.resolveSections(isPreview);
-    const templateKey = await PublicContentService.resolveTemplateKey(isPreview);
+    const sections = await PublicContentService.resolveSections();
+    const templateKey = await PublicContentService.resolveTemplateKey();
 
     return {
       profile,
@@ -329,32 +327,27 @@ export class PublicContentService {
    * container (per group, and separately for the ungrouped bucket) rather
    * than page-wide.
    */
-  private static resolveSections = cache(async (isPreview: boolean): Promise<SectionData[]> => {
+  private static resolveSections = cache(async (): Promise<SectionData[]> => {
     let sections: SectionData[] = [];
     try {
       const page = await PublicContentService.getHomePageRecord();
       if (!page) return [];
 
-      if (isPreview) {
-        // Hidden groups behave like hidden sections: dropped in preview too
-        // (the trailing .filter(s.visible) below already does this for
-        // individually-hidden sections — group visibility must be consistent).
+      const activeVersion = page.versions?.[0];
+      if (activeVersion && activeVersion.snapshot) {
+        const snapshot =
+          typeof activeVersion.snapshot === "string"
+            ? JSON.parse(activeVersion.snapshot)
+            : activeVersion.snapshot;
+        if (Array.isArray(snapshot)) sections = snapshot;
+      } else {
+        // Fallback when no published version exists yet: derive the order live
+        // with the same algorithm the publish route bakes into the snapshot,
+        // filtered to visible groups. Hidden groups behave like hidden
+        // sections — the trailing .filter(s.visible) below handles the
+        // individually-hidden case, and group visibility must be consistent.
         const flattened = await SectionGroupService.flattenOrdered(page.id, { visibleGroupsOnly: true });
         sections = flattened.map(PublicContentService.toSectionData);
-      } else {
-        const activeVersion = page.versions?.[0];
-        if (activeVersion && activeVersion.snapshot) {
-          const snapshot =
-            typeof activeVersion.snapshot === "string"
-              ? JSON.parse(activeVersion.snapshot)
-              : activeVersion.snapshot;
-          if (Array.isArray(snapshot)) sections = snapshot;
-        } else {
-          // Fallback when no published version exists yet: use the same
-          // live-ordering algorithm as preview, filtered to visible groups.
-          const flattened = await SectionGroupService.flattenOrdered(page.id, { visibleGroupsOnly: true });
-          sections = flattened.map(PublicContentService.toSectionData);
-        }
       }
     } catch (error) {
       console.error("Failed to load sections:", error);
@@ -364,23 +357,20 @@ export class PublicContentService {
   });
 
   /**
-   * Active template: draft pointer in preview, published version key otherwise.
+   * Active template: the published version's key, falling back to the draft
+   * pointer when nothing has been published yet.
    * Public because the root layout needs the same value to stamp
    * `data-template` on <html>; it must resolve identically (and share the
    * cached page read) rather than reimplementing the lookup.
    */
-  static resolveTemplateKey = cache(async (isPreview: boolean): Promise<string> => {
+  static resolveTemplateKey = cache(async (): Promise<string> => {
     let templateKey = "MODERN_GLASS";
     try {
       const page = await PublicContentService.getHomePageRecord();
-      if (isPreview) {
-        if (page?.draftTemplate?.key) templateKey = page.draftTemplate.key;
-      } else {
-        if (page?.versions?.[0]?.templateKey) {
-          templateKey = page.versions[0].templateKey;
-        } else if (page?.draftTemplate?.key) {
-          templateKey = page.draftTemplate.key;
-        }
+      if (page?.versions?.[0]?.templateKey) {
+        templateKey = page.versions[0].templateKey;
+      } else if (page?.draftTemplate?.key) {
+        templateKey = page.draftTemplate.key;
       }
     } catch (error) {
       console.error("Failed to load template:", error);

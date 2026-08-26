@@ -1,10 +1,9 @@
 interface TechnologyStackSectionProps {
   technologies: any[];
   settings?: any;
-  isPreview?: boolean;
 }
 
-export default function TechnologyStackSection({ technologies, settings, isPreview = false }: TechnologyStackSectionProps) {
+export default function TechnologyStackSection({ technologies, settings }: TechnologyStackSectionProps) {
   // Option to filter by ID list if configured in builder
   const selectedIds = settings?.selectedTechIds;
   const filtered = Array.isArray(selectedIds) && selectedIds.length > 0

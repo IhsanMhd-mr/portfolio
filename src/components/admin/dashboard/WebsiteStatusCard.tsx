@@ -60,12 +60,6 @@ export default function WebsiteStatusCard({
 
       <div className="flex gap-3 pt-2">
         <Link
-          href="/admin/preview"
-          className="flex-1 text-center text-xs font-semibold px-4 py-2 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-[var(--a-soft)] hover:text-[var(--a-ink)] hover:border-[var(--a-ink)] transition-colors bg-[var(--a-surface)]"
-        >
-          Preview Draft
-        </Link>
-        <Link
           href="/admin/publish-confirmation"
           className={`flex-1 text-center text-xs font-semibold px-4 py-2 rounded-[var(--a-r-sm)] transition-colors ${
             hasChanges

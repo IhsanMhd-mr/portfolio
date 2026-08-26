@@ -2,10 +2,9 @@ import React from "react";
 
 interface CustomContentSectionProps {
   settings?: any;
-  isPreview?: boolean;
 }
 
-export default function CustomContentSection({ settings, isPreview = false }: CustomContentSectionProps) {
+export default function CustomContentSection({ settings }: CustomContentSectionProps) {
   const heading = settings?.heading || "Custom Highlight";
   const subheading = settings?.subheading || "Additional information";
   const bodyText = settings?.bodyText || "Add customized messaging blocks detailing special accomplishments, project notes, or visual highlights from the admin Page Builder.";

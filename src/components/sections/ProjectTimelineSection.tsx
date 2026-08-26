@@ -5,10 +5,9 @@ import { formatMonthYear } from "@/lib/format-date";
 interface ProjectTimelineSectionProps {
   timelineEntries: any[];
   settings?: any;
-  isPreview?: boolean;
 }
 
-export default function ProjectTimelineSection({ timelineEntries, settings, isPreview = false }: ProjectTimelineSectionProps) {
+export default function ProjectTimelineSection({ timelineEntries, settings }: ProjectTimelineSectionProps) {
   // Option to filter by ID list if configured
   const selectedIds = settings?.selectedTimelineIds;
   let items = Array.isArray(selectedIds) && selectedIds.length > 0

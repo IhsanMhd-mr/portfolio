@@ -19,9 +19,9 @@ export default edgeAuth((req) => {
   // Forward useful headers to Server Components
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-pathname", pathname);
-  // NOTE: an `x-preview` header used to be set here from `?preview=true`. It had
-  // no consumers, and preview is now authorized against the session in
-  // lib/preview-mode.ts — a URL param must never grant access to draft content.
+  // NOTE: an `x-preview` header used to be set here from `?preview=true`. The
+  // draft-preview feature has since been removed entirely — the public site
+  // renders published content only, so there is nothing for it to unlock.
 
   const isLogin = pathname === "/admin/login";
   const isOnAdmin = pathname.startsWith("/admin");

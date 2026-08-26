@@ -5,10 +5,9 @@ import { Github } from "@/components/public/Icons";
 interface FeaturedProjectsSectionProps {
   projects: any[];
   settings?: any;
-  isPreview?: boolean;
 }
 
-export default function FeaturedProjectsSection({ projects, settings, isPreview = false }: FeaturedProjectsSectionProps) {
+export default function FeaturedProjectsSection({ projects, settings }: FeaturedProjectsSectionProps) {
   const selectedIds = settings?.selectedProjectIds;
   const featured = Array.isArray(selectedIds) && selectedIds.length > 0
     ? projects.filter(p => selectedIds.includes(p.id))

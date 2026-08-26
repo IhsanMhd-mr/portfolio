@@ -114,7 +114,6 @@ export const metadata: Metadata = {
    ========================================================================== */
 
 import { headers } from "next/headers";
-import { resolvePreviewMode } from "@/lib/preview-mode";
 import { PublicContentService } from "@/services/public-content.service";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 
@@ -123,9 +122,6 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Session-validated, not cookie-trusted — see lib/preview-mode.ts
-  const isPreview = await resolvePreviewMode();
-
   /**
    * The admin zone does not use the public template.
    * `[data-admin="true"]` (src/styles/admin.css) redefines every template token
@@ -169,7 +165,7 @@ export default async function RootLayout({
     // third independent copy of the same two queries per render.
     // getSiteProfile() is always needed — admin reads defaultTheme from it.
     const [resolvedTemplateKey, siteProfile] = await Promise.all([
-      skipTemplate ? Promise.resolve(templateKey) : PublicContentService.resolveTemplateKey(isPreview),
+      skipTemplate ? Promise.resolve(templateKey) : PublicContentService.resolveTemplateKey(),
       PublicContentService.getSiteProfile(),
     ]);
     templateKey = resolvedTemplateKey;

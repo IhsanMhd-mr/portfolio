@@ -53,14 +53,11 @@ export default async function PageBuilderPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-[var(--a-ink)]">Page Builder</h1>
           <p className="text-sm text-[var(--a-soft)] mt-1.5">
-            Organize your homepage into groups, add and reorder modules, then preview and publish.
+            Organize your homepage into groups, add and reorder modules, then publish.
             Changes here are draft-only until published.
           </p>
         </div>
         <div className="flex gap-2 shrink-0">
-          <a href="/admin/preview" className="px-4 py-2 text-xs font-semibold rounded-[var(--a-r-sm)] border border-solid border-[var(--a-line)] text-[var(--a-soft)] hover:text-[var(--a-ink)] bg-[var(--a-surface)] no-underline">
-            Preview
-          </a>
           <a href="/admin/publish-confirmation" className="px-4 py-2 text-xs font-semibold rounded-[var(--a-r-sm)] bg-[var(--a-primary)] hover:bg-[var(--a-primary-hover)] text-white no-underline">
             Publish
           </a>

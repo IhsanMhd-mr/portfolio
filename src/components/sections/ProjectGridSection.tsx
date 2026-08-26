@@ -5,10 +5,9 @@ import { Github } from "@/components/public/Icons";
 interface ProjectGridSectionProps {
   projects: any[];
   settings?: any;
-  isPreview?: boolean;
 }
 
-export default function ProjectGridSection({ projects, settings, isPreview = false }: ProjectGridSectionProps) {
+export default function ProjectGridSection({ projects, settings }: ProjectGridSectionProps) {
   const selectedIds = settings?.selectedProjectIds;
   let items = Array.isArray(selectedIds) && selectedIds.length > 0
     ? projects.filter(p => selectedIds.includes(p.id))

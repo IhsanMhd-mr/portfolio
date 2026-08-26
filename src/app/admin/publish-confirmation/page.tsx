@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { UploadCloud, CheckCircle, ArrowRight, Eye, LayoutGrid } from "lucide-react";
+import { UploadCloud, CheckCircle, ArrowRight, LayoutGrid } from "lucide-react";
 import Link from "next/link";
 
 interface PublishDiff {
@@ -12,7 +12,9 @@ interface PublishDiff {
   hasTemplateDiff: boolean;
   draftSectionsCount: number;
   publishedSectionsCount: number;
-  hasSectionsCountDiff: boolean;
+  hasSectionsDiff: boolean;
+  hasContentDiff: boolean;
+  changedEntities: { type: string; label: string }[];
   sectionsList: {
     id: string;
     label: string;
@@ -115,7 +117,30 @@ export default function PublishConfirmationPage() {
     );
   }
 
-  const pendingChanges = diff?.hasUnpublishedChanges || diff?.hasTemplateDiff || diff?.hasSectionsCountDiff;
+  // A real draft-vs-live comparison, not the sticky `hasUnpublishedChanges`
+  // latch — that flag stayed true after an edit was reverted (e.g. switching
+  // template A→B→A), which is why this page used to keep asking to publish
+  // when nothing had actually changed.
+  const pendingChanges =
+    diff?.hasTemplateDiff || diff?.hasSectionsDiff || diff?.hasContentDiff;
+
+  // Name what changed rather than just asserting that something did.
+  const changeSummary = (() => {
+    if (!diff) return "";
+    const parts: string[] = [];
+    if (diff.hasTemplateDiff) parts.push("the template");
+    if (diff.hasSectionsDiff) parts.push("the homepage layout");
+    if (diff.hasContentDiff) {
+      const n = diff.changedEntities.length;
+      parts.push(`${n} content item${n === 1 ? "" : "s"}`);
+    }
+    if (parts.length === 0) return "";
+    const list =
+      parts.length === 1
+        ? parts[0]
+        : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+    return `Waiting to go live: ${list}.`;
+  })();
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -165,18 +190,20 @@ export default function PublishConfirmationPage() {
           )}
         </div>
 
-        {/* Section counts differences */}
-        <div 
+        {/* Homepage layout differences — the comparison is a deep one over the
+            whole snapshot, so it catches reordering and per-section settings
+            edits, not just a change in how many sections there are. */}
+        <div
           className={`p-6 border border-solid rounded-[var(--a-r-md)] bg-[var(--a-surface)] space-y-4 ${
-            diff?.hasSectionsCountDiff ? "border-[var(--a-warn-ink)]/40 bg-[var(--a-warn-bg)]" : "border-[var(--a-line)]"
+            diff?.hasSectionsDiff ? "border-[var(--a-warn-ink)]/40 bg-[var(--a-warn-bg)]" : "border-[var(--a-line)]"
           }`}
           style={{ boxShadow: "var(--a-shadow)" }}
         >
           <h3 className="font-bold text-sm text-[var(--a-ink)] flex items-center gap-2">
             <UploadCloud size={16} className="text-[var(--a-primary)]" />
-            Section Components Count
+            Homepage Layout
           </h3>
-          
+
           <div className="grid grid-cols-2 gap-4 text-xs font-mono">
             <div>
               <p className="text-[9px] text-[var(--a-faint)] uppercase">Published Live</p>
@@ -184,14 +211,16 @@ export default function PublishConfirmationPage() {
             </div>
             <div>
               <p className="text-[9px] text-[var(--a-faint)] uppercase">Draft Pending</p>
-              <p className={`font-semibold mt-0.5 ${diff?.hasSectionsCountDiff ? "text-[var(--a-warn-ink)] font-bold" : "text-[var(--a-ink)]"}`}>
+              <p className={`font-semibold mt-0.5 ${diff?.hasSectionsDiff ? "text-[var(--a-warn-ink)] font-bold" : "text-[var(--a-ink)]"}`}>
                 {diff?.draftSectionsCount} Sections
               </p>
             </div>
           </div>
-          {diff?.hasSectionsCountDiff && (
+          {diff?.hasSectionsDiff && (
             <p className="text-[10px] text-[var(--a-warn-ink)] bg-[var(--a-warn-bg)] p-2.5 rounded border border-solid border-[var(--a-warn-ink)]/20 font-medium">
-              ⚠️ Total sections rendering will change from {diff.publishedSectionsCount} to {diff.draftSectionsCount}.
+              {diff.publishedSectionsCount !== diff.draftSectionsCount
+                ? `⚠️ Total sections rendering will change from ${diff.publishedSectionsCount} to ${diff.draftSectionsCount}.`
+                : "⚠️ Section order or settings have changed since the last publish."}
             </p>
           )}
         </div>
@@ -224,23 +253,28 @@ export default function PublishConfirmationPage() {
         <div className="space-y-1">
           <h4 className="font-bold text-sm text-[var(--a-ink)]">Ready to release?</h4>
           <p className="text-xs text-[var(--a-soft)]">
-            {pendingChanges 
-              ? "You have draft layout modifications waiting to go live." 
-              : "No unpublished draft layout changes detected."
-            }
+            {pendingChanges ? changeSummary : "No unpublished changes detected."}
           </p>
+          {pendingChanges && diff && diff.changedEntities.length > 0 && (
+            <ul className="mt-1.5 flex flex-wrap gap-1.5 list-none p-0 m-0">
+              {diff.changedEntities.slice(0, 8).map((c, i) => (
+                <li
+                  key={`${c.type}-${c.label}-${i}`}
+                  className="text-[10px] font-mono px-1.5 py-0.5 rounded-[var(--a-r-sm)] bg-[var(--a-inset)] text-[var(--a-soft)]"
+                >
+                  {c.type}: {c.label}
+                </li>
+              ))}
+              {diff.changedEntities.length > 8 && (
+                <li className="text-[10px] font-mono px-1.5 py-0.5 text-[var(--a-faint)]">
+                  +{diff.changedEntities.length - 8} more
+                </li>
+              )}
+            </ul>
+          )}
         </div>
 
         <div className="flex gap-3">
-          <Link
-            href="/admin/preview"
-            target="_blank"
-            className="flex items-center gap-1.5 px-4 py-2 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs font-semibold text-[var(--a-soft)] hover:bg-[var(--a-inset)] transition-colors"
-          >
-            <Eye size={14} />
-            Preview Draft
-          </Link>
-          
           <button
             onClick={handlePublish}
             disabled={publishing}

@@ -5,14 +5,12 @@ interface EducationExperienceSectionProps {
   education: any[];
   experience: any[];
   settings?: any;
-  isPreview?: boolean;
 }
 
 export default function EducationExperienceSection({
   education,
   experience,
   settings,
-  isPreview = false,
 }: EducationExperienceSectionProps) {
   
   // Sort experience newest first

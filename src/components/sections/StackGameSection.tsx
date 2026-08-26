@@ -8,14 +8,12 @@ interface StackGameSectionProps {
   settings?: any;
   technologies: any[];
   gameSettings?: any;
-  isPreview?: boolean;
 }
 
 export default function StackGameSection({
   settings,
   technologies,
   gameSettings,
-  isPreview = false,
 }: StackGameSectionProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const { resolvedTheme } = useTheme();

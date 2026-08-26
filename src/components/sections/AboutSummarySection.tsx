@@ -5,10 +5,9 @@ import { text } from "@/lib/text";
 interface AboutSummarySectionProps {
   profile: any;
   settings?: any;
-  isPreview?: boolean;
 }
 
-export default function AboutSummarySection({ profile, settings, isPreview = false }: AboutSummarySectionProps) {
+export default function AboutSummarySection({ profile, settings }: AboutSummarySectionProps) {
   // No fallback prose: an empty field renders nothing at all. See src/lib/text.ts.
   const aboutBio = text(settings?.aboutBio) || text(profile?.aboutBio);
 

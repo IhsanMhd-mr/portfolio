@@ -6,10 +6,9 @@ import { text } from "@/lib/text";
 interface ContactCTASectionProps {
   settings?: any;
   profile?: any;
-  isPreview?: boolean;
 }
 
-export default function ContactCTASection({ settings, profile, isPreview = false }: ContactCTASectionProps) {
+export default function ContactCTASection({ settings, profile }: ContactCTASectionProps) {
   // No invented contact details — see src/lib/text.ts.
   const contactEmail = text(profile?.contactEmail);
   const locationText = text(profile?.locationText);

@@ -12,7 +12,6 @@ interface TemplateProps {
   experience: any[];
   certifications: any[];
   gameSettings: any;
-  isPreview?: boolean;
 }
 
 export default function Interactive3DTemplate({
@@ -25,7 +24,6 @@ export default function Interactive3DTemplate({
   experience,
   certifications,
   gameSettings,
-  isPreview = false,
 }: TemplateProps) {
   // Pre-filter sections to avoid duplicate education-experience rendering without reassignment warnings
   let hasRenderedEduExp = false;
@@ -64,7 +62,6 @@ export default function Interactive3DTemplate({
                   <SectionComponent
                     education={education}
                     experience={experience}
-                    isPreview={isPreview}
                   />
                 </div>
               </ScrollReveal>
@@ -73,7 +70,6 @@ export default function Interactive3DTemplate({
 
           const props: any = {
             settings: section.settings,
-            isPreview,
           };
 
           if (registryKey === "hero" || registryKey === "about" || registryKey === "contact") {

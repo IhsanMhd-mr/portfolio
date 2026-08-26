@@ -3,11 +3,10 @@ import { Award, ExternalLink } from "lucide-react";
 interface CertificationsSectionProps {
   certifications: any[];
   settings?: any;
-  isPreview?: boolean;
 }
 
-export default function CertificationsSection({ certifications, isPreview = false }: CertificationsSectionProps) {
-  const items = (certifications || []).filter((c) => isPreview || c.visible);
+export default function CertificationsSection({ certifications }: CertificationsSectionProps) {
+  const items = (certifications || []).filter((c) => c.visible);
 
   // Omit the section entirely when empty — same philosophy as every other
   // section (no dev-facing "no certifications" placeholder on production).

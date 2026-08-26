@@ -12,7 +12,6 @@ interface TemplateProps {
   experience: any[];
   certifications: any[];
   gameSettings: any;
-  isPreview?: boolean;
 }
 
 export default function ProfessionalMinimalTemplate({
@@ -25,7 +24,6 @@ export default function ProfessionalMinimalTemplate({
   experience,
   certifications,
   gameSettings,
-  isPreview = false,
 }: TemplateProps) {
   // Pre-filter sections to avoid duplicate education-experience rendering without reassignment warnings
   let hasRenderedEduExp = false;
@@ -55,7 +53,6 @@ export default function ProfessionalMinimalTemplate({
                   <SectionComponent
                     education={education}
                     experience={experience}
-                    isPreview={isPreview}
                   />
                 </div>
               </ScrollReveal>
@@ -64,7 +61,6 @@ export default function ProfessionalMinimalTemplate({
 
           const props: any = {
             settings: section.settings,
-            isPreview,
           };
 
           if (registryKey === "hero" || registryKey === "about" || registryKey === "contact") {

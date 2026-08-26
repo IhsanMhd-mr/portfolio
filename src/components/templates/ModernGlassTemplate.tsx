@@ -12,7 +12,6 @@ interface TemplateProps {
   experience: any[];
   certifications: any[];
   gameSettings: any;
-  isPreview?: boolean;
 }
 
 export default function ModernGlassTemplate({
@@ -25,7 +24,6 @@ export default function ModernGlassTemplate({
   experience,
   certifications,
   gameSettings,
-  isPreview = false,
 }: TemplateProps) {
   // Pre-filter sections to avoid duplicate education-experience rendering without reassignment warnings
   let hasRenderedEduExp = false;
@@ -59,7 +57,6 @@ export default function ModernGlassTemplate({
                   <SectionComponent
                     education={education}
                     experience={experience}
-                    isPreview={isPreview}
                   />
                 </div>
               </ScrollReveal>
@@ -68,7 +65,6 @@ export default function ModernGlassTemplate({
 
           const props: any = {
             settings: section.settings,
-            isPreview,
           };
 
           if (registryKey === "hero" || registryKey === "about" || registryKey === "contact") {

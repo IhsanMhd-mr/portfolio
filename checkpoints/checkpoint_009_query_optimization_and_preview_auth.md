@@ -136,3 +136,103 @@ now scrolls correctly (341 px of 852 px visible) rather than the content being u
 - "Edge light mode stays dark" could not be reproduced: a clean Edge profile toggles
   correctly. Evidence points to a browser-side forced-dark layer (Dark Reader was visible
   in an earlier hydration trace). Needs an InPrivate check to confirm.
+
+---
+
+# Addendum — preview feature removed, publish diff made truthful
+
+Two follow-up changes landed after the checkpoint above was written. The first
+supersedes the preview-authorization fix recorded earlier in this document.
+
+## A. Draft-preview feature removed entirely
+
+The preview-mode bypass was fixed above by validating the session instead of trusting the
+cookie. The feature itself has now been **deleted**, so the surface is gone rather than
+guarded.
+
+**Removed:** `src/lib/preview-mode.ts`; `src/app/admin/preview/` (page + actions — the only
+writers of the `portfolio_preview_mode` cookie); the six "Preview Draft" entry points
+(admin layout, page-builder, publish-confirmation, and the three dashboard cards); and the
+`isPreview` parameter threaded through `PublicContentService.getHomePageData` /
+`resolveSections` / `resolveTemplateKey`, the root layout, both public pages, three
+templates and twelve section components (~65 references).
+
+**Behavioural consequences**, all intended:
+
+- The public site resolves PUBLISHED versions unconditionally. No code path can serve a
+  DRAFT or a `visible: false` row to anyone.
+- `HeroSection`'s owner-only "Upload profile image" hint is gone.
+- `CertificationsSection`'s `isPreview || c.visible` filter is now just `c.visible` —
+  identical behaviour for public traffic, which always had `isPreview === false`.
+- "View Live Site" is the only way to view the site from admin, and it shows published
+  content. Draft/publish is otherwise unchanged.
+
+Stale cookies in existing browsers are inert and expire on their own two-hour max-age.
+
+## B. Publish change detection replaced with a real diff
+
+**Symptom reported:** selecting a different template and then re-selecting the original one
+still asked to publish.
+
+**Cause:** `Page.hasUnpublishedChanges` is a sticky one-way latch — roughly forty service
+call sites set it `true`, and only a successful publish sets it `false`. Nothing ever
+re-examined whether the edit changed anything. The publish page ORed that flag in, so
+A→B→A stayed "pending" forever even though `hasTemplateDiff` correctly computed `false`.
+
+The same check was simultaneously **too weak**: `hasSectionsCountDiff` compared array
+*length*, so a reorder or a per-section settings edit at equal count reported "no changes".
+
+**Fix:** new `src/services/publish-diff.service.ts` computes an actual comparison across
+the three axes a publish promotes — template key, the section snapshot (deep-compared,
+built by the shared `buildSectionsSnapshot` the publish route now also uses), and per-entity
+DRAFT-vs-PUBLISHED content across all five versioned types.
+
+`PROMOTED_FIELDS` and `PROMOTION_DEFAULTS` are shared with `POST /api/publish` deliberately:
+the value written and the value compared must be produced identically, or a field could be
+published while the UI reported nothing to publish. `pickPromoted` is generic
+(`Pick<T, K>`, not `Record<string, any>`) so Prisma still enforces required columns —
+returning `any` silently disabled that check when first written.
+
+`GET /api/publish` now also **self-heals the latch**: when the computed diff is empty but
+the flag is set, it clears the flag. That is what makes A→B→A settle, and it clears the
+admin sidebar's "unpublished changes" chip too. The flag is kept as a cheap conservative
+hint for the sidebar and dashboard, which cannot afford a full diff on every page load.
+
+### Two false positives found and fixed during verification
+
+Null-vs-empty Json coercion runs in **both** directions in the real data, and normalizing
+only one side left a permanent phantom change:
+
+| Entity | Draft | Published | Cause |
+|---|---|---|---|
+| Timeline entries (3) | `externalLinks: null` | `{}` | publish coerces `null → {}` |
+| Experience (1) | `responsibilities: []` | `null` | row predates the coercion |
+
+`versionsDiffer` now normalizes both sides through `PROMOTION_DEFAULTS`.
+
+## Verification
+
+| Check | Result |
+|---|---|
+| `tsc --noEmit` | ✅ clean |
+| Residual `isPreview` / `preview-mode` / cookie refs in `src` | ✅ 0 |
+| `GET /` | ✅ 200, published content, no owner-only markers |
+| `GET /admin/preview` authenticated | ✅ 404 |
+| `GET /api/publish` unauthenticated | ✅ 401 |
+| Dashboard "Preview Draft" references | ✅ 0 |
+| **Template A→B** | ✅ pending = true |
+| **Template B→A (the reported bug)** | ✅ pending = **false** |
+| Project title edit | ✅ detected, entity named; reverts clean |
+| Section reorder at equal count | ✅ detected (old check missed this) |
+| Section settings edit at equal count | ✅ detected (old check missed this) |
+| Latch self-heal (forced `true` → GET) | ✅ cleared to `false` |
+
+Note for future work: `scripts/dev-start.js` rewrites `DATABASE_URL` from
+`DATABASE_URL_LOCAL` when `DB_TARGET=local`, but `src/lib/database.ts` reads only
+`DATABASE_URL`. A standalone script run with `DB_TARGET=local` therefore hits **Neon**, not
+local — set `DATABASE_URL="$DATABASE_URL_LOCAL"` explicitly instead.
+
+## Known / deferred
+
+- `dashboard.service.ts:217` returns a hardcoded `5` for `pendingChangeCount` with a
+  `// Using standard mock placeholder` comment. Pre-existing; out of scope here.

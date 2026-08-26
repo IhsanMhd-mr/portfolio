@@ -61,7 +61,21 @@ canvas, nothing clipped at the edge.
 
 ---
 
-## 3. Preview-mode authorization bypass — FIXED ✅ (was P0)
+## 3. Preview-mode authorization bypass — ELIMINATED ✅ (was P0)
+
+> **Update — the whole preview feature has since been removed.** The attack surface
+> described below no longer exists in any form, rather than being mitigated by the
+> session check. Deleted: `src/lib/preview-mode.ts`, `src/app/admin/preview/`
+> (page + actions — the only writers of the cookie), the six "Preview Draft" entry
+> points, and the `isPreview` parameter throughout `PublicContentService`. The public
+> site now resolves PUBLISHED versions unconditionally, so there is no code path that
+> can serve a DRAFT or a `visible: false` row to anyone. Draft/publish itself is
+> unchanged — the admin still edits drafts and publishes them.
+>
+> Stale `portfolio_preview_mode` cookies in existing browsers are inert (nothing reads
+> them) and expire on their own two-hour max-age.
+>
+> The original analysis is kept below as the record of the vulnerability.
 
 **Symptom.** Unpublished and deliberately hidden content is readable by anyone.
 
@@ -151,10 +165,9 @@ A useful side effect: audit-log's table wrapper already had `overflow-x-auto`, w
 inert while the ancestors refused to shrink. It now scrolls properly (341 px visible of
 852 px content) instead of the content being unreachable.
 
-**Not a bug:** `/admin/preview` issues a second request to itself. `enablePreviewModeAction()`
-is a server action called in `useEffect` (`admin/preview/page.tsx:23`); Next.js refreshes the
-route after a server action so the newly-set cookie is visible. Expected behaviour, one extra
-request on one page — left alone.
+**Previously noted, now moot:** `/admin/preview` issued a second request to itself (a
+server action in `useEffect` causing a post-action route refresh). That page has been
+deleted along with the rest of the preview feature — see item 3.
 
 ## 5. Horizontal overflow on PUBLIC pages — NOT REPRODUCED 🟢
 
@@ -183,8 +196,9 @@ credentials). Both need a repro to chase.
 ## 7. Rapid-fire DB queries — ALREADY FIXED 🟢
 
 `GET /` went 31 → 23 queries, 3 → 0 `IN (NULL)`, all duplicate-table groups eliminated.
-See `docs/query-baseline.md`. Known documented gap: preview / never-published states cost
-~26 with a serial `flattenOrdered` stage.
+See `docs/query-baseline.md`. Known documented gap: the never-published state costs ~26
+with a serial `flattenOrdered` stage. (The preview state that shared this gap no longer
+exists — see item 3.)
 
 ---
 
