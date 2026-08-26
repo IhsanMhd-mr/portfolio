@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, Calendar, Bookmark } from "lucide-react";
 import { formatMonthYear } from "@/lib/format-date";
+import { byOrderThenNewest } from "@/lib/content-order";
 
 interface ProjectTimelineSectionProps {
   timelineEntries: any[];
@@ -18,10 +19,9 @@ export default function ProjectTimelineSection({ timelineEntries, settings }: Pr
     return null;
   }
 
-  // Sort entries chronologically descending (newest first)
-  let sorted = [...items].sort(
-    (a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
-  );
+  // Admin ordering first, newest-first only as a tiebreak — see
+  // byOrderThenNewest. Sorting purely by date discarded the owner's sequence.
+  let sorted = [...items].sort(byOrderThenNewest);
 
   // Slice entries based on configuration
   const limitVal = settings?.limit || 3;

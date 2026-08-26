@@ -28,6 +28,8 @@ export const FIXTURE = {
   olderOrganization: "Older Organization",
   newerOrganization: "Newer Organization",
 
+  ownerUsername: "test-owner",
+
   visibleGroupTitle: "Visible Group",
   hiddenGroupTitle: "Hidden Group",
 } as const;
@@ -40,13 +42,30 @@ function client() {
 export async function seedTestData() {
   const db = client();
   try {
-    const template = await db.template.create({
+    // Audit logging runs inside the service operations under test, and
+    // AuditLog.actorId is a real foreign key to users. Without an actual owner
+    // row every audited mutation fails on the FK constraint rather than on
+    // anything it was meant to prove.
+    await db.user.create({
       data: {
-        key: "MODERN_GLASS",
-        name: "Modern Glass",
-        isActiveLive: true,
+        username: FIXTURE.ownerUsername,
+        email: "owner@example.test",
+        name: "Test Owner",
       },
     });
+
+    // All three templates exist so tests can switch the active one. The
+    // section-dispatch logic is shared but each template wraps it differently,
+    // so exercising only the default would leave two thirds of that code
+    // unrendered by any test.
+    await db.template.createMany({
+      data: [
+        { key: "MODERN_GLASS", name: "Modern Glass", isActiveLive: true },
+        { key: "PROFESSIONAL_MINIMAL", name: "Professional Minimal" },
+        { key: "INTERACTIVE_3D", name: "Interactive 3D" },
+      ],
+    });
+    const template = await db.template.findFirstOrThrow({ where: { key: "MODERN_GLASS" } });
 
     await db.siteProfile.create({
       data: {

@@ -40,13 +40,12 @@ suite("public routes — published-only contract", () => {
    * hidden — but `getProjectBySlug` filters only on `state`, so the detail page
    * still renders it to anonymous visitors.
    *
-   * Marked `.fails` because the leak is present RIGHT NOW: the assertion below
-   * is the behaviour we want, and `.fails` records that we do not have it yet.
-   * When Section 2 adds the `visible` filter this test starts failing — because
-   * it will finally pass — which forces whoever fixes it to drop `.fails`.
-   * A plain skip would have rotted silently instead.
+   * Fixed: `getProjectBySlug` now filters on `visible` as well as `state`.
+   * This test carried an `it.fails` marker while the leak existed; the marker
+   * came off when the fix landed, which is the point of using `.fails` rather
+   * than skipping.
    */
-  it.fails("KNOWN BUG B1 — 404s a published project marked not-visible", async () => {
+  it("404s a published project marked not-visible", async () => {
     const { status } = await get(`/projects/${FIXTURE.hiddenProjectSlug}`);
     expect(status).toBe(404);
   });
@@ -80,5 +79,13 @@ suite("admin routes — unauthenticated", () => {
   it("redirects /admin away for anonymous visitors", async () => {
     const { status } = await get("/admin");
     expect([302, 307, 308]).toContain(status);
+  });
+});
+
+suite("admin API — unauthenticated", () => {
+  it("rejects GET /api/templates without a session", async () => {
+    // B5: this handler was public while the POST beside it required an owner.
+    const res = await fetch(`${baseUrl}/api/templates`, { redirect: "manual" });
+    expect(res.status).toBe(401);
   });
 });

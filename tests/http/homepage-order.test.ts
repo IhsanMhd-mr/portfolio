@@ -14,10 +14,10 @@ import { fetchDom, domIndex } from "./dom";
  * The fixture seeds `order` and `startDate` to disagree, so the two orderings
  * are distinguishable in the markup.
  *
- * Both assertions below are marked `.fails`: they state the behaviour we want
- * and record that the code does not do it yet. Section 3 adopts the
- * order-then-date comparator from src/app/(public)/about/page.tsx, at which
- * point these start failing by passing, forcing the `.fails` to be removed.
+ * Fixed in Section 3: both components now use `byOrderThenNewest`
+ * (src/lib/content-order.ts), which sorts on the admin `order` column and
+ * falls back to newest-first only as a tiebreak. These assertions carried
+ * `.fails` markers while the bug existed.
  */
 const baseUrl = process.env.TEST_BASE_URL;
 const suite = baseUrl ? describe : describe.skip;
@@ -25,7 +25,7 @@ const suite = baseUrl ? describe : describe.skip;
 const html = (path: string) => fetchDom(baseUrl!, path);
 
 suite("homepage honours the admin order column", () => {
-  it.fails("KNOWN BUG B2 — renders education in `order` sequence", async () => {
+  it("renders education in `order` sequence, not newest-first", async () => {
     const dom = await html("/");
     // order 0 ("Older") must precede order 1 ("Newer"), even though "Newer"
     // has the more recent startDate.
@@ -34,7 +34,7 @@ suite("homepage honours the admin order column", () => {
     );
   });
 
-  it.fails("KNOWN BUG B2 — renders experience in `order` sequence", async () => {
+  it("renders experience in `order` sequence, not newest-first", async () => {
     const dom = await html("/");
     expect(domIndex(dom, FIXTURE.olderOrganization)).toBeLessThan(
       domIndex(dom, FIXTURE.newerOrganization)

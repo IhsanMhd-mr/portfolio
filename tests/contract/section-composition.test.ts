@@ -36,10 +36,16 @@ describe("section composition", () => {
     const { sections } = await PublicContentService.getHomePageData();
     const types = sections.map((s) => s.type);
     expect(types[types.length - 1]).toBe("CERTIFICATIONS");
-    // Guards the trap directly: sorting globally by `order` would hoist the
-    // ungrouped section to the front, because its order is 0.
-    const ungrouped = sections[sections.length - 1];
-    expect(ungrouped.order).toBe(0);
+    // Guards the trap directly: the ungrouped section's STORED order is 0 —
+    // the same value the first grouped section has — so a global sort on that
+    // column would hoist it to the front. It renders last regardless.
+    // `order` is intentionally not exposed on SectionData, so this reads the
+    // stored value rather than the view model.
+    const page = await db.page.findUniqueOrThrow({ where: { key: "home" } });
+    const stored = await db.pageSection.findFirstOrThrow({
+      where: { pageId: page.id, groupId: null, type: "CERTIFICATIONS" },
+    });
+    expect(stored.order).toBe(0);
     expect(types[0]).toBe("HERO");
   });
 

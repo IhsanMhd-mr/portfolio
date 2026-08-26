@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { X, ChevronDown, ChevronRight } from "lucide-react";
-import { dbEnumToRegistryKey, sectionConfigSchema, sectionMeta, type ConfigField } from "@/components/sections/registry";
+import { registryKeyFor, configFieldsFor, sectionMetaFor, type ConfigField } from "@/components/sections/registry";
 import { useBackdropDismiss } from "@/lib/use-backdrop-dismiss";
 
 export interface ModuleData {
@@ -36,9 +36,9 @@ const inputCls =
   "w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-surface)] focus:outline-none focus:border-[var(--a-primary)]";
 
 export default function ModuleConfigModal({ module, groups, onCancel, onSave, onMoveToGroup }: ModuleConfigModalProps) {
-  const registryKey = dbEnumToRegistryKey[module.type];
-  const schema: ConfigField[] = sectionConfigSchema[registryKey] || [];
-  const meta = sectionMeta[module.type];
+  const registryKey = registryKeyFor(module.type);
+  const schema: ConfigField[] = configFieldsFor(registryKey);
+  const meta = sectionMetaFor(module.type);
   const backdrop = useBackdropDismiss(onCancel);
 
   const [internalLabel, setInternalLabel] = useState(module.internalLabel);

@@ -20,16 +20,33 @@ const PUBLIC_STATE = "PUBLISHED" as const;
  * collapses them into a single query set instead of two independent lookups of
  * the same row. Includes the superset of relations so the richer body render
  * is satisfied by the same cached result the lighter metadata pass triggers.
+ *
+ * Filters on `visible` as well as `state`. Filtering only on `state` meant a
+ * PUBLISHED version marked `visible: false` still populated `versions[0]`, so
+ * the guards below let it through and the detail page rendered it to anyone
+ * holding the URL — while `/projects` and the homepage correctly hid it, which
+ * is what made the leak easy to miss. The related-projects query further down
+ * already filtered on `visible`; this one did not.
+ *
+ * There is deliberately no `state` parameter. Both callers only ever wanted
+ * PUBLISHED, and a parameter that can express DRAFT is a parameter someone can
+ * pass DRAFT to — the constant makes an unpublished read unrepresentable here.
  */
-const getProjectBySlug = cache(async (slug: string, state: "DRAFT" | "PUBLISHED") => {
+const getProjectBySlug = cache(async (slug: string) => {
+  const versionWhere = { state: PUBLIC_STATE, visible: true } as const;
   return db.project.findUnique({
     where: { slug },
     include: {
-      versions: { where: { state } },
+      versions: { where: versionWhere },
       technologies: {
         include: {
           technology: {
-            include: { versions: { where: { state } } },
+            // NOTE: technology versions are filtered by state only, matching
+            // the previous behaviour. A technology hidden via `visible: false`
+            // still contributes its chip here, whereas the homepage drops it.
+            // That inconsistency is real but separate from this fix, and
+            // changing it alters which chips render — deferred deliberately.
+            include: { versions: { where: { state: PUBLIC_STATE } } },
           },
         },
         orderBy: { order: "asc" },
@@ -44,7 +61,7 @@ export async function generateMetadata({ params }: ProjectDetailPageProps): Prom
 
   // Mirrors the page body's lookup + visibility rules below, sharing the same
   // request-cached query.
-  const project = await getProjectBySlug(slug, PUBLIC_STATE);
+  const project = await getProjectBySlug(slug);
 
   if (!project || project.deletedAt || !project.versions[0]) {
     notFound();
@@ -74,11 +91,11 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
   
   // Find project with active state version (request-cached — generateMetadata
   // above already resolved this exact query)
-  const project = await getProjectBySlug(slug, PUBLIC_STATE);
+  const project = await getProjectBySlug(slug);
 
-  // Verify project existence and visibility. Drafts can no longer be selected
-  // at all — the query is pinned to PUBLISHED — so an unpublished project
-  // simply 404s here.
+  // Verify project existence and visibility. Neither an unpublished project nor
+  // one marked `visible: false` can be selected at all — the query pins both
+  // rules — so either simply 404s here.
   if (!project || project.deletedAt || !project.versions[0]) {
     notFound();
   }

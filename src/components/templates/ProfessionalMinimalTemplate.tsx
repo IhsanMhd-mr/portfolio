@@ -1,91 +1,32 @@
 import React from "react";
-import { sectionRegistry, dbEnumToRegistryKey } from "@/components/sections/registry";
 import ScrollReveal from "@/components/ui/ScrollReveal";
+import { resolveRenderableSections, type HomepageData, type SectionRow } from "@/components/sections/render-sections";
 
-interface TemplateProps {
-  profile: any;
-  sections: any[];
-  projects: any[];
-  technologies: any[];
-  timelineEntries: any[];
-  education: any[];
-  experience: any[];
-  certifications: any[];
-  gameSettings: any;
+interface TemplateProps extends HomepageData {
+  sections: SectionRow[];
 }
 
-export default function ProfessionalMinimalTemplate({
-  profile,
-  sections,
-  projects,
-  technologies,
-  timelineEntries,
-  education,
-  experience,
-  certifications,
-  gameSettings,
-}: TemplateProps) {
-  // Pre-filter sections to avoid duplicate education-experience rendering without reassignment warnings
-  let hasRenderedEduExp = false;
-  const filteredSections = sections.filter((sec) => {
-    const rKey = dbEnumToRegistryKey[sec.type];
-    if (rKey === "education-experience") {
-      if (hasRenderedEduExp) return false;
-      hasRenderedEduExp = true;
-    }
-    return true;
-  });
+export default function ProfessionalMinimalTemplate({ sections, ...data }: TemplateProps) {
+  const renderable = resolveRenderableSections(sections, data);
 
   return (
     <div className="w-full min-h-screen bg-[var(--bg)] text-[var(--ink)] font-sans antialiased minimal-theme-wrapper transition-colors duration-500 py-6">
       <div className="max-w-[1200px] mx-auto px-6 space-y-16">
-        {filteredSections.map((section, index) => {
-          const registryKey = dbEnumToRegistryKey[section.type];
-          if (!registryKey) return null;
-
-          const SectionComponent = sectionRegistry[registryKey as keyof typeof sectionRegistry] as any;
-          if (!SectionComponent) return null;
-
-          if (registryKey === "education-experience") {
-            return (
-              <ScrollReveal key={section.id} index={index}>
-                <div className="border-t border-solid border-slate-200 pt-12">
-                  <SectionComponent
-                    education={education}
-                    experience={experience}
-                  />
-                </div>
-              </ScrollReveal>
-            );
-          }
-
-          const props: any = {
-            settings: section.settings,
-          };
-
-          if (registryKey === "hero" || registryKey === "about" || registryKey === "contact") {
-            props.profile = profile;
-          } else if (registryKey === "tech-stack") {
-            props.technologies = technologies;
-          } else if (registryKey === "featured-projects" || registryKey === "other-projects" || registryKey === "project-grid") {
-            props.projects = projects;
-          } else if (registryKey === "project-timeline") {
-            props.timelineEntries = timelineEntries;
-          } else if (registryKey === "stack-game") {
-            props.technologies = technologies;
-            props.gameSettings = gameSettings;
-          } else if (registryKey === "certifications") {
-            props.certifications = certifications;
-          }
-
-          return (
-            <ScrollReveal key={section.id} index={index}>
-              <div className="border-t border-solid border-slate-200 pt-12 first:border-none first:pt-0">
-                <SectionComponent {...props} />
-              </div>
-            </ScrollReveal>
-          );
-        })}
+        {renderable.map(({ id, key, Component, props }, index) => (
+          <ScrollReveal key={id} index={index}>
+            {/* education-experience deliberately omits `first:` resets, matching
+                the wrapper this template has always given that section. */}
+            <div
+              className={
+                key === "education-experience"
+                  ? "border-t border-solid border-slate-200 pt-12"
+                  : "border-t border-solid border-slate-200 pt-12 first:border-none first:pt-0"
+              }
+            >
+              <Component {...props} />
+            </div>
+          </ScrollReveal>
+        ))}
       </div>
     </div>
   );

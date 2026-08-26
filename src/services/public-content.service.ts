@@ -24,13 +24,27 @@ import { SectionGroupService } from "./section-group.service";
  * calls within a single request and never persists across requests or users.
  */
 
+/**
+ * The shape templates consume for one rendered section.
+ *
+ * `order` is deliberately ABSENT. In the database it is CONTAINER-scoped —
+ * every group restarts at 0 and the ungrouped bucket has its own sequence, so
+ * three sections on one page can all be `order: 0`. Render order is the
+ * sequence SectionGroupService.flattenOrdered produces and nothing else, and a
+ * downstream `.sort((a, b) => a.order - b.order)` silently scrambles the page.
+ *
+ * Branding the field was tried first and does not work: `number & {...}` is
+ * still assignable to `number`, so arithmetic on it type-checks fine. Removing
+ * it from the view model is what actually prevents the mistake — the value has
+ * no consumer here (it is still written into the publish snapshot from the raw
+ * rows, where it belongs).
+ */
 export interface SectionData {
   id: string;
   type: string;
   internalLabel: string;
   settings: any;
   visible: boolean;
-  order: number;
 }
 
 export interface HomePageData {
@@ -329,28 +343,32 @@ export class PublicContentService {
    */
   private static resolveSections = cache(async (): Promise<SectionData[]> => {
     let sections: SectionData[] = [];
-    try {
-      const page = await PublicContentService.getHomePageRecord();
-      if (!page) return [];
 
-      const activeVersion = page.versions?.[0];
-      if (activeVersion && activeVersion.snapshot) {
-        const snapshot =
-          typeof activeVersion.snapshot === "string"
-            ? JSON.parse(activeVersion.snapshot)
-            : activeVersion.snapshot;
-        if (Array.isArray(snapshot)) sections = snapshot;
-      } else {
-        // Fallback when no published version exists yet: derive the order live
-        // with the same algorithm the publish route bakes into the snapshot,
-        // filtered to visible groups. Hidden groups behave like hidden
-        // sections — the trailing .filter(s.visible) below handles the
-        // individually-hidden case, and group visibility must be consistent.
-        const flattened = await SectionGroupService.flattenOrdered(page.id, { visibleGroupsOnly: true });
-        sections = flattened.map(PublicContentService.toSectionData);
-      }
-    } catch (error) {
-      console.error("Failed to load sections:", error);
+    // Deliberately NOT wrapped in try/catch. It used to be, logging the error
+    // and returning [] — which rendered a 200 response with an empty page,
+    // indistinguishable from "the owner has not configured any sections yet".
+    // A database failure during a homepage render is not a blank homepage; it
+    // is an error, and it belongs in Next's error boundary where it is visible
+    // and reportable. The legitimate empty cases are still handled explicitly
+    // below (no page row, no snapshot, nothing visible).
+    const page = await PublicContentService.getHomePageRecord();
+    if (!page) return [];
+
+    const activeVersion = page.versions?.[0];
+    if (activeVersion && activeVersion.snapshot) {
+      const snapshot =
+        typeof activeVersion.snapshot === "string"
+          ? JSON.parse(activeVersion.snapshot)
+          : activeVersion.snapshot;
+      if (Array.isArray(snapshot)) sections = snapshot;
+    } else {
+      // Fallback when no published version exists yet: derive the order live
+      // with the same algorithm the publish route bakes into the snapshot,
+      // filtered to visible groups. Hidden groups behave like hidden
+      // sections — the trailing .filter(s.visible) below handles the
+      // individually-hidden case, and group visibility must be consistent.
+      const flattened = await SectionGroupService.flattenOrdered(page.id, { visibleGroupsOnly: true });
+      sections = flattened.map(PublicContentService.toSectionData);
     }
 
     return sections.filter((s) => s.visible);
@@ -364,18 +382,16 @@ export class PublicContentService {
    * cached page read) rather than reimplementing the lookup.
    */
   static resolveTemplateKey = cache(async (): Promise<string> => {
-    let templateKey = "MODERN_GLASS";
-    try {
-      const page = await PublicContentService.getHomePageRecord();
-      if (page?.versions?.[0]?.templateKey) {
-        templateKey = page.versions[0].templateKey;
-      } else if (page?.draftTemplate?.key) {
-        templateKey = page.draftTemplate.key;
-      }
-    } catch (error) {
-      console.error("Failed to load template:", error);
-    }
-    return templateKey;
+    // The MODERN_GLASS default below covers a real, legitimate state: no
+    // published version and no draft pointer. It must not also cover "the
+    // database is unreachable" — the previous try/catch conflated the two, so
+    // an infrastructure failure silently rendered the site in the wrong skin
+    // instead of surfacing. The optional chaining already handles the
+    // legitimate case; errors now propagate.
+    const page = await PublicContentService.getHomePageRecord();
+    if (page?.versions?.[0]?.templateKey) return page.versions[0].templateKey;
+    if (page?.draftTemplate?.key) return page.draftTemplate.key;
+    return "MODERN_GLASS";
   });
 
   private static toSectionData(s: any): SectionData {
@@ -385,7 +401,6 @@ export class PublicContentService {
       internalLabel: s.internalLabel,
       settings: typeof s.settings === "string" ? JSON.parse(s.settings) : s.settings || {},
       visible: s.visible,
-      order: s.order,
     };
   }
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { X, Plus } from "lucide-react";
-import { sectionMeta } from "@/components/sections/registry";
+import { addableSectionTypes } from "@/components/sections/registry";
 import { useBackdropDismiss } from "@/lib/use-backdrop-dismiss";
 
 interface AddModuleModalProps {
@@ -11,7 +11,9 @@ interface AddModuleModalProps {
 }
 
 export default function AddModuleModal({ onCancel, onAdd, isAdding }: AddModuleModalProps) {
-  const types = Object.entries(sectionMeta);
+  // Only types with metadata are offered; CALL_TO_ACTION and FOOTER_SPACER
+  // are explicitly excluded in the registry rather than silently absent.
+  const types = addableSectionTypes();
   const backdrop = useBackdropDismiss(onCancel);
 
   return (
@@ -24,7 +26,7 @@ export default function AddModuleModal({ onCancel, onAdd, isAdding }: AddModuleM
           </button>
         </div>
         <div className="space-y-2">
-          {types.map(([type, meta]) => (
+          {types.map(({ type, label, description }) => (
             <button
               key={type}
               type="button"
@@ -33,8 +35,8 @@ export default function AddModuleModal({ onCancel, onAdd, isAdding }: AddModuleM
               className="flex items-center justify-between w-full p-3 text-left border border-solid border-dashed border-[var(--a-line)] rounded-[var(--a-r-sm)] bg-[var(--a-surface)] hover:border-[var(--a-primary)] transition-all cursor-pointer disabled:opacity-50"
             >
               <span>
-                <span className="block text-xs font-semibold text-[var(--a-ink)]">{meta.label}</span>
-                <span className="block text-[10px] text-[var(--a-soft)] mt-0.5">{meta.description}</span>
+                <span className="block text-xs font-semibold text-[var(--a-ink)]">{label}</span>
+                <span className="block text-[10px] text-[var(--a-soft)] mt-0.5">{description}</span>
               </span>
               <Plus size={14} className="text-[var(--a-primary)] shrink-0" />
             </button>

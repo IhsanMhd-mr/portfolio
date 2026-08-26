@@ -13,7 +13,7 @@ import { revalidatePath } from "next/cache";
 import db from "@/lib/database";
 import { SectionGroupService } from "@/services/section-group.service";
 import { PageSectionService } from "@/services/page-section.service";
-import { dbEnumToRegistryKey } from "@/components/sections/registry";
+import { registryKeyFor } from "@/components/sections/registry";
 
 type ActionResult<T = undefined> =
   | { success: true; data: T }
@@ -135,7 +135,7 @@ export async function createModuleAction(input: z.infer<typeof createModuleSchem
   const parsed = createModuleSchema.safeParse(input);
   if (!parsed.success) return fromZodError(parsed.error);
 
-  const registryKey = dbEnumToRegistryKey[parsed.data.type];
+  const registryKey = registryKeyFor(parsed.data.type);
   if (!registryKey) return { success: false, error: "Unknown module type.", fieldErrors: { type: "Unknown module type." } };
 
   try {
