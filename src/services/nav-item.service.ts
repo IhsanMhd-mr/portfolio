@@ -23,6 +23,35 @@ export class NavItemService {
     });
   }
 
+  /** One nav item, for the editor. */
+  static async getById(id: string) {
+    return db.navItem.findUnique({ where: { id } });
+  }
+
+  /**
+   * Flips `enabled` in one step. Replaces a read-modify-write in the route
+   * that rewrote label and target in order to change a boolean.
+   */
+  static async toggleEnabled(id: string, auditContext: AuditContext) {
+    const current = await db.navItem.findUnique({ where: { id } });
+    if (!current) throw new Error("Navigation item not found.");
+
+    const updated = await db.navItem.update({
+      where: { id },
+      data: { enabled: !current.enabled },
+    });
+
+    await recordAudit({
+      action: "NAV_ITEM_UPDATED",
+      entityType: "NavItem",
+      entityId: id,
+      summary: `${updated.enabled ? "Enabled" : "Disabled"} nav item: ${updated.label}`,
+      context: auditContext,
+    });
+
+    return updated;
+  }
+
   static async create(input: NavItemInput, auditContext: AuditContext) {
     const last = await db.navItem.findFirst({ orderBy: { order: "desc" } });
     const created = await db.navItem.create({ data: { ...input, order: (last?.order ?? -1) + 1 } });

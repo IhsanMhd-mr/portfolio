@@ -1,8 +1,7 @@
-import { requireAdmin, getValidatedOwner } from "@/lib/require-admin";
-import db from "@/lib/database";
+import { requireAdmin } from "@/lib/require-admin";
+import { createNavItemAction, navItemRowAction } from "./actions";
 import Link from "next/link";
 import { NavItemService } from "@/services/nav-item.service";
-import { revalidatePath } from "next/cache";
 import { Navigation, Plus, Trash2, Eye, EyeOff, ArrowUp, ArrowDown, Edit } from "lucide-react";
 import PendingButton from "@/components/ui/PendingButton";
 
@@ -17,35 +16,18 @@ export default async function AdminNavigationPage() {
 
   async function createAction(formData: FormData) {
     "use server";
-    const owner = await getValidatedOwner();
-    if (!owner) return;
-    const label = String(formData.get("label") || "").trim().slice(0, 60);
-    const target = String(formData.get("target") || "").trim().slice(0, 200);
-    if (!label || !target || !/^[/#]/.test(target)) return; // route or hash only — no external URLs in primary nav
-    await NavItemService.create({ label, target }, { actorId: owner.userId, loginMethod: owner.loginMethod, loginAccountId: owner.loginAccountId });
-    revalidatePath("/admin/navigation");
-    revalidatePath("/");
+    await createNavItemAction({
+      label: String(formData.get("label") || ""),
+      target: String(formData.get("target") || ""),
+    });
   }
 
   async function rowAction(formData: FormData) {
     "use server";
-    const owner = await getValidatedOwner();
-    if (!owner) return;
-    const ctx = { actorId: owner.userId, loginMethod: owner.loginMethod, loginAccountId: owner.loginAccountId };
-    const id = String(formData.get("id") || "");
-    const op = String(formData.get("op") || "");
-
-    if (op === "delete") {
-      await NavItemService.remove(id, ctx);
-    } else if (op === "toggle") {
-      const current = await db.navItem.findUnique({ where: { id } });
-      if (!current) return;
-      await NavItemService.update(id, { label: current.label, target: current.target, enabled: !current.enabled }, ctx);
-    } else if (op === "up" || op === "down") {
-      await NavItemService.moveOrder(id, op, ctx);
-    }
-    revalidatePath("/admin/navigation");
-    revalidatePath("/");
+    await navItemRowAction(
+      String(formData.get("id") || ""),
+      String(formData.get("op") || "") as "delete" | "toggle" | "up" | "down"
+    );
   }
 
   return (

@@ -30,6 +30,43 @@ export class CertificationService {
     });
   }
 
+  /** One certification with the media relation the editor renders. */
+  static async getById(id: string) {
+    return db.certification.findUnique({
+      where: { id },
+      include: { media: { select: { filename: true, url: true } } },
+    });
+  }
+
+  /**
+   * Flips visibility in one step.
+   *
+   * The list page used to read the row, negate the flag, then call update()
+   * passing title and issuer back in — a read-modify-write that reached into
+   * the table from a route, and one that rewrites two unrelated columns to
+   * change a boolean. Doing it here keeps the route out of the database and
+   * touches only the column that changes.
+   */
+  static async toggleVisible(id: string, auditContext: AuditContext) {
+    const current = await db.certification.findUnique({ where: { id } });
+    if (!current) throw new Error("Certification not found.");
+
+    const updated = await db.certification.update({
+      where: { id },
+      data: { visible: !current.visible },
+    });
+
+    await recordAudit({
+      action: "CERTIFICATION_UPDATED",
+      entityType: "Certification",
+      entityId: id,
+      summary: `${updated.visible ? "Showed" : "Hid"} certification: ${updated.title}`,
+      context: auditContext,
+    });
+
+    return updated;
+  }
+
   static async create(input: CertificationInput, auditContext: AuditContext) {
     const last = await db.certification.findFirst({ orderBy: { order: "desc" } });
     const created = await db.certification.create({
