@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Briefcase, Trash2, Save, Eye, EyeOff, ArrowUp, ArrowDown, Edit } from "lucide-react";
 import Pagination from "@/components/admin/Pagination";
 import PendingButton from "@/components/ui/PendingButton";
+import { TechnologyService } from "@/services/technology.service";
 import {
   createExperienceAction,
   updateExperienceAction,
@@ -78,13 +79,9 @@ export default async function AdminExperiencePage({ searchParams }: PageProps) {
 
     if (!organization || !role || !startDateInput) return;
 
-    // Parse technology selections
-    const technologyIds: string[] = [];
-    allTechs.forEach((t) => {
-      if (formData.get(`tech_${t.id}`) === "on") {
-        technologyIds.push(t.id);
-      }
-    });
+    // Read from the submitted form rather than the server-rendered list, so the
+    // action does not depend on allTechs being fetched or current.
+    const technologyIds = await TechnologyService.resolveSelectedIds(formData);
 
     await createExperienceAction({
       organization,
