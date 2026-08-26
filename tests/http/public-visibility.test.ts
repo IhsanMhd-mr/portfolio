@@ -89,3 +89,22 @@ suite("admin API — unauthenticated", () => {
     expect(res.status).toBe(401);
   });
 });
+
+suite("showOnResume separates /about from /resume", () => {
+  it("shows a resume-excluded qualification on /about", async () => {
+    const { html } = await get("/about");
+    expect(html).toContain(FIXTURE.resumeExcludedInstitution);
+  });
+
+  it("omits it from /resume", async () => {
+    // showOnResume previously filtered technologies only, so clearing it on a
+    // qualification or a job had no effect anywhere.
+    const { html } = await get("/resume");
+    expect(html).not.toContain(FIXTURE.resumeExcludedInstitution);
+  });
+
+  it("still renders resume-flagged content on /resume", async () => {
+    const { html } = await get("/resume");
+    expect(html).toContain(FIXTURE.olderInstitution);
+  });
+});

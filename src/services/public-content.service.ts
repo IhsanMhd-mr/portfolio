@@ -1,6 +1,12 @@
 import { cache } from "react";
 import db from "@/lib/database";
 import { SectionGroupService } from "./section-group.service";
+import {
+  PUBLISHED_VISIBLE,
+  PUBLISHED_VISIBLE_ON_RESUME,
+  attachPublished,
+  sortPublished,
+} from "./published-version";
 
 /**
  * PublicContentService — the STABLE CORE of the public site.
@@ -392,6 +398,69 @@ export class PublicContentService {
     if (page?.versions?.[0]?.templateKey) return page.versions[0].templateKey;
     if (page?.draftTemplate?.key) return page.draftTemplate.key;
     return "MODERN_GLASS";
+  });
+
+  /**
+   * Everything /about renders. Education and experience only — no
+   * `showOnResume` filter, because that flag is about the resume page, not
+   * this one.
+   */
+  static getAboutPageData = cache(async () => {
+    const [profile, educationRaw, experienceRaw] = await Promise.all([
+      PublicContentService.getSiteProfile(),
+      db.education.findMany({
+        where: { deletedAt: null },
+        include: { versions: { where: PUBLISHED_VISIBLE } },
+      }),
+      db.experience.findMany({
+        where: { deletedAt: null },
+        include: { versions: { where: PUBLISHED_VISIBLE } },
+      }),
+    ]);
+
+    const education = attachPublished(educationRaw);
+    const experience = attachPublished(experienceRaw);
+    sortPublished(education);
+    sortPublished(experience);
+
+    return { profile, education, experience };
+  });
+
+  /**
+   * Everything /resume renders.
+   *
+   * `showOnResume` now filters education and experience as well as
+   * technologies. It previously applied to technologies alone, so clearing the
+   * flag on a job or a qualification did nothing at all — the column exists on
+   * all three version tables and defaults to true, which is why the omission
+   * was invisible until someone tried to use it.
+   */
+  static getResumePageData = cache(async () => {
+    const [profile, educationRaw, experienceRaw, technologiesRaw] = await Promise.all([
+      PublicContentService.getSiteProfile(),
+      db.education.findMany({
+        where: { deletedAt: null },
+        include: { versions: { where: PUBLISHED_VISIBLE_ON_RESUME } },
+      }),
+      db.experience.findMany({
+        where: { deletedAt: null },
+        include: { versions: { where: PUBLISHED_VISIBLE_ON_RESUME } },
+      }),
+      db.technology.findMany({
+        where: { deletedAt: null },
+        include: { versions: { where: PUBLISHED_VISIBLE_ON_RESUME } },
+      }),
+    ]);
+
+    const education = attachPublished(educationRaw);
+    const experience = attachPublished(experienceRaw);
+    const technologies = attachPublished(technologiesRaw);
+    sortPublished(education);
+    sortPublished(experience);
+    // Technologies carry no date, so ordering is the `order` column alone.
+    technologies.sort((a, b) => (a.pub?.order || 0) - (b.pub?.order || 0));
+
+    return { profile, education, experience, technologies };
   });
 
   private static toSectionData(s: any): SectionData {

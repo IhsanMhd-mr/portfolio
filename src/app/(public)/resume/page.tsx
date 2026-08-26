@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import db from "@/lib/database";
 import { PublicContentService } from "@/services/public-content.service";
 import { ArrowDownToLine, Mail, MapPin, Globe } from "lucide-react";
 import { formatMonthYear } from "@/lib/format-date";
@@ -23,21 +22,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function ResumePage() {
-  const [profile, educationRaw, experienceRaw, technologiesRaw] = await Promise.all([
-    PublicContentService.getSiteProfile(),
-    db.education.findMany({
-      where: { deletedAt: null },
-      include: { versions: { where: { state: "PUBLISHED", visible: true } } },
-    }),
-    db.experience.findMany({
-      where: { deletedAt: null },
-      include: { versions: { where: { state: "PUBLISHED", visible: true } } },
-    }),
-    db.technology.findMany({
-      where: { deletedAt: null },
-      include: { versions: { where: { state: "PUBLISHED", visible: true, showOnResume: true } } },
-    }),
-  ]);
+  const { profile, education, experience, technologies } =
+    await PublicContentService.getResumePageData();
 
   // No invented identity or contact details — see src/lib/text.ts.
   const fullName = text(profile?.fullName);
@@ -54,42 +40,6 @@ export default async function ResumePage() {
     { icon: MapPin, value: locationText },
     { icon: Globe, value: fullName ? `${fullName} Portfolio` : null },
   ].filter((item) => item.value);
-
-  // Resolve active versions
-  const education = educationRaw
-    .map((edu) => ({
-      ...edu,
-      pub: edu.versions[0],
-    }))
-    .filter((e) => e.pub);
-
-  education.sort((a, b) => {
-    const oDiff = (a.pub?.order || 0) - (b.pub?.order || 0);
-    if (oDiff !== 0) return oDiff;
-    return new Date(b.pub?.startDate || 0).getTime() - new Date(a.pub?.startDate || 0).getTime();
-  });
-
-  const experience = experienceRaw
-    .map((exp) => ({
-      ...exp,
-      pub: exp.versions[0],
-    }))
-    .filter((e) => e.pub);
-
-  experience.sort((a, b) => {
-    const oDiff = (a.pub?.order || 0) - (b.pub?.order || 0);
-    if (oDiff !== 0) return oDiff;
-    return new Date(b.pub?.startDate || 0).getTime() - new Date(a.pub?.startDate || 0).getTime();
-  });
-
-  const technologies = technologiesRaw
-    .map((tech) => ({
-      ...tech,
-      pub: tech.versions[0],
-    }))
-    .filter((t) => t.pub);
-
-  technologies.sort((a, b) => (a.pub?.order || 0) - (b.pub?.order || 0));
 
   // Group technologies by category
   const groupedTech: Record<string, string[]> = {

@@ -30,6 +30,10 @@ export const FIXTURE = {
 
   ownerUsername: "test-owner",
 
+  // Published and visible, but flagged off the resume. Must appear on
+  // /about and NOT on /resume — the distinction showOnResume is for.
+  resumeExcludedInstitution: "Resume Excluded Institution",
+
   visibleGroupTitle: "Visible Group",
   hiddenGroupTitle: "Hidden Group",
 } as const;
@@ -164,6 +168,23 @@ async function seedEducation(db: PrismaClient) {
       },
     },
   });
+  // Visible everywhere except the resume.
+  await db.education.create({
+    data: {
+      versions: {
+        create: {
+          state: "PUBLISHED",
+          institution: FIXTURE.resumeExcludedInstitution,
+          qualification: "Diploma",
+          startDate: new Date("2012-01-01"),
+          order: 3,
+          visible: true,
+          showOnResume: false,
+        },
+      },
+    },
+  });
+
   // Hidden — must never surface.
   await db.education.create({
     data: {
