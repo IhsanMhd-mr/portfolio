@@ -1,4 +1,5 @@
 import db from "@/lib/database";
+import { requireAdmin } from "@/lib/require-admin";
 import { revalidatePath } from "next/cache";
 import { Inbox, Trash2, Mail, CheckCircle } from "lucide-react";
 import Pagination from "@/components/admin/Pagination";
@@ -30,6 +31,10 @@ export default async function AdminMessagesPage({ searchParams }: PageProps) {
   // Server actions for inline message state mutations
   async function toggleReadStatus(formData: FormData) {
     "use server";
+    // Server Actions are independently invocable POST endpoints — the admin
+    // layout guards page RENDERING, not this. Without its own check, anyone
+    // able to reach the action id could invoke it unauthenticated.
+    await requireAdmin();
     const id = formData.get("id") as string;
     const currentStatus = formData.get("status") as string;
     
@@ -42,6 +47,10 @@ export default async function AdminMessagesPage({ searchParams }: PageProps) {
 
   async function deleteMessage(formData: FormData) {
     "use server";
+    // Server Actions are independently invocable POST endpoints — the admin
+    // layout guards page RENDERING, not this. Without its own check, anyone
+    // able to reach the action id could invoke it unauthenticated.
+    await requireAdmin();
     const id = formData.get("id") as string;
     await db.contactMessage.update({
       where: { id },
