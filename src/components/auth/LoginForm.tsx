@@ -14,25 +14,32 @@ interface LoginFormProps {
 const DEFAULT_NEXT = "/admin/dashboard";
 
 /**
- * Constrains the post-login destination to a same-origin absolute path.
+ * Constrains the post-login destination to a same-origin rooted path.
  *
  * `?next=` is attacker-controllable, and this value is handed to
  * `window.location.assign()` below. Without this guard,
  * `/admin/login?next=https://evil.com` would be a post-authentication open
  * redirect — the worst kind, because the user has just proven they trust this
- * site and will carry that trust to wherever they land.
+ * site and will carry that trust to wherever they land. This form is also
+ * mounted in AuthDialog, which Navbar opens on `?login=1`, so the hostile URL
+ * works on every public page too, not just the admin login route.
+ *
+ * Returns null for "no usable destination". A rejected hostile value is
+ * therefore indistinguishable from an absent one, which is deliberate: an
+ * attacker-supplied `next` should produce no navigation at all rather than a
+ * consolation redirect.
  *
  * proxy.ts only ever sets `next` to an internal `pathname`, so nothing
  * legitimate is rejected here.
  */
-function safeNextTarget(raw: string | null): string {
-  if (!raw) return DEFAULT_NEXT;
+function safeNextTarget(raw: string | null): string | null {
+  if (!raw) return null;
   // Must be a rooted path. This rejects absolute URLs ("https://evil.com") and
   // scheme-like values ("javascript:...") outright.
-  if (!raw.startsWith("/")) return DEFAULT_NEXT;
+  if (!raw.startsWith("/")) return null;
   // "//evil.com" is protocol-relative, and browsers normalise the backslash
   // forms ("/\evil.com", "/\\evil.com") to the same thing. Both leave the origin.
-  if (raw.startsWith("//") || raw.startsWith("/\\")) return DEFAULT_NEXT;
+  if (raw.startsWith("//") || raw.startsWith("/\\")) return null;
   return raw;
 }
 
@@ -99,24 +106,48 @@ export default function LoginForm({ onSuccess, standalone = false }: LoginFormPr
         }
         triggerShake();
       } else {
+        // Where to go depends on WHICH mount this is.
+        //
+        // standalone === true is the /admin/login page: the user came here to
+        // reach the admin, so always leave, defaulting to the dashboard.
+        // Otherwise this is AuthDialog, opened over a public page by Navbar on
+        // `?login=1`. They asked to sign in, not to be taken somewhere — so we
+        // only leave when an explicit, validated `next` says to.
+        const destination = standalone ? nextTarget ?? DEFAULT_NEXT : nextTarget;
+
+        if (destination) {
+          // NOTE: onSuccess() is deliberately NOT called on this path. In the
+          // dialog it is onClose, and closing runs AuthDialog's sync effect,
+          // which calls router.replace() to strip `?login=1`. That client-side
+          // navigation raced with — and cancelled — the assign() below, leaving
+          // the user authenticated but still sitting on the original page.
+          // We are leaving anyway, so the dialog goes with the document.
+          //
+          // A real browser navigation, NOT router.push().
+          //
+          // /admin/login and every other admin route share
+          // src/app/admin/layout.tsx, and that layout branches its whole shell
+          // on isLoginPage. The App Router does not re-render shared layouts on
+          // client-side navigation (partial rendering swaps only the page slot),
+          // so router.push() left the dashboard mounted inside the narrow,
+          // sidebar-less login shell until a manual refresh. A full load
+          // re-renders the layout with the correct x-pathname.
+          //
+          // It is also the right thing after authenticating: it discards any
+          // client router cache still holding logged-out state.
+          window.location.assign(destination);
+          // Deliberately stay in the loading state. assign() only *schedules*
+          // the navigation, so clearing it here would flash the button back to
+          // "Sign in" while the browser is still leaving the page, and briefly
+          // invite a second submit.
+          return;
+        }
+
+        // Staying put: close the dialog (AuthDialog's own effect then strips
+        // `?login=1`). The navbar re-reads useSession and flips itself;
+        // refresh() is only for the server-rendered tree below it.
         if (onSuccess) onSuccess();
-        // A real browser navigation, NOT router.push().
-        //
-        // /admin/login and every other admin route share src/app/admin/layout.tsx,
-        // and that layout branches its whole shell on isLoginPage. The App Router
-        // does not re-render shared layouts on client-side navigation (partial
-        // rendering swaps only the page slot), so router.push() left the dashboard
-        // mounted inside the narrow, sidebar-less login shell until a manual
-        // refresh. A full load re-renders the layout with the correct x-pathname.
-        //
-        // It is also the right thing after authenticating: it discards any client
-        // router cache still holding logged-out state.
-        window.location.assign(nextTarget);
-        // Deliberately stay in the loading state. assign() only *schedules* the
-        // navigation, so clearing it here would flash the button back to
-        // "Sign in" while the browser is still leaving the page, and briefly
-        // invite a second submit.
-        return;
+        router.refresh();
       }
     } catch {
       setErrorType("INVALID_CREDENTIALS");
@@ -128,7 +159,13 @@ export default function LoginForm({ onSuccess, standalone = false }: LoginFormPr
   const handleGoogleSignIn = async () => {
     setIsRedirectingOAuth(true);
     try {
-      await signIn("google", { callbackUrl: nextTarget });
+      // OAuth always leaves the page, so "stay put" has to mean "come back
+      // here" rather than "don't navigate". From the dialog that is the current
+      // path — deliberately without the query string, since `?login=1` would
+      // just reopen the dialog on arrival.
+      const callbackUrl =
+        nextTarget ?? (standalone ? DEFAULT_NEXT : window.location.pathname);
+      await signIn("google", { callbackUrl });
     } catch {
       setErrorType("OAUTH_REFUSED");
       triggerShake();
