@@ -3,7 +3,18 @@ import db from "@/lib/database";
 import { safeRequireAdmin } from "@/lib/require-admin";
 import { recordAudit } from "@/lib/audit";
 
-export async function GET() {
+/**
+ * Admin-only. This handler was previously unauthenticated while the POST
+ * below it required an owner session — an inconsistency, and an unauthenticated
+ * read of a CMS table (including each template's `isActiveLive` state) by
+ * anyone who knew the path. The only caller is src/app/admin/templates/page.tsx,
+ * a client component that already runs behind the admin layout and sends its
+ * session cookie, so guarding this changes nothing for legitimate use.
+ */
+export async function GET(request: Request) {
+  const { response } = await safeRequireAdmin(request);
+  if (response) return response;
+
   try {
     const templates = await db.template.findMany({ orderBy: { key: "asc" } });
     return NextResponse.json(templates);

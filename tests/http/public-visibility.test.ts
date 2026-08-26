@@ -81,3 +81,11 @@ suite("admin routes — unauthenticated", () => {
     expect([302, 307, 308]).toContain(status);
   });
 });
+
+suite("admin API — unauthenticated", () => {
+  it("rejects GET /api/templates without a session", async () => {
+    // B5: this handler was public while the POST beside it required an owner.
+    const res = await fetch(`${baseUrl}/api/templates`, { redirect: "manual" });
+    expect(res.status).toBe(401);
+  });
+});

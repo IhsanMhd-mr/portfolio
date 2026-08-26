@@ -33,6 +33,28 @@ export interface GroupInput {
   subtitle?: string | null;
 }
 
+/**
+ * Flags the page as having unpublished changes.
+ *
+ * Anything that alters what a publish would ship has to set this, or the
+ * "unpublished changes" indicator in the admin shell lies. PageSectionService
+ * already did it for module add/update/remove, and assignModuleToGroup did it
+ * for moves — but creating, renaming, hiding, deleting and reordering groups,
+ * and reordering modules within a container, all changed the rendered output
+ * while leaving the flag untouched. Reordering the homepage and being told
+ * there was nothing to publish was the visible symptom.
+ *
+ * Takes the transaction client so the flag commits atomically with the change
+ * that caused it; a crash between the two would leave the page dirty in fact
+ * but clean in the UI.
+ */
+async function markPageDirty(
+  tx: Parameters<Parameters<typeof db.$transaction>[0]>[0],
+  pageId: string
+) {
+  await tx.page.update({ where: { id: pageId }, data: { hasUnpublishedChanges: true } });
+}
+
 export class SectionGroupService {
   // ─── Group CRUD ────────────────────────────────────────────────────────
 
@@ -42,8 +64,12 @@ export class SectionGroupService {
 
   static async createGroup(pageId: string, input: GroupInput, auditContext: AuditContext) {
     const last = await db.sectionGroup.findFirst({ where: { pageId }, orderBy: { order: "desc" } });
-    const created = await db.sectionGroup.create({
-      data: { pageId, title: input.title, subtitle: input.subtitle || null, order: (last?.order ?? -1) + 1 },
+    const created = await db.$transaction(async (tx) => {
+      const group = await tx.sectionGroup.create({
+        data: { pageId, title: input.title, subtitle: input.subtitle || null, order: (last?.order ?? -1) + 1 },
+      });
+      await markPageDirty(tx, pageId);
+      return group;
     });
     await recordAudit({
       action: "SECTION_GROUP_CREATED", entityType: "SectionGroup", entityId: created.id,
@@ -59,13 +85,17 @@ export class SectionGroupService {
   ) {
     const existing = await db.sectionGroup.findUnique({ where: { id } });
     if (!existing) throw new Error("Section group not found.");
-    const updated = await db.sectionGroup.update({
-      where: { id },
-      data: {
-        title: input.title,
-        subtitle: input.subtitle ?? null,
-        ...(typeof input.visible === "boolean" ? { visible: input.visible } : {}),
-      },
+    const updated = await db.$transaction(async (tx) => {
+      const group = await tx.sectionGroup.update({
+        where: { id },
+        data: {
+          title: input.title,
+          subtitle: input.subtitle ?? null,
+          ...(typeof input.visible === "boolean" ? { visible: input.visible } : {}),
+        },
+      });
+      await markPageDirty(tx, existing.pageId);
+      return group;
     });
     await recordAudit({
       action: "SECTION_GROUP_UPDATED", entityType: "SectionGroup", entityId: id,
@@ -96,6 +126,7 @@ export class SectionGroupService {
         nextOrder += 1;
       }
       await tx.sectionGroup.delete({ where: { id } });
+      await markPageDirty(tx, pageId);
     });
 
     await recordAudit({
@@ -111,9 +142,10 @@ export class SectionGroupService {
     if (orderedIds.some((id) => !validIds.has(id)) || orderedIds.length !== groups.length) {
       throw new Error("Invalid group ordering: id set does not match the page's groups.");
     }
-    await db.$transaction(
-      orderedIds.map((id, index) => db.sectionGroup.update({ where: { id }, data: { order: index } }))
-    );
+    await db.$transaction([
+      ...orderedIds.map((id, index) => db.sectionGroup.update({ where: { id }, data: { order: index } })),
+      db.page.update({ where: { id: pageId }, data: { hasUnpublishedChanges: true } }),
+    ]);
     await recordAudit({
       action: "SECTION_GROUP_REORDERED", entityType: "SectionGroup",
       summary: "Reordered section groups", context: auditContext,
@@ -138,9 +170,10 @@ export class SectionGroupService {
     if (orderedSectionIds.some((id) => !validIds.has(id)) || orderedSectionIds.length !== sections.length) {
       throw new Error("Invalid module ordering: id set does not match the container's modules.");
     }
-    await db.$transaction(
-      orderedSectionIds.map((id, index) => db.pageSection.update({ where: { id }, data: { order: index } }))
-    );
+    await db.$transaction([
+      ...orderedSectionIds.map((id, index) => db.pageSection.update({ where: { id }, data: { order: index } })),
+      db.page.update({ where: { id: pageId }, data: { hasUnpublishedChanges: true } }),
+    ]);
     await recordAudit({
       action: "SECTION_REORDERED", entityType: "PageSection",
       summary: `Reordered modules within ${groupId ? "a group" : "the ungrouped bucket"}`,

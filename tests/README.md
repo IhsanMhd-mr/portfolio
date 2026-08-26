@@ -33,19 +33,25 @@ Use the helpers in `tests/http/dom.ts`.
 
 ## `it.fails` — known bugs
 
-Three tests are marked `it.fails`. They assert the behaviour we *want* and record
-that the code does not do it yet:
+A test that documents a bug we have not fixed yet is marked `it.fails`: it
+asserts the behaviour we *want*, and the marker records that the code does not
+do it. When the bug is fixed the test starts failing **because it passes**,
+which forces whoever fixed it to remove the marker. A `skip` would rot silently.
 
-- **B1** — `/projects/[slug]` serves a PUBLISHED project marked `visible: false`
-- **B2** — the homepage re-sorts education/experience by date, discarding the
-  admin `order` column (×2)
-
-When the underlying bug is fixed, an `it.fails` test starts failing *because it
-passes*, which forces whoever fixed it to remove the marker. A `skip` would have
-rotted silently.
+There are currently **no** `it.fails` markers — B1 (hidden project served at its
+detail URL) and B2 (homepage discarding the admin `order` column) have both been
+fixed and their tests now assert the corrected behaviour directly.
 
 ## Fixture
 
 `tests/fixtures/seed.ts`. Note that education/experience rows are seeded so
 `order` and `startDate` **disagree** — a fixture where they agree would pass
 whichever sort the code happened to use, which is exactly bug B2.
+
+## Shared state
+
+Test files run serially against one database. Any file that mutates fixture
+rows must restore them — `tests/contract/unpublished-changes.test.ts` creates
+and reorders groups, and cleans up in `afterAll`, so that
+`section-composition.test.ts` (which asserts an exact rendered sequence) does
+not depend on which file happened to run first.

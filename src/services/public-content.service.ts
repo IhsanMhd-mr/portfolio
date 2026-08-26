@@ -329,28 +329,32 @@ export class PublicContentService {
    */
   private static resolveSections = cache(async (): Promise<SectionData[]> => {
     let sections: SectionData[] = [];
-    try {
-      const page = await PublicContentService.getHomePageRecord();
-      if (!page) return [];
 
-      const activeVersion = page.versions?.[0];
-      if (activeVersion && activeVersion.snapshot) {
-        const snapshot =
-          typeof activeVersion.snapshot === "string"
-            ? JSON.parse(activeVersion.snapshot)
-            : activeVersion.snapshot;
-        if (Array.isArray(snapshot)) sections = snapshot;
-      } else {
-        // Fallback when no published version exists yet: derive the order live
-        // with the same algorithm the publish route bakes into the snapshot,
-        // filtered to visible groups. Hidden groups behave like hidden
-        // sections — the trailing .filter(s.visible) below handles the
-        // individually-hidden case, and group visibility must be consistent.
-        const flattened = await SectionGroupService.flattenOrdered(page.id, { visibleGroupsOnly: true });
-        sections = flattened.map(PublicContentService.toSectionData);
-      }
-    } catch (error) {
-      console.error("Failed to load sections:", error);
+    // Deliberately NOT wrapped in try/catch. It used to be, logging the error
+    // and returning [] — which rendered a 200 response with an empty page,
+    // indistinguishable from "the owner has not configured any sections yet".
+    // A database failure during a homepage render is not a blank homepage; it
+    // is an error, and it belongs in Next's error boundary where it is visible
+    // and reportable. The legitimate empty cases are still handled explicitly
+    // below (no page row, no snapshot, nothing visible).
+    const page = await PublicContentService.getHomePageRecord();
+    if (!page) return [];
+
+    const activeVersion = page.versions?.[0];
+    if (activeVersion && activeVersion.snapshot) {
+      const snapshot =
+        typeof activeVersion.snapshot === "string"
+          ? JSON.parse(activeVersion.snapshot)
+          : activeVersion.snapshot;
+      if (Array.isArray(snapshot)) sections = snapshot;
+    } else {
+      // Fallback when no published version exists yet: derive the order live
+      // with the same algorithm the publish route bakes into the snapshot,
+      // filtered to visible groups. Hidden groups behave like hidden
+      // sections — the trailing .filter(s.visible) below handles the
+      // individually-hidden case, and group visibility must be consistent.
+      const flattened = await SectionGroupService.flattenOrdered(page.id, { visibleGroupsOnly: true });
+      sections = flattened.map(PublicContentService.toSectionData);
     }
 
     return sections.filter((s) => s.visible);
@@ -364,18 +368,16 @@ export class PublicContentService {
    * cached page read) rather than reimplementing the lookup.
    */
   static resolveTemplateKey = cache(async (): Promise<string> => {
-    let templateKey = "MODERN_GLASS";
-    try {
-      const page = await PublicContentService.getHomePageRecord();
-      if (page?.versions?.[0]?.templateKey) {
-        templateKey = page.versions[0].templateKey;
-      } else if (page?.draftTemplate?.key) {
-        templateKey = page.draftTemplate.key;
-      }
-    } catch (error) {
-      console.error("Failed to load template:", error);
-    }
-    return templateKey;
+    // The MODERN_GLASS default below covers a real, legitimate state: no
+    // published version and no draft pointer. It must not also cover "the
+    // database is unreachable" — the previous try/catch conflated the two, so
+    // an infrastructure failure silently rendered the site in the wrong skin
+    // instead of surfacing. The optional chaining already handles the
+    // legitimate case; errors now propagate.
+    const page = await PublicContentService.getHomePageRecord();
+    if (page?.versions?.[0]?.templateKey) return page.versions[0].templateKey;
+    if (page?.draftTemplate?.key) return page.draftTemplate.key;
+    return "MODERN_GLASS";
   });
 
   private static toSectionData(s: any): SectionData {

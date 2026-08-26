@@ -28,6 +28,8 @@ export const FIXTURE = {
   olderOrganization: "Older Organization",
   newerOrganization: "Newer Organization",
 
+  ownerUsername: "test-owner",
+
   visibleGroupTitle: "Visible Group",
   hiddenGroupTitle: "Hidden Group",
 } as const;
@@ -40,6 +42,18 @@ function client() {
 export async function seedTestData() {
   const db = client();
   try {
+    // Audit logging runs inside the service operations under test, and
+    // AuditLog.actorId is a real foreign key to users. Without an actual owner
+    // row every audited mutation fails on the FK constraint rather than on
+    // anything it was meant to prove.
+    await db.user.create({
+      data: {
+        username: FIXTURE.ownerUsername,
+        email: "owner@example.test",
+        name: "Test Owner",
+      },
+    });
+
     const template = await db.template.create({
       data: {
         key: "MODERN_GLASS",

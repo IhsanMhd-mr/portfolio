@@ -1,5 +1,6 @@
 import { Calendar, MapPin } from "lucide-react";
 import { formatMonthYear } from "@/lib/format-date";
+import { byOrderThenNewest } from "@/lib/content-order";
 
 interface EducationExperienceSectionProps {
   education: any[];
@@ -13,18 +14,14 @@ export default function EducationExperienceSection({
   settings,
 }: EducationExperienceSectionProps) {
   
-  // Sort experience newest first
-  let sortedExp = [...experience].sort(
-    (a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
-  );
+  // Admin ordering first, newest-first only as a tiebreak. Sorting purely by
+  // date here silently overrode the sequence the owner set in the admin.
+  let sortedExp = [...experience].sort(byOrderThenNewest);
   if (settings?.limit) {
     sortedExp = sortedExp.slice(0, settings.limit);
   }
 
-  // Sort education newest first
-  let sortedEdu = [...education].sort(
-    (a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
-  );
+  let sortedEdu = [...education].sort(byOrderThenNewest);
   if (settings?.limit) {
     sortedEdu = sortedEdu.slice(0, settings.limit);
   }
