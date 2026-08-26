@@ -54,13 +54,18 @@ export async function seedTestData() {
       },
     });
 
-    const template = await db.template.create({
-      data: {
-        key: "MODERN_GLASS",
-        name: "Modern Glass",
-        isActiveLive: true,
-      },
+    // All three templates exist so tests can switch the active one. The
+    // section-dispatch logic is shared but each template wraps it differently,
+    // so exercising only the default would leave two thirds of that code
+    // unrendered by any test.
+    await db.template.createMany({
+      data: [
+        { key: "MODERN_GLASS", name: "Modern Glass", isActiveLive: true },
+        { key: "PROFESSIONAL_MINIMAL", name: "Professional Minimal" },
+        { key: "INTERACTIVE_3D", name: "Interactive 3D" },
+      ],
     });
+    const template = await db.template.findFirstOrThrow({ where: { key: "MODERN_GLASS" } });
 
     await db.siteProfile.create({
       data: {

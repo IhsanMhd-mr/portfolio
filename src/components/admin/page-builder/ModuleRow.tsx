@@ -3,7 +3,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, ArrowUp, ArrowDown, Eye, EyeOff, Settings, Trash2 } from "lucide-react";
-import { sectionMeta } from "@/components/sections/registry";
+import { sectionMetaFor } from "@/components/sections/registry";
 import type { ModuleData } from "./ModuleConfigModal";
 
 interface ModuleRowProps {
@@ -22,7 +22,7 @@ export default function ModuleRow({ module, isFirst, isLast, busy, onMove, onTog
     id: module.id,
     data: { type: "module", groupId: module.groupId },
   });
-  const meta = sectionMeta[module.type];
+  const meta = sectionMetaFor(module.type);
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),

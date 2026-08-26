@@ -24,13 +24,27 @@ import { SectionGroupService } from "./section-group.service";
  * calls within a single request and never persists across requests or users.
  */
 
+/**
+ * The shape templates consume for one rendered section.
+ *
+ * `order` is deliberately ABSENT. In the database it is CONTAINER-scoped —
+ * every group restarts at 0 and the ungrouped bucket has its own sequence, so
+ * three sections on one page can all be `order: 0`. Render order is the
+ * sequence SectionGroupService.flattenOrdered produces and nothing else, and a
+ * downstream `.sort((a, b) => a.order - b.order)` silently scrambles the page.
+ *
+ * Branding the field was tried first and does not work: `number & {...}` is
+ * still assignable to `number`, so arithmetic on it type-checks fine. Removing
+ * it from the view model is what actually prevents the mistake — the value has
+ * no consumer here (it is still written into the publish snapshot from the raw
+ * rows, where it belongs).
+ */
 export interface SectionData {
   id: string;
   type: string;
   internalLabel: string;
   settings: any;
   visible: boolean;
-  order: number;
 }
 
 export interface HomePageData {
@@ -387,7 +401,6 @@ export class PublicContentService {
       internalLabel: s.internalLabel,
       settings: typeof s.settings === "string" ? JSON.parse(s.settings) : s.settings || {},
       visible: s.visible,
-      order: s.order,
     };
   }
 }
