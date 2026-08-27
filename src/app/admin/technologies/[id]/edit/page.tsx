@@ -1,4 +1,4 @@
-import db from "@/lib/database";
+import { TechnologyService } from "@/services/technology.service";
 import dynamic from "next/dynamic";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
@@ -20,20 +20,9 @@ export default async function EditTechnologyPage({ params }: EditTechnologyPageP
 
   // Read the DRAFT version — edits stay unpublished until a publish, matching
   // the create flow and projects/[id]/edit.
-  const tech = await db.technology.findUnique({
-    where: { id },
-    include: {
-      versions: {
-        where: { state: "DRAFT" },
-        take: 1,
-        include: { logo: { select: { filename: true, url: true } } },
-      },
-    },
-  });
-
-  if (!tech || tech.deletedAt) notFound();
-  const draft = tech.versions[0];
-  if (!draft) notFound();
+  const found = await TechnologyService.getDraftById(id);
+  if (!found) notFound();
+  const { tech, draft } = found;
 
   async function handleUpdate(formData: FormData) {
     "use server";

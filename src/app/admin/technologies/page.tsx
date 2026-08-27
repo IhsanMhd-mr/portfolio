@@ -1,6 +1,6 @@
-import db from "@/lib/database";
+import { TechnologyService } from "@/services/technology.service";
 import dynamic from "next/dynamic";
-import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Cpu, Trash2, Save, Eye, EyeOff, ArrowUp, ArrowDown, Edit } from "lucide-react";
 import AutoSubmitCheckbox from "@/components/admin/AutoSubmitCheckbox";
@@ -33,38 +33,10 @@ export default async function AdminTechnologiesPage(props: PageProps) {
   const rawPage = parseInt(params.page ?? "1", 10);
   const page = Number.isFinite(rawPage) && rawPage >= 1 ? rawPage : 1;
 
-  // Query TechnologyVersion (DRAFT) directly so `order` can be sorted/paginated
-  // at the database boundary — Prisma can't orderBy a to-many relation's field
-  // on the parent Technology model. The logo relation is joined directly
-  // instead of fetching every MediaAsset just to resolve one URL per row.
-  const [total, draftVersions] = await Promise.all([
-    db.technologyVersion.count({ where: { state: "DRAFT" } }),
-    db.technologyVersion.findMany({
-      where: { state: "DRAFT" },
-      orderBy: [{ order: "asc" }, { id: "asc" }],
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-      include: {
-        logo: { select: { url: true } },
-        technology: {
-          include: {
-            _count: {
-              select: { projects: true, experienceTech: true, timelineTech: true },
-            },
-          },
-        },
-      },
-    }),
-  ]);
-
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const technologies = draftVersions.map((draft) => ({
-    id: draft.technology.id,
-    draft,
-    projectCount: draft.technology._count.projects,
-    experienceCount: draft.technology._count.experienceTech,
-    timelineCount: draft.technology._count.timelineTech,
-  }));
+  const { total, totalPages, items: technologies } = await TechnologyService.listDraftPage(
+    page,
+    PAGE_SIZE
+  );
 
   // Server action triggers
   async function handleCreateTech(formData: FormData) {
@@ -102,9 +74,14 @@ export default async function AdminTechnologiesPage(props: PageProps) {
     try {
       await deleteTechnologyAction(id);
     } catch (e: any) {
-      // Redirect to same page with error message
+      // This used to call revalidatePath with a query string. revalidatePath
+      // takes a PATH — a query string makes it match nothing, so the call
+      // silently did nothing and the page re-rendered with no `error` param.
+      // The service throws a useful message here ("Deletion blocked.
+      // Technology 'X' is actively used in: ...") and the owner never saw it.
+      // redirect() is what the `?error=` the page reads actually needs.
       const msg = encodeURIComponent(e.message || "Failed to delete technology.");
-      return void revalidatePath(`/admin/technologies?error=${msg}`);
+      redirect(`/admin/technologies?error=${msg}`);
     }
   }
 
