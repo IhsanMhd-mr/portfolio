@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
-import db from "@/lib/database";
+import { ContactMessageService } from "@/services/contact-message.service";
 
 const MAX_LENGTHS = { name: 120, email: 254, subject: 200, message: 5000 };
 
@@ -45,32 +45,25 @@ export async function POST(request: Request) {
       );
     }
 
-    // Rate limit: max 3 messages per IP per 10 minutes
-    const ipHash = getClientIpHash(request);
-    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-    const recentCount = await db.contactMessage.count({
-      where: { ipHash, createdAt: { gte: tenMinutesAgo } },
+    // Rate limiting and persistence live in the service; the handler only
+    // maps the outcome onto a status code.
+    const result = await ContactMessageService.submit({
+      name,
+      email,
+      subject,
+      message,
+      category,
+      ipHash: getClientIpHash(request),
     });
-    if (recentCount >= 3) {
+
+    if (result.rateLimited) {
       return NextResponse.json(
         { error: "Too many messages. Please try again later." },
         { status: 429 }
       );
     }
 
-    const newMessage = await db.contactMessage.create({
-      data: {
-        name,
-        email,
-        subject,
-        message,
-        category: category || "GENERAL",
-        status: "NEW",
-        ipHash,
-      },
-    });
-
-    return NextResponse.json({ success: true, id: newMessage.id });
+    return NextResponse.json({ success: true, id: result.id });
   } catch (error) {
     console.error("Messages API error:", error);
     return NextResponse.json(

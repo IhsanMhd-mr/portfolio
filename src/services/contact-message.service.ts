@@ -19,6 +19,47 @@ type AuditContext = {
  * Deletion is soft (`deletedAt`), matching the rest of the codebase.
  */
 export class ContactMessageService {
+  /** Max submissions allowed from one IP hash within the window below. */
+  static readonly RATE_LIMIT = 3;
+  static readonly RATE_WINDOW_MS = 10 * 60 * 1000;
+
+  /**
+   * Records a submission from the public contact form.
+   *
+   * Returns `{ rateLimited: true }` rather than throwing, because the caller
+   * answers it with a 429 rather than an error page. The limit is keyed on a
+   * hash of the client IP, not the address itself — the raw IP is never
+   * stored.
+   */
+  static async submit(input: {
+    name: string;
+    email: string;
+    subject: string;
+    message: string;
+    category?: string | null;
+    ipHash: string;
+  }): Promise<{ rateLimited: true } | { rateLimited: false; id: string }> {
+    const since = new Date(Date.now() - ContactMessageService.RATE_WINDOW_MS);
+    const recentCount = await db.contactMessage.count({
+      where: { ipHash: input.ipHash, createdAt: { gte: since } },
+    });
+    if (recentCount >= ContactMessageService.RATE_LIMIT) return { rateLimited: true };
+
+    const created = await db.contactMessage.create({
+      data: {
+        name: input.name,
+        email: input.email,
+        subject: input.subject,
+        message: input.message,
+        category: (input.category || "GENERAL") as never,
+        status: "NEW",
+        ipHash: input.ipHash,
+      },
+    });
+
+    return { rateLimited: false, id: created.id };
+  }
+
   /** One page of the inbox, newest first, excluding deleted messages. */
   static async listPage(page: number, pageSize: number) {
     const [total, messages] = await Promise.all([
