@@ -66,6 +66,60 @@ export class TechnologyService {
   /**
    * Create a new technology with its DRAFT version
    */
+  /**
+   * One page of DRAFT rows for the admin list, with usage counts.
+   *
+   * The counts drive the "actively used in N projects" warning next to delete,
+   * and come from a `_count` select rather than loading the relations.
+   */
+  static async listDraftPage(page: number, pageSize: number) {
+    const [total, drafts] = await Promise.all([
+      db.technologyVersion.count({ where: { state: "DRAFT" } }),
+      db.technologyVersion.findMany({
+        where: { state: "DRAFT" },
+        orderBy: [{ order: "asc" }, { id: "asc" }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          logo: { select: { url: true } },
+          technology: {
+            include: {
+              _count: { select: { projects: true, experienceTech: true, timelineTech: true } },
+            },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      items: drafts.map((draft) => ({
+        id: draft.technology.id,
+        draft,
+        projectCount: draft.technology._count.projects,
+        experienceCount: draft.technology._count.experienceTech,
+        timelineCount: draft.technology._count.timelineTech,
+      })),
+    };
+  }
+
+  /** The DRAFT version for the editor. Null when missing or soft-deleted. */
+  static async getDraftById(id: string) {
+    const tech = await db.technology.findUnique({
+      where: { id },
+      include: {
+        versions: {
+          where: { state: "DRAFT" },
+          take: 1,
+          include: { logo: { select: { filename: true, url: true } } },
+        },
+      },
+    });
+    if (!tech || tech.deletedAt || !tech.versions[0]) return null;
+    return { tech, draft: tech.versions[0] };
+  }
+
   static async createTechnology(
     input: Partial<TechnologyInput>,
     auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }

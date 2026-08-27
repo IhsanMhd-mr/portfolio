@@ -3,6 +3,7 @@ import db from "@/lib/database";
 import { EducationService } from "@/services/education.service";
 import { ExperienceService } from "@/services/experience.service";
 import { TimelineService } from "@/services/timeline.service";
+import { TechnologyService } from "@/services/technology.service";
 import { PublicContentService } from "@/services/public-content.service";
 import { FIXTURE } from "../fixtures/seed";
 
@@ -19,6 +20,7 @@ let ctx: { actorId: string; loginMethod: string; loginAccountId: string | null }
 const CREATED_EDUCATION: string[] = [];
 const CREATED_EXPERIENCE: string[] = [];
 const CREATED_TIMELINE: string[] = [];
+const CREATED_TECHNOLOGY: string[] = [];
 
 beforeAll(async () => {
   const owner = await db.user.findUniqueOrThrow({ where: { username: FIXTURE.ownerUsername } });
@@ -46,6 +48,10 @@ afterAll(async () => {
   const timelineIds = CREATED_TIMELINE.filter(Boolean);
   if (timelineIds.length > 0) {
     await db.timelineEntry.deleteMany({ where: { id: { in: timelineIds } } });
+  }
+  const technologyIds = CREATED_TECHNOLOGY.filter(Boolean);
+  if (technologyIds.length > 0) {
+    await db.technology.deleteMany({ where: { id: { in: technologyIds } } });
   }
 });
 
@@ -150,5 +156,60 @@ describe("timeline drafts stay out of public content", () => {
 
   it("getDraftById returns null for an unknown id", async () => {
     expect(await TimelineService.getDraftById("no-such-id")).toBeNull();
+  });
+});
+
+describe("technology drafts stay out of public content", () => {
+  it("a newly created technology is DRAFT only and invisible publicly", async () => {
+    const created = await TechnologyService.createTechnology(
+      {
+        name: "Draft Test Tech",
+        slug: "draft-test-tech",
+        category: "BACKEND",
+        experienceLabel: "STRONG",
+      },
+      ctx
+    );
+    CREATED_TECHNOLOGY.push(created.tech.id);
+
+    const home = await PublicContentService.getHomePageData();
+    expect(home.technologies.map((t: any) => t.name)).not.toContain("Draft Test Tech");
+  });
+
+  it("listDraftPage exposes usage counts for the delete warning", async () => {
+    const { items } = await TechnologyService.listDraftPage(1, 50);
+    const row = items.find((i) => i.draft.name === "Draft Test Tech");
+    expect(row).toBeDefined();
+    expect(row).toHaveProperty("projectCount");
+    expect(row).toHaveProperty("experienceCount");
+    expect(row).toHaveProperty("timelineCount");
+  });
+
+  it("deleting a technology that is in use throws a message naming the usage", async () => {
+    // The list page surfaces this via ?error=. It previously called
+    // revalidatePath with a query string, which matches no path, so the
+    // message was discarded and the delete appeared to do nothing.
+    const project = await db.project.findFirstOrThrow({ where: { deletedAt: null } });
+    const created = await TechnologyService.createTechnology(
+      {
+        name: "Draft Test Used Tech",
+        slug: "draft-test-used-tech",
+        category: "TOOLS",
+        experienceLabel: "LEARNING",
+      },
+      ctx
+    );
+    CREATED_TECHNOLOGY.push(created.tech.id);
+    await db.projectTechnology.create({
+      data: { projectId: project.id, technologyId: created.tech.id, order: 0 },
+    });
+
+    await expect(TechnologyService.deleteTechnology(created.tech.id, ctx)).rejects.toThrow(
+      /actively used/i
+    );
+  });
+
+  it("getDraftById returns null for an unknown id", async () => {
+    expect(await TechnologyService.getDraftById("no-such-id")).toBeNull();
   });
 });
