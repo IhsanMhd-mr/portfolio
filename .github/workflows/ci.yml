@@ -70,5 +70,13 @@ jobs:
       - name: Tests
         run: npm test
 
+      # The test harness creates its own `portfolio_test` database. The build
+      # reads from the separate `portfolio` database, so it must receive the
+      # tracked schema and required singleton records before prerendering.
+      - name: Prepare build database
+        run: npm run db:setup
+        env:
+          NODE_ENV: production
+
       - name: Build
         run: npm run build

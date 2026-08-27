@@ -22,9 +22,13 @@
  */
 
 const { spawnSync } = require("child_process");
+const fs = require("fs");
 const path = require("path");
 
 const projectRoot = path.resolve(__dirname, "..");
+const envFileArgs = fs.existsSync(path.join(projectRoot, ".env"))
+  ? ["--env-file=.env"]
+  : [];
 
 // Allowlist ONLY — operation names map to fixed argument arrays.
 //
@@ -100,7 +104,7 @@ function main() {
   }
 
   // 2. Mandatory initialization
-  const initExit = run("initialize", "node", ["--env-file=.env", "scripts/initialize.js"]);
+  const initExit = run("initialize", "node", [...envFileArgs, "scripts/initialize.js"]);
   if (initExit !== 0) {
     console.error("\nDatabase migration completed, but initialization failed.\n");
     console.error("The application has not been marked ready.");
@@ -111,7 +115,7 @@ function main() {
   }
 
   // 3. Verification
-  const verifyExit = run("verify", "node", ["--env-file=.env", "scripts/verify-initialization.js"]);
+  const verifyExit = run("verify", "node", [...envFileArgs, "scripts/verify-initialization.js"]);
   if (verifyExit !== 0) {
     console.error("\n[database-setup] Verification failed — the database is not ready.\n");
     process.exitCode = verifyExit;
