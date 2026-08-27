@@ -3,7 +3,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { ExternalLink } from "lucide-react";
 import { requireAdmin } from "@/lib/require-admin";
-import db from "@/lib/database";
+import { PageService } from "@/services/page.service";
 import ThemeToggle from "@/components/theme/theme-toggle";
 
 export default async function AdminLayout({
@@ -12,6 +12,16 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   const headersList = await headers();
+  // `x-pathname` is set by proxy.ts via NextResponse.next({ request: { headers } }),
+  // which OVERWRITES anything the client sent — a request cannot forge it.
+  // It is used here for breadcrumbs and for the login-page branch.
+  //
+  // Deferred: branching authorization on a header is the wrong shape even when
+  // the header is trustworthy. The structural fix is route groups —
+  // admin/(auth)/login with its own layout, admin/(dashboard)/* with this one —
+  // so the login page is simply outside the guarded layout rather than
+  // exempted by a string comparison. That is a file move across every admin
+  // route and belongs in its own change.
   const pathname = headersList.get("x-pathname") || "";
   const isLoginPage = pathname === "/admin/login";
 
@@ -19,15 +29,12 @@ export default async function AdminLayout({
   let ownerEmail = "";
   let hasUnpublishedChanges = false;
   if (!isLoginPage) {
+    // requireAdmin already loads the owner row to validate the session, so the
+    // email comes back on the context — this used to issue a second
+    // db.user.findUnique for that one field.
     const ctx = await requireAdmin(pathname);
-    const [owner, page] = await Promise.all([
-      db.user.findUnique({ where: { id: ctx.userId }, select: { email: true } }),
-      db.page.findUnique({
-        where: { key: "home" },
-        select: { hasUnpublishedChanges: true },
-      }),
-    ]);
-    ownerEmail = owner?.email ?? "";
+    const page = await PageService.getHomePage();
+    ownerEmail = ctx.email;
     hasUnpublishedChanges = page?.hasUnpublishedChanges ?? false;
   }
 

@@ -1,67 +1,43 @@
-import db from "@/lib/database";
+import { GameSettingsService } from "@/services/game-settings.service";
 import { requireAdmin } from "@/lib/require-admin";
 import { revalidatePath } from "next/cache";
 import { Gamepad2, Save } from "lucide-react";
 import PendingButton from "@/components/ui/PendingButton";
 
 export default async function AdminGamePage() {
-  let settings = await db.gameSettings.findFirst();
-  
-  if (!settings) {
-    settings = await db.gameSettings.create({
-      data: {
-        enabled: true,
-        mode: "ROTATING_SPHERE",
-        ballCount: 12,
-        ballSize: 1.0,
-        fallingSpeed: 1.0,
-        difficulty: 1,
-      },
-    });
-  }
+  const admin = await requireAdmin("/admin/game");
+  const settings = await GameSettingsService.getOrCreate();
 
-  // Server action to update settings
   async function updateSettings(formData: FormData) {
     "use server";
-    // Server Actions are independently invocable POST endpoints — the admin
-    // layout guards page RENDERING, not this. Without its own check, anyone
-    // able to reach the action id could invoke it unauthenticated.
-    await requireAdmin();
-    const id = formData.get("id") as string;
-    const enabled = formData.get("enabled") === "on";
-    const mode = formData.get("mode") as any;
-    const ballCount = parseInt(formData.get("ballCount") as string) || 12;
-    const ballSize = parseFloat(formData.get("ballSize") as string) || 1.0;
-    const fallingSpeed = parseFloat(formData.get("fallingSpeed") as string) || 1.0;
-    const difficulty = parseInt(formData.get("difficulty") as string) || 1;
-    const soundEnabled = formData.get("soundEnabled") === "on";
-    const showScore = formData.get("showScore") === "on";
-    const physicsEnabled = formData.get("physicsEnabled") === "on";
-    const mobileFallback = formData.get("mobileFallback") === "on";
+    // Server Actions are independently invocable POST endpoints — the
+    // admin layout guards page RENDERING, not this.
+    const ctx = await requireAdmin();
+    const num = (key: string, fallback: number) =>
+      Number(formData.get(key)) || fallback;
 
-    await db.gameSettings.update({
-      where: { id },
-      data: {
-        enabled,
-        mode,
-        ballCount,
-        ballSize,
-        fallingSpeed,
-        difficulty,
-        soundEnabled,
-        showScore,
-        physicsEnabled,
-        mobileFallback,
+    await GameSettingsService.update(
+      String(formData.get("id") || ""),
+      {
+        enabled: formData.get("enabled") === "on",
+        mode: String(formData.get("mode") || "ROTATING_SPHERE"),
+        ballCount: num("ballCount", 12),
+        ballSize: num("ballSize", 1.0),
+        fallingSpeed: num("fallingSpeed", 1.0),
+        difficulty: num("difficulty", 1),
+        soundEnabled: formData.get("soundEnabled") === "on",
+        showScore: formData.get("showScore") === "on",
+        physicsEnabled: formData.get("physicsEnabled") === "on",
+        mobileFallback: formData.get("mobileFallback") === "on",
       },
-    });
-
-    // Mark homepage as containing changes
-    await db.page.update({
-      where: { key: "home" },
-      data: { hasUnpublishedChanges: true },
-    });
+      { actorId: ctx.userId, loginMethod: ctx.loginMethod, loginAccountId: ctx.loginAccountId }
+    );
 
     revalidatePath("/admin/game");
+    // The sandbox renders on the homepage and GameSettings is unversioned,
+    // so the change is live immediately. Revalidating only the admin route
+    // left the public page showing the old configuration.
+    revalidatePath("/");
   }
 
   return (

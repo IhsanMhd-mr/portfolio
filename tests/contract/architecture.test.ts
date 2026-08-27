@@ -36,6 +36,26 @@ describe("public route boundary", () => {
     ).toEqual([]);
   });
 
+  /**
+   * Extended to the admin tree in Section 7.8, once the last three files
+   * (game, messages, the layout) were migrated. Keeping this scoped to what is
+   * actually true matters — a guard asserting something false gets deleted
+   * rather than fixed.
+   *
+   * src/app/api/** is deliberately NOT covered yet; those handlers are the
+   * remaining known debt.
+   */
+  it("no route under admin imports the database directly", () => {
+    const root = path.resolve(__dirname, "../../src/app/admin");
+    const offenders = filesUnder(root).filter((file) =>
+      readFileSync(file, "utf8").includes("@/lib/database")
+    );
+    expect(
+      offenders.map((f) => path.relative(root, f)),
+      "admin routes and actions must call a service, not Prisma"
+    ).toEqual([]);
+  });
+
   it("no component imports the database or Prisma types", () => {
     const root = path.resolve(__dirname, "../../src/components");
     const offenders = filesUnder(root).filter((file) => {
