@@ -1,5 +1,5 @@
 import db from "@/lib/database";
-import { recordAudit } from "@/lib/audit";
+import { recordAudit, type ServiceAuditContext } from "@/lib/audit";
 
 export interface TimelineInput {
   title: string;
@@ -67,7 +67,7 @@ export class TimelineService {
 
   static async createEntry(
     input: Partial<TimelineInput>,
-    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+    auditContext: ServiceAuditContext
   ) {
     const count = await db.timelineEntry.count({ where: { deletedAt: null } });
 
@@ -117,7 +117,7 @@ export class TimelineService {
   static async updateEntry(
     id: string,
     input: Partial<TimelineInput>,
-    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+    auditContext: ServiceAuditContext
   ) {
     const base = await db.timelineEntry.findUnique({
       where: { id },
@@ -176,7 +176,7 @@ export class TimelineService {
 
   static async deleteEntry(
     id: string,
-    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+    auditContext: ServiceAuditContext
   ) {
     const base = await db.timelineEntry.findUnique({
       where: { id },
@@ -209,7 +209,7 @@ export class TimelineService {
 
   static async reorderEntries(
     ids: string[],
-    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+    auditContext: ServiceAuditContext
   ) {
     return await db.$transaction(async (tx) => {
       for (let i = 0; i < ids.length; i++) {
@@ -251,7 +251,7 @@ export class TimelineService {
   static async moveOrder(
     id: string,
     direction: "up" | "down",
-    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+    auditContext: ServiceAuditContext
   ) {
     return await db.$transaction(async (tx) => {
       const base = await tx.timelineEntry.findUnique({

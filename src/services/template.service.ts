@@ -1,12 +1,6 @@
 import db from "@/lib/database";
-import { recordAudit } from "@/lib/audit";
+import { recordAudit, type ServiceAuditContext } from "@/lib/audit";
 import { HOME_PAGE_KEY } from "./page.service";
-
-type AuditContext = {
-  actorId: string;
-  loginMethod: string;
-  loginAccountId: string | null;
-};
 
 /**
  * TemplateService — the three selectable homepage skins.
@@ -28,7 +22,7 @@ export class TemplateService {
    * The before/after values are captured inside the transaction so the audit
    * entry records the actual transition rather than a value re-read afterwards.
    */
-  static async selectDraftTemplate(templateId: string, auditContext: AuditContext) {
+  static async selectDraftTemplate(templateId: string, auditContext: ServiceAuditContext) {
     const template = await db.template.findUnique({ where: { id: templateId } });
     if (!template) return null;
 

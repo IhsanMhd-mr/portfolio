@@ -1,5 +1,5 @@
 import db from "@/lib/database";
-import { recordAudit } from "@/lib/audit";
+import { recordAudit, type ServiceAuditContext } from "@/lib/audit";
 
 export interface ExperienceInput {
   organization: string;
@@ -84,7 +84,7 @@ export class ExperienceService {
 
   static async createExperience(
     input: Partial<ExperienceInput>,
-    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+    auditContext: ServiceAuditContext
   ) {
     const count = await db.experience.count({ where: { deletedAt: null } });
 
@@ -148,7 +148,7 @@ export class ExperienceService {
   static async updateExperience(
     id: string,
     input: Partial<ExperienceInput>,
-    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+    auditContext: ServiceAuditContext
   ) {
     const base = await db.experience.findUnique({
       where: { id },
@@ -216,7 +216,7 @@ export class ExperienceService {
 
   static async deleteExperience(
     id: string,
-    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+    auditContext: ServiceAuditContext
   ) {
     const base = await db.experience.findUnique({
       where: { id },
@@ -250,7 +250,7 @@ export class ExperienceService {
 
   static async reorderExperience(
     ids: string[],
-    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+    auditContext: ServiceAuditContext
   ) {
     return await db.$transaction(async (tx) => {
       for (let i = 0; i < ids.length; i++) {
@@ -292,7 +292,7 @@ export class ExperienceService {
   static async moveOrder(
     id: string,
     direction: "up" | "down",
-    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+    auditContext: ServiceAuditContext
   ) {
     return await db.$transaction(async (tx) => {
       const base = await tx.experience.findUnique({

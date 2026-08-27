@@ -1,5 +1,5 @@
 import db from "@/lib/database";
-import { recordAudit } from "@/lib/audit";
+import { recordAudit, type ServiceAuditContext } from "@/lib/audit";
 
 /**
  * NavItemService — owns the configurable public navigation (Phase 4).
@@ -12,8 +12,6 @@ export interface NavItemInput {
   target: string;
   enabled?: boolean;
 }
-
-type AuditContext = { actorId: string; loginMethod: string; loginAccountId: string | null };
 
 export class NavItemService {
   static async list(enabledOnly = false) {
@@ -32,7 +30,7 @@ export class NavItemService {
    * Flips `enabled` in one step. Replaces a read-modify-write in the route
    * that rewrote label and target in order to change a boolean.
    */
-  static async toggleEnabled(id: string, auditContext: AuditContext) {
+  static async toggleEnabled(id: string, auditContext: ServiceAuditContext) {
     const current = await db.navItem.findUnique({ where: { id } });
     if (!current) throw new Error("Navigation item not found.");
 
@@ -52,7 +50,7 @@ export class NavItemService {
     return updated;
   }
 
-  static async create(input: NavItemInput, auditContext: AuditContext) {
+  static async create(input: NavItemInput, auditContext: ServiceAuditContext) {
     const last = await db.navItem.findFirst({ orderBy: { order: "desc" } });
     const created = await db.navItem.create({ data: { ...input, order: (last?.order ?? -1) + 1 } });
     await recordAudit({
@@ -62,7 +60,7 @@ export class NavItemService {
     return created;
   }
 
-  static async update(id: string, input: NavItemInput & { enabled?: boolean }, auditContext: AuditContext) {
+  static async update(id: string, input: NavItemInput & { enabled?: boolean }, auditContext: ServiceAuditContext) {
     const existing = await db.navItem.findUnique({ where: { id } });
     if (!existing) throw new Error("Nav item not found.");
     const updated = await db.navItem.update({ where: { id }, data: input });
@@ -73,7 +71,7 @@ export class NavItemService {
     return updated;
   }
 
-  static async remove(id: string, auditContext: AuditContext) {
+  static async remove(id: string, auditContext: ServiceAuditContext) {
     const existing = await db.navItem.findUnique({ where: { id } });
     if (!existing) throw new Error("Nav item not found.");
     await db.navItem.delete({ where: { id } });
@@ -83,7 +81,7 @@ export class NavItemService {
     });
   }
 
-  static async reorder(orderedIds: string[], auditContext: AuditContext) {
+  static async reorder(orderedIds: string[], auditContext: ServiceAuditContext) {
     await db.$transaction(
       orderedIds.map((id, index) => db.navItem.update({ where: { id }, data: { order: index } }))
     );
@@ -94,7 +92,7 @@ export class NavItemService {
   }
 
   /** Swap a nav item's `order` with its immediate neighbor — avoids refetching the full list. */
-  static async moveOrder(id: string, direction: "up" | "down", auditContext: AuditContext) {
+  static async moveOrder(id: string, direction: "up" | "down", auditContext: ServiceAuditContext) {
     return db.$transaction(async (tx) => {
       const current = await tx.navItem.findUnique({ where: { id } });
       if (!current) return false;

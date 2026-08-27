@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import db from "@/lib/database";
-import { recordAudit } from "@/lib/audit";
+import { recordAudit, type ServiceAuditContext } from "@/lib/audit";
 import { SectionGroupService } from "./section-group.service";
 import { HOME_PAGE_KEY } from "./page.service";
 import {
@@ -10,12 +10,6 @@ import {
   PROMOTION_DEFAULTS,
   pickPromoted,
 } from "./publish-diff.service";
-
-type AuditContext = {
-  actorId: string;
-  loginMethod: string;
-  loginAccountId: string | null;
-};
 
 /**
  * PublishService — DRAFT → PUBLISHED promotion for the whole site.
@@ -90,7 +84,7 @@ export class PublishService {
   }
 
   /** Promotes every draft, writes a new PageVersion snapshot, activates the template. */
-  static async publishHomePage(context: AuditContext & { userId: string }): Promise<PublishResult> {
+  static async publishHomePage(context: ServiceAuditContext & { userId: string }): Promise<PublishResult> {
     const page = await db.page.findUnique({
       where: { key: HOME_PAGE_KEY },
       include: { draftTemplate: true },
@@ -108,7 +102,7 @@ export class PublishService {
     });
     const sectionsSnapshot = buildSectionsSnapshot(orderedSections);
 
-    const auditCtx: AuditContext = {
+    const auditCtx: ServiceAuditContext = {
       actorId: context.actorId,
       loginMethod: context.loginMethod,
       loginAccountId: context.loginAccountId,

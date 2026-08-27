@@ -1,5 +1,5 @@
 import db from "@/lib/database";
-import { recordAudit } from "@/lib/audit";
+import { recordAudit, type ServiceAuditContext } from "@/lib/audit";
 
 /**
  * SiteProfileService — owns persistence for the SiteProfile singleton.
@@ -82,7 +82,7 @@ export class SiteProfileService {
    */
   static async updateSettings(
     input: SiteSettingsInput,
-    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null }
+    auditContext: ServiceAuditContext
   ) {
     const profile = await SiteProfileService.getOrCreate();
 
@@ -124,7 +124,7 @@ export class SiteProfileService {
 
   static async updateProfile(
     input: ProfileUpdateInput,
-    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null }
+    auditContext: ServiceAuditContext
   ) {
     const profile = await db.siteProfile.findFirst();
     if (!profile) throw new Error("Site profile not found.");

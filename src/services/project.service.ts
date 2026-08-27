@@ -1,5 +1,5 @@
 import db from "@/lib/database";
-import { recordAudit } from "@/lib/audit";
+import { recordAudit, type ServiceAuditContext } from "@/lib/audit";
 import { projectChangeState } from "./publish-diff.service";
 
 export interface ProjectInput {
@@ -214,7 +214,7 @@ export class ProjectService {
 
   static async createProject(
     input: Partial<ProjectInput>,
-    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+    auditContext: ServiceAuditContext
   ) {
     const slug = this.validateSlug(input.slug || `new-project-${Date.now()}`);
 
@@ -297,7 +297,7 @@ export class ProjectService {
   static async updateProjectDraft(
     id: string,
     input: Partial<ProjectInput>,
-    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+    auditContext: ServiceAuditContext
   ) {
     const project = await db.project.findUnique({
       where: { id },
@@ -446,7 +446,7 @@ export class ProjectService {
    */
   static async duplicateProject(
     id: string,
-    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+    auditContext: ServiceAuditContext
   ) {
     const project = await db.project.findUnique({
       where: { id },
@@ -571,7 +571,7 @@ export class ProjectService {
    */
   static async softDeleteProject(
     id: string,
-    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+    auditContext: ServiceAuditContext
   ) {
     const project = await db.project.findUnique({
       where: { id },
@@ -611,7 +611,7 @@ export class ProjectService {
    */
   static async restoreProject(
     id: string,
-    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+    auditContext: ServiceAuditContext
   ) {
     const project = await db.project.findUnique({
       where: { id },
@@ -651,7 +651,7 @@ export class ProjectService {
    */
   static async permanentlyDeleteProject(
     id: string,
-    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+    auditContext: ServiceAuditContext
   ) {
     const project = await db.project.findUnique({
       where: { id },
@@ -707,7 +707,7 @@ export class ProjectService {
   static async toggleVisibility(
     id: string,
     currentVisible: boolean,
-    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+    auditContext: ServiceAuditContext
   ) {
     const project = await db.project.findUnique({
       where: { id },
@@ -747,7 +747,7 @@ export class ProjectService {
    */
   static async reorderProjects(
     orderedIds: string[],
-    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+    auditContext: ServiceAuditContext
   ) {
     return await db.$transaction(async (tx) => {
       for (let i = 0; i < orderedIds.length; i++) {
@@ -791,7 +791,7 @@ export class ProjectService {
   static async moveOrder(
     id: string,
     direction: "up" | "down",
-    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+    auditContext: ServiceAuditContext
   ) {
     return await db.$transaction(async (tx) => {
       const project = await tx.project.findUnique({

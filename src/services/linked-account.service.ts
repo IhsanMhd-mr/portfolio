@@ -1,11 +1,5 @@
 import db from "@/lib/database";
-import { recordAudit } from "@/lib/audit";
-
-type AuditContext = {
-  actorId: string;
-  loginMethod: string;
-  loginAccountId: string | null;
-};
+import { recordAudit, type ServiceAuditContext } from "@/lib/audit";
 
 /**
  * LinkedAccountService — the owner's linked OAuth identities.
@@ -39,7 +33,7 @@ export class LinkedAccountService {
   static async unlinkGoogle(
     accountId: string,
     ownerId: string,
-    auditContext: AuditContext
+    auditContext: ServiceAuditContext
   ): Promise<UnlinkResult> {
     const account = await db.account.findUnique({ where: { id: accountId } });
     if (!account || account.userId !== ownerId || account.provider !== "google") {

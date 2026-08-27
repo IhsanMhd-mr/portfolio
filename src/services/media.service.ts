@@ -1,5 +1,5 @@
 import db from "@/lib/database";
-import { recordAudit } from "@/lib/audit";
+import { recordAudit, type ServiceAuditContext } from "@/lib/audit";
 import fs from "fs";
 import path from "path";
 
@@ -82,7 +82,7 @@ export class MediaService {
   static async updateMetadata(
     id: string,
     input: { altText?: string | null; filename?: string; kind?: string },
-    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+    auditContext: ServiceAuditContext
   ) {
     const data: { altText?: string | null; filename?: string; kind?: MediaKindValue } = {};
 
@@ -136,7 +136,7 @@ export class MediaService {
   static async uploadAsset(
     file: File,
     altText: string | null,
-    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+    auditContext: ServiceAuditContext
   ) {
     if (!file || file.size === 0) {
       throw new Error("No file provided or file is empty.");
@@ -316,7 +316,7 @@ export class MediaService {
    */
   static async deleteAsset(
     id: string,
-    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+    auditContext: ServiceAuditContext
   ) {
     const asset = await db.mediaAsset.findUnique({ where: { id } });
     if (!asset || asset.deletedAt) {
@@ -365,7 +365,7 @@ export class MediaService {
   static async replaceAsset(
     id: string,
     file: File,
-    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+    auditContext: ServiceAuditContext
   ) {
     const asset = await db.mediaAsset.findUnique({ where: { id } });
     if (!asset || asset.deletedAt) {
