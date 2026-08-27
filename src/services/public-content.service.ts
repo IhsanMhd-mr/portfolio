@@ -1,4 +1,3 @@
-import { cache } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 import db from "@/lib/database";
 import { PUBLIC_CONTENT_TAG } from "@/lib/public-content-cache";
@@ -77,7 +76,7 @@ export class PublicContentService {
    * wanted cvFile/logoImage, the homepage wanted profileImage/cvFile) — and
    * therefore could not dedupe.
    */
-  static getSiteProfile = cache(async () => {
+  static async getSiteProfile() {
     "use cache";
     cacheLife("max");
     cacheTag(PUBLIC_CONTENT_TAG);
@@ -92,13 +91,13 @@ export class PublicContentService {
         cvFile: true,
       },
     });
-  });
+  }
 
   /**
    * Shared chrome data for the public layout (navbar/footer): site profile
    * plus footer-visible social links, ordered.
    */
-  static getPublicChrome = cache(async () => {
+  static async getPublicChrome() {
     "use cache";
     cacheLife("max");
     cacheTag(PUBLIC_CONTENT_TAG);
@@ -125,13 +124,13 @@ export class PublicContentService {
       })),
       navLinks: navItemsRaw.map((n) => ({ label: n.label, href: n.target })),
     };
-  });
+  }
 
   /**
    * Full homepage dataset for the active template, resolved for the given
    * publish state.
    */
-  static getHomePageData = cache(async (): Promise<HomePageData> => {
+  static async getHomePageData(): Promise<HomePageData> {
     "use cache";
     cacheLife("max");
     cacheTag(PUBLIC_CONTENT_TAG);
@@ -329,7 +328,7 @@ export class PublicContentService {
       gameSettings,
       templateKey,
     };
-  });
+  }
 
   /**
    * The `home` Page row with every relation the two resolvers below need.
@@ -339,7 +338,7 @@ export class PublicContentService {
    * queries, so caching those two functions alone would not have collapsed
    * the underlying `pages`/`page_versions`/`templates` reads.
    */
-  private static getHomePageRecord = cache(async () => {
+  static async getHomePageRecord() {
     "use cache";
     cacheLife("max");
     cacheTag(PUBLIC_CONTENT_TAG);
@@ -350,7 +349,7 @@ export class PublicContentService {
         draftTemplate: true,
       },
     });
-  });
+  }
 
   /**
    * Layout sections: draft (grouped) rows in preview, active snapshot
@@ -362,7 +361,7 @@ export class PublicContentService {
    * container (per group, and separately for the ungrouped bucket) rather
    * than page-wide.
    */
-  private static resolveSections = cache(async (): Promise<SectionData[]> => {
+  static async resolveSections(): Promise<SectionData[]> {
     "use cache";
     cacheLife("max");
     cacheTag(PUBLIC_CONTENT_TAG);
@@ -396,7 +395,7 @@ export class PublicContentService {
     }
 
     return sections.filter((s) => s.visible);
-  });
+  }
 
   /**
    * Active template: the published version's key, falling back to the draft
@@ -405,7 +404,7 @@ export class PublicContentService {
    * `data-template` on <html>; it must resolve identically (and share the
    * cached page read) rather than reimplementing the lookup.
    */
-  static resolveTemplateKey = cache(async (): Promise<string> => {
+  static async resolveTemplateKey(): Promise<string> {
     "use cache";
     cacheLife("max");
     cacheTag(PUBLIC_CONTENT_TAG);
@@ -419,14 +418,14 @@ export class PublicContentService {
     if (page?.versions?.[0]?.templateKey) return page.versions[0].templateKey;
     if (page?.draftTemplate?.key) return page.draftTemplate.key;
     return "MODERN_GLASS";
-  });
+  }
 
   /**
    * Everything /about renders. Education and experience only — no
    * `showOnResume` filter, because that flag is about the resume page, not
    * this one.
    */
-  static getAboutPageData = cache(async () => {
+  static async getAboutPageData() {
     "use cache";
     cacheLife("max");
     cacheTag(PUBLIC_CONTENT_TAG);
@@ -448,7 +447,7 @@ export class PublicContentService {
     sortPublished(experience);
 
     return { profile, education, experience };
-  });
+  }
 
   /**
    * Everything /resume renders.
@@ -459,7 +458,7 @@ export class PublicContentService {
    * all three version tables and defaults to true, which is why the omission
    * was invisible until someone tried to use it.
    */
-  static getResumePageData = cache(async () => {
+  static async getResumePageData() {
     "use cache";
     cacheLife("max");
     cacheTag(PUBLIC_CONTENT_TAG);
@@ -488,7 +487,7 @@ export class PublicContentService {
     technologies.sort((a, b) => (a.pub?.order || 0) - (b.pub?.order || 0));
 
     return { profile, education, experience, technologies };
-  });
+  }
 
   /**
    * Everything /projects renders.
@@ -499,7 +498,7 @@ export class PublicContentService {
    * plus a full-table read that grew with the media library rather than with
    * the page. getHomePageData already selected the thumbnail this way.
    */
-  static getProjectsPageData = cache(async () => {
+  static async getProjectsPageData() {
     "use cache";
     cacheLife("max");
     cacheTag(PUBLIC_CONTENT_TAG);
@@ -562,7 +561,7 @@ export class PublicContentService {
     projects.sort((a, b) => (a.manualOrder || 0) - (b.manualOrder || 0));
 
     return { projects, technologies };
-  });
+  }
 
   /**
    * One project's detail page, or null.
@@ -575,7 +574,7 @@ export class PublicContentService {
    * Cached so generateMetadata and the page body share one query set rather
    * than issuing the same lookup twice per request.
    */
-  static getProjectDetail = cache(async (slug: string) => {
+  static async getProjectDetail(slug: string) {
     "use cache";
     cacheLife("max");
     cacheTag(PUBLIC_CONTENT_TAG);
@@ -632,10 +631,10 @@ export class PublicContentService {
       .filter((rp) => rp.title);
 
     return { project, pub, relatedProjects, coverImage, architectureImage };
-  });
+  }
 
   /** Everything /timeline renders. */
-  static getTimelinePageData = cache(async () => {
+  static async getTimelinePageData() {
     "use cache";
     cacheLife("max");
     cacheTag(PUBLIC_CONTENT_TAG);
@@ -661,10 +660,10 @@ export class PublicContentService {
     entries.sort((a, b) => byOrderThenNewest(a.published, b.published));
 
     return { entries };
-  });
+  }
 
   /** Everything /contact renders. */
-  static getContactPageData = cache(async () => {
+  static async getContactPageData() {
     "use cache";
     cacheLife("max");
     cacheTag(PUBLIC_CONTENT_TAG);
@@ -673,7 +672,7 @@ export class PublicContentService {
       db.socialLink.findMany({ where: { visible: true }, orderBy: { order: "asc" } }),
     ]);
     return { profile, socialLinks };
-  });
+  }
 
   private static toSectionData(s: any): SectionData {
     return {

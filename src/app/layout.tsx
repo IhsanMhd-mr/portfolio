@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import {
   Newsreader,
   Figtree,
@@ -186,15 +187,17 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
-        <ThemeProvider
-          attribute={["class", "data-theme"]}
-          defaultTheme={defaultTheme}
-          enableSystem
-          disableTransitionOnChange
-          storageKey="portfolio-theme"
-        >
-          {children}
-        </ThemeProvider>
+        <Suspense fallback={<div className="min-h-screen" aria-busy="true" />}>
+          <ThemeProvider
+            attribute={["class", "data-theme"]}
+            defaultTheme={defaultTheme}
+            enableSystem
+            disableTransitionOnChange
+            storageKey="portfolio-theme"
+          >
+            {children}
+          </ThemeProvider>
+        </Suspense>
       </body>
     </html>
   );
