@@ -1,4 +1,5 @@
-import db from "@/lib/database";
+import { TimelineService } from "@/services/timeline.service";
+import { ProjectService } from "@/services/project.service";
 import dynamic from "next/dynamic";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
@@ -23,27 +24,13 @@ export default async function EditTimelinePage({ params }: EditTimelinePageProps
   const { id } = await params;
 
   // Read the DRAFT version, plus projects for the "linked project" selector.
-  const [entry, projects] = await Promise.all([
-    db.timelineEntry.findUnique({
-      where: { id },
-      include: {
-        versions: {
-          where: { state: "DRAFT" },
-          take: 1,
-          include: { image: { select: { filename: true, url: true } } },
-        },
-      },
-    }),
-    db.project.findMany({
-      where: { deletedAt: null },
-      include: { versions: { where: { state: "DRAFT" }, take: 1 } },
-      orderBy: { slug: "asc" },
-    }),
+  const [found, projects] = await Promise.all([
+    TimelineService.getDraftById(id),
+    ProjectService.listForPicker(),
   ]);
 
-  if (!entry || entry.deletedAt) notFound();
-  const draft = entry.versions[0];
-  if (!draft) notFound();
+  if (!found) notFound();
+  const { entry, draft } = found;
 
   async function handleUpdate(formData: FormData) {
     "use server";

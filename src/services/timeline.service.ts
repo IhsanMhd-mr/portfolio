@@ -16,6 +16,55 @@ export interface TimelineInput {
 }
 
 export class TimelineService {
+  /**
+   * One page of DRAFT rows for the admin list.
+   *
+   * Queries the version table rather than the parent: `order` lives on the
+   * version and Prisma cannot orderBy a to-many relation's field from the
+   * parent, so sorting and pagination stay in the database.
+   */
+  static async listDraftPage(page: number, pageSize: number) {
+    const [total, drafts] = await Promise.all([
+      db.timelineEntryVersion.count({ where: { state: "DRAFT" } }),
+      db.timelineEntryVersion.findMany({
+        where: { state: "DRAFT" },
+        orderBy: [{ order: "asc" }, { id: "asc" }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          image: { select: { url: true } },
+          timelineEntry: {
+            include: {
+              linkedProject: { include: { versions: { where: { state: "DRAFT" }, take: 1 } } },
+            },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      drafts,
+    };
+  }
+
+  /** The DRAFT version for the editor. Null when missing or soft-deleted. */
+  static async getDraftById(id: string) {
+    const entry = await db.timelineEntry.findUnique({
+      where: { id },
+      include: {
+        versions: {
+          where: { state: "DRAFT" },
+          take: 1,
+          include: { image: { select: { filename: true, url: true } } },
+        },
+      },
+    });
+    if (!entry || entry.deletedAt || !entry.versions[0]) return null;
+    return { entry, draft: entry.versions[0] };
+  }
+
   static async createEntry(
     input: Partial<TimelineInput>,
     auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }

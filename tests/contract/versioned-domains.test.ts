@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import db from "@/lib/database";
 import { EducationService } from "@/services/education.service";
 import { ExperienceService } from "@/services/experience.service";
+import { TimelineService } from "@/services/timeline.service";
 import { PublicContentService } from "@/services/public-content.service";
 import { FIXTURE } from "../fixtures/seed";
 
@@ -17,6 +18,7 @@ import { FIXTURE } from "../fixtures/seed";
 let ctx: { actorId: string; loginMethod: string; loginAccountId: string | null };
 const CREATED_EDUCATION: string[] = [];
 const CREATED_EXPERIENCE: string[] = [];
+const CREATED_TIMELINE: string[] = [];
 
 beforeAll(async () => {
   const owner = await db.user.findUniqueOrThrow({ where: { username: FIXTURE.ownerUsername } });
@@ -40,6 +42,10 @@ afterAll(async () => {
   }
   if (experienceIds.length > 0) {
     await db.experience.deleteMany({ where: { id: { in: experienceIds } } });
+  }
+  const timelineIds = CREATED_TIMELINE.filter(Boolean);
+  if (timelineIds.length > 0) {
+    await db.timelineEntry.deleteMany({ where: { id: { in: timelineIds } } });
   }
 });
 
@@ -108,5 +114,41 @@ describe("experience drafts stay out of public content", () => {
     const firstPage = await ExperienceService.listDraftPage(1, 1);
     expect(firstPage.items).toHaveLength(1);
     expect(firstPage.totalPages).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("timeline drafts stay out of public content", () => {
+  it("a newly created entry is DRAFT only and invisible publicly", async () => {
+    const created = await TimelineService.createEntry(
+      {
+        title: "Draft Test Milestone",
+        entryType: "MILESTONE",
+        startDate: new Date("2019-06-01"),
+      },
+      ctx
+    );
+    CREATED_TIMELINE.push(created.base.id);
+
+    const versions = await db.timelineEntryVersion.findMany({
+      where: { timelineEntryId: created.base.id },
+    });
+    expect(versions).toHaveLength(1);
+    expect(versions[0].state).toBe("DRAFT");
+
+    const { entries } = await PublicContentService.getTimelinePageData();
+    expect(entries.map((e) => e.published.title)).not.toContain("Draft Test Milestone");
+
+    const home = await PublicContentService.getHomePageData();
+    expect(home.timelineEntries.map((e: any) => e.title)).not.toContain("Draft Test Milestone");
+  });
+
+  it("listDraftPage returns the draft for the admin list", async () => {
+    const { drafts, total } = await TimelineService.listDraftPage(1, 50);
+    expect(total).toBeGreaterThan(0);
+    expect(drafts.map((d) => d.title)).toContain("Draft Test Milestone");
+  });
+
+  it("getDraftById returns null for an unknown id", async () => {
+    expect(await TimelineService.getDraftById("no-such-id")).toBeNull();
   });
 });

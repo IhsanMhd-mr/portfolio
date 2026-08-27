@@ -1,4 +1,5 @@
-import db from "@/lib/database";
+import { TimelineService } from "@/services/timeline.service";
+import { ProjectService } from "@/services/project.service";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Milestone, Trash2, Save, Eye, EyeOff, ArrowUp, ArrowDown, Edit } from "lucide-react";
@@ -25,37 +26,11 @@ export default async function AdminTimelinePage({ searchParams }: PageProps) {
   const rawPage = parseInt(params.page ?? "1", 10);
   const page = Number.isFinite(rawPage) && rawPage >= 1 ? rawPage : 1;
 
-  // Query TimelineEntryVersion (DRAFT) directly so `order` can be sorted/paginated
-  // at the database boundary — Prisma can't orderBy a to-many relation's field
-  // on the parent TimelineEntry model.
-  const [total, draftVersions, projects] = await Promise.all([
-    db.timelineEntryVersion.count({ where: { state: "DRAFT" } }),
-    db.timelineEntryVersion.findMany({
-      where: { state: "DRAFT" },
-      orderBy: [{ order: "asc" }, { id: "asc" }],
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-      include: {
-        image: { select: { url: true } },
-        timelineEntry: {
-          include: {
-            linkedProject: {
-              include: {
-                versions: { where: { state: "DRAFT" }, take: 1 },
-              },
-            },
-          },
-        },
-      },
-    }),
-    db.project.findMany({
-      where: { deletedAt: null },
-      include: { versions: { where: { state: "DRAFT" }, take: 1 } },
-      orderBy: { slug: "asc" },
-    }),
+  const [{ total, totalPages, drafts: draftVersions }, projects] = await Promise.all([
+    TimelineService.listDraftPage(page, PAGE_SIZE),
+    ProjectService.listForPicker(),
   ]);
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const entries = draftVersions.map((draft) => {
     const entry = draft.timelineEntry;
     const projectTitle = entry.linkedProject?.versions[0]?.title || entry.linkedProject?.slug || "";
