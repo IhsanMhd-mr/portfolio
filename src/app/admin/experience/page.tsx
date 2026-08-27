@@ -1,10 +1,10 @@
-import db from "@/lib/database";
+import { ExperienceService } from "@/services/experience.service";
+import { TechnologyService } from "@/services/technology.service";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Briefcase, Trash2, Save, Eye, EyeOff, ArrowUp, ArrowDown, Edit } from "lucide-react";
 import Pagination from "@/components/admin/Pagination";
 import PendingButton from "@/components/ui/PendingButton";
-import { TechnologyService } from "@/services/technology.service";
 import {
   createExperienceAction,
   updateExperienceAction,
@@ -26,45 +26,10 @@ export default async function AdminExperiencePage({ searchParams }: PageProps) {
   const rawPage = parseInt(params.page ?? "1", 10);
   const page = Number.isFinite(rawPage) && rawPage >= 1 ? rawPage : 1;
 
-  // Query ExperienceVersion (DRAFT) directly so `order` can be sorted/paginated
-  // at the database boundary — Prisma can't orderBy a to-many relation's field
-  // on the parent Experience model.
-  const [total, draftVersions, allTechs] = await Promise.all([
-    db.experienceVersion.count({ where: { state: "DRAFT" } }),
-    db.experienceVersion.findMany({
-      where: { state: "DRAFT" },
-      orderBy: [{ order: "asc" }, { id: "asc" }],
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-      include: {
-        logo: { select: { url: true } },
-        experience: {
-          include: {
-            technologies: {
-              include: {
-                technology: {
-                  include: {
-                    versions: { where: { state: "DRAFT" }, take: 1 },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    }),
-    db.technology.findMany({
-      where: { deletedAt: null },
-      include: { versions: { where: { state: "DRAFT" }, take: 1, orderBy: { createdAt: "desc" } } },
-    }),
+  const [{ total, totalPages, items: experiences }, allTechs] = await Promise.all([
+    ExperienceService.listDraftPage(page, PAGE_SIZE),
+    TechnologyService.listForPicker(),
   ]);
-
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const experiences = draftVersions.map((draft) => ({
-    id: draft.experience.id,
-    draft,
-    technologies: draft.experience.technologies,
-  }));
 
   async function handleCreateExperience(formData: FormData) {
     "use server";

@@ -1,4 +1,4 @@
-import db from "@/lib/database";
+import { EducationService } from "@/services/education.service";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { GraduationCap, Trash2, Save, Eye, EyeOff, ArrowUp, ArrowDown, Edit } from "lucide-react";
@@ -25,25 +25,7 @@ export default async function AdminEducationPage({ searchParams }: PageProps) {
   const rawPage = parseInt(params.page ?? "1", 10);
   const page = Number.isFinite(rawPage) && rawPage >= 1 ? rawPage : 1;
 
-  // Query EducationVersion (DRAFT) directly so `order` can be sorted/paginated
-  // at the database boundary — Prisma can't orderBy a to-many relation's field
-  // on the parent Education model.
-  const [total, draftVersions] = await Promise.all([
-    db.educationVersion.count({ where: { state: "DRAFT" } }),
-    db.educationVersion.findMany({
-      where: { state: "DRAFT" },
-      orderBy: [{ order: "asc" }, { id: "asc" }],
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-      include: { education: true, logo: { select: { url: true } } },
-    }),
-  ]);
-
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const education = draftVersions.map((draft) => ({
-    id: draft.education.id,
-    draft,
-  }));
+  const { total, totalPages, items: education } = await EducationService.listDraftPage(page, PAGE_SIZE);
 
   async function handleCreateEducation(formData: FormData) {
     "use server";

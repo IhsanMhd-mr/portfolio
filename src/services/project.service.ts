@@ -71,6 +71,18 @@ export class ProjectService {
   /**
    * Create a new project along with its initial DRAFT version
    */
+  /**
+   * Projects for a "link a project" selector, with their DRAFT titles.
+   * Written out identically in the timeline list and timeline editor.
+   */
+  static async listForPicker() {
+    return db.project.findMany({
+      where: { deletedAt: null },
+      include: { versions: { where: { state: "DRAFT" }, take: 1 } },
+      orderBy: { slug: "asc" },
+    });
+  }
+
   static async createProject(
     input: Partial<ProjectInput>,
     auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }

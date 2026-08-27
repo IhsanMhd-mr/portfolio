@@ -1,4 +1,4 @@
-import db from "@/lib/database";
+import { EducationService } from "@/services/education.service";
 import dynamic from "next/dynamic";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
@@ -24,20 +24,9 @@ export default async function EditEducationPage({ params }: EditEducationPagePro
   const { id } = await params;
 
   // Read the DRAFT version — edits stay unpublished until a publish.
-  const education = await db.education.findUnique({
-    where: { id },
-    include: {
-      versions: {
-        where: { state: "DRAFT" },
-        take: 1,
-        include: { logo: { select: { filename: true, url: true } } },
-      },
-    },
-  });
-
-  if (!education || education.deletedAt) notFound();
-  const draft = education.versions[0];
-  if (!draft) notFound();
+  const found = await EducationService.getDraftById(id);
+  if (!found) notFound();
+  const { education, draft } = found;
 
   async function handleUpdate(formData: FormData) {
     "use server";

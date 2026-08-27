@@ -32,6 +32,22 @@ export class TechnologyService {
    * therefore cannot link a soft-deleted technology or a fabricated id (which
    * would otherwise surface as a foreign-key error at insert time).
    */
+  /**
+   * Technologies for a picker/checklist, with their DRAFT names.
+   *
+   * The same query was written out in four admin routes (experience list,
+   * experience edit, projects list, projects edit), each with its own copy of
+   * the `take: 1, orderBy createdAt desc` incantation.
+   */
+  static async listForPicker() {
+    return db.technology.findMany({
+      where: { deletedAt: null },
+      include: {
+        versions: { where: { state: "DRAFT" }, take: 1, orderBy: { createdAt: "desc" } },
+      },
+    });
+  }
+
   static async resolveSelectedIds(formData: FormData): Promise<string[]> {
     const PREFIX = "tech_";
     const submitted: string[] = [];
