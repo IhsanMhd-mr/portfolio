@@ -1,4 +1,4 @@
-import db from "@/lib/database";
+import { PageService } from "@/services/page.service";
 import dynamic from "next/dynamic";
 import { requireAdmin } from "@/lib/require-admin";
 import { SectionGroupService } from "@/services/section-group.service";
@@ -26,8 +26,8 @@ function toModule(s: any) {
 export default async function PageBuilderPage() {
   await requireAdmin("/admin/page-builder");
 
-  const page = await db.page.findUnique({ where: { key: "home" }, select: { id: true } });
-  if (!page) {
+  const pageId = await PageService.getHomePageId();
+  if (!pageId) {
     return (
       <div className="space-y-6">
         <h1 className="text-3xl font-bold tracking-tight text-[var(--a-ink)]">Page Builder</h1>
@@ -36,7 +36,7 @@ export default async function PageBuilderPage() {
     );
   }
 
-  const { groups, ungrouped } = await SectionGroupService.getPageStructure(page.id);
+  const { groups, ungrouped } = await SectionGroupService.getPageStructure(pageId);
 
   const initialGroups = groups.map((g) => ({
     id: g.id,

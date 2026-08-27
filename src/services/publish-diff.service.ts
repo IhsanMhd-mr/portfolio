@@ -170,6 +170,31 @@ export function valuesEqual(a: unknown, b: unknown): boolean {
  * do not apply it). Normalizing one side only leaves the other case reporting
  * a permanent phantom change.
  */
+/**
+ * Whether a project's draft differs from what is published.
+ *
+ * The admin projects list carried its own hand-written copy of this: a
+ * 31-entry field array compared with `!==`. It had drifted from
+ * PROMOTED_FIELDS.project by five columns — manualOrder, metrics,
+ * showOnHomepage, showOnResume and showOnTimeline — so changing any of them
+ * showed the project as "in sync" while publishing would in fact change the
+ * live site. It also compared JSON columns by reference, which is never equal.
+ *
+ * scripts/check-promoted-fields.js guards PROMOTED_FIELDS against schema
+ * drift; it could not guard a second list living in a route. Routing both
+ * halves through here means the guard now covers change detection too.
+ */
+export function projectChangeState(
+  draft: Record<string, unknown> | undefined,
+  published: Record<string, unknown> | undefined
+): "SYNC" | "DRAFT_ONLY" | "DRAFT_CHANGES" {
+  if (!published) return "DRAFT_ONLY";
+  if (!draft) return "SYNC";
+  return versionsDiffer(draft, published, PROMOTED_FIELDS.project, PROMOTION_DEFAULTS.project)
+    ? "DRAFT_CHANGES"
+    : "SYNC";
+}
+
 function versionsDiffer(
   draft: Record<string, unknown>,
   published: Record<string, unknown> | undefined,

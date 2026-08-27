@@ -1,5 +1,6 @@
 import db from "@/lib/database";
 import { recordAudit } from "@/lib/audit";
+import { projectChangeState } from "./publish-diff.service";
 import { revalidatePath } from "next/cache";
 
 export interface ProjectInput {
@@ -75,6 +76,135 @@ export class ProjectService {
    * Projects for a "link a project" selector, with their DRAFT titles.
    * Written out identically in the timeline list and timeline editor.
    */
+  /**
+   * The admin projects list: search, filters, pagination, and each row's
+   * draft-vs-published change state.
+   *
+   * Two query paths, and the split is deliberate. Every filter except
+   * "Draft Changes" is expressible as a Prisma `where`, so those paginate at
+   * the database boundary against ProjectVersion (Prisma cannot orderBy a
+   * to-many relation's field from Project, which is why the version table is
+   * queried directly). "Draft Changes" needs a full field diff that no `where`
+   * clause can express, so it scans a capped window and paginates in memory.
+   */
+  static async listAdminPage(params: {
+    page: number;
+    pageSize: number;
+    q?: string;
+    filter?: string;
+    category?: string;
+    status?: string;
+    tech?: string;
+    scanLimit: number;
+  }) {
+    const { page, pageSize, q, filter = "all", category, status, tech, scanLimit } = params;
+
+    if (filter === "draft") {
+      const projectsRaw = await db.project.findMany({
+        where: {
+          deletedAt: null,
+          versions: { some: { state: "DRAFT" } },
+          technologies: tech ? { some: { technologyId: tech } } : undefined,
+        },
+        include: {
+          versions: true,
+          _count: { select: { technologies: true, images: true } },
+        },
+        take: scanLimit,
+      });
+
+      const matching = projectsRaw
+        .map((proj) => {
+          const draft = proj.versions.find((v) => v.state === "DRAFT");
+          const published = proj.versions.find((v) => v.state === "PUBLISHED");
+          return { ...proj, draft, published, changeState: projectChangeState(draft, published) };
+        })
+        .filter((p) => p.changeState === "DRAFT_CHANGES" || p.changeState === "DRAFT_ONLY")
+        .sort((a, b) => (a.draft?.manualOrder || 0) - (b.draft?.manualOrder || 0));
+
+      return {
+        totalCount: matching.length,
+        totalPages: Math.max(1, Math.ceil(matching.length / pageSize)),
+        items: matching.slice((page - 1) * pageSize, page * pageSize),
+      };
+    }
+
+    const versionWhere = {
+      state: "DRAFT" as const,
+      title: q ? { contains: q, mode: "insensitive" as const } : undefined,
+      category: category ? (category as never) : undefined,
+      status: status ? (status as never) : undefined,
+      featured: filter === "featured" ? true : undefined,
+      visible: filter === "hidden" ? false : filter === "visible" ? true : undefined,
+      project: {
+        deletedAt: filter === "trash" ? { not: null } : null,
+        technologies: tech ? { some: { technologyId: tech } } : undefined,
+        versions: filter === "published" ? { some: { state: "PUBLISHED" as const } } : undefined,
+      },
+    };
+
+    const [total, draftVersions] = await Promise.all([
+      db.projectVersion.count({ where: versionWhere }),
+      db.projectVersion.findMany({
+        where: versionWhere,
+        orderBy: [{ manualOrder: "asc" }, { id: "asc" }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          project: {
+            include: {
+              versions: { where: { state: "PUBLISHED" }, take: 1 },
+              _count: { select: { technologies: true, images: true } },
+            },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      totalCount: total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      items: draftVersions.map((draft) => {
+        const published = draft.project.versions[0];
+        return {
+          id: draft.project.id,
+          slug: draft.project.slug,
+          updatedAt: draft.project.updatedAt,
+          _count: draft.project._count,
+          draft,
+          published,
+          changeState: projectChangeState(draft, published),
+        };
+      }),
+    };
+  }
+
+  /**
+   * The DRAFT version plus the relations the case-study editor renders.
+   * Media is deliberately NOT loaded in full — the picker and gallery fetch
+   * paginated results on demand.
+   */
+  static async getDraftById(id: string) {
+    const project = await db.project.findUnique({
+      where: { id },
+      include: {
+        versions: {
+          where: { state: "DRAFT" },
+          take: 1,
+          include: {
+            thumbnail: { select: { filename: true, url: true } },
+            coverImage: { select: { filename: true, url: true } },
+            architectureImage: { select: { filename: true, url: true } },
+          },
+        },
+        technologies: { orderBy: { order: "asc" } },
+        images: { include: { media: true }, orderBy: { order: "asc" } },
+      },
+    });
+    if (!project || project.deletedAt || !project.versions[0]) return null;
+    return { project, draft: project.versions[0] };
+  }
+
   static async listForPicker() {
     return db.project.findMany({
       where: { deletedAt: null },

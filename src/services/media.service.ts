@@ -24,10 +24,91 @@ function sanitizeSvg(content: string): string {
   return clean;
 }
 
+const MEDIA_KINDS = ["IMAGE", "DOCUMENT", "LOGO"] as const;
+type MediaKindValue = (typeof MEDIA_KINDS)[number];
+
 export class MediaService {
   /**
    * Save upload file to local disk and record in DB
    */
+  /** One page of the media library, newest first. */
+  static async listPage(page: number, pageSize: number) {
+    const [total, assets] = await Promise.all([
+      db.mediaAsset.count({ where: { deletedAt: null } }),
+      db.mediaAsset.findMany({
+        where: { deletedAt: null },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    ]);
+    return { total, totalPages: Math.max(1, Math.ceil(total / pageSize)), assets };
+  }
+
+  /**
+   * Editable metadata: alt text, filename and kind.
+   *
+   * `url` is deliberately not editable — it points at the stored object, and
+   * rewriting it here would silently break every reference to the asset.
+   *
+   * Only the fields actually supplied are written, so an alt-text-only save
+   * cannot blank the filename. Re-submitting the same values is a no-op that
+   * still returns the row rather than writing an empty update.
+   */
+  static async updateMetadata(
+    id: string,
+    input: { altText?: string | null; filename?: string; kind?: string },
+    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+  ) {
+    const data: { altText?: string | null; filename?: string; kind?: MediaKindValue } = {};
+
+    if ("altText" in input) {
+      const trimmed = input.altText?.trim();
+      data.altText = trimmed ? trimmed : null;
+    }
+
+    if (input.filename !== undefined) {
+      const filename = input.filename.trim();
+      // filename is NOT NULL and is the asset's label everywhere, so an empty
+      // one would make the asset unidentifiable in the picker.
+      if (!filename) throw new Error("Filename cannot be empty.");
+      data.filename = filename;
+    }
+
+    if (input.kind !== undefined) {
+      if (!MEDIA_KINDS.includes(input.kind as MediaKindValue)) {
+        throw new Error(`Invalid media kind: ${input.kind}`);
+      }
+      data.kind = input.kind as MediaKindValue;
+    }
+
+    if (Object.keys(data).length === 0) {
+      return db.mediaAsset.findUniqueOrThrow({ where: { id } });
+    }
+
+    return db.$transaction(async (tx) => {
+      const before = await tx.mediaAsset.findUniqueOrThrow({
+        where: { id },
+        select: { altText: true, filename: true, kind: true },
+      });
+
+      const updated = await tx.mediaAsset.update({ where: { id }, data });
+
+      await recordAudit({
+        action: "MEDIA_METADATA_UPDATED",
+        entityType: "MediaAsset",
+        entityId: id,
+        summary: `Updated metadata for media: ${updated.filename}`,
+        before,
+        after: data,
+        context: auditContext,
+        tx,
+      });
+
+      return updated;
+    });
+  }
+
   static async uploadAsset(
     file: File,
     altText: string | null,

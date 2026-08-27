@@ -7,6 +7,12 @@ const LAST_SEEN_THROTTLE_MS = 5 * 60 * 1000; // 5 minutes
 
 export interface AdminContext {
   userId: string;
+  /**
+   * The owner's email. Included because the full user row is already loaded to
+   * validate the session — the admin layout was issuing a second
+   * `db.user.findUnique` for this one field.
+   */
+  email: string;
   sid: string;
   loginMethod: string;
   loginAccountId: string | null;
@@ -124,6 +130,7 @@ export const requireAdmin = cache(async function requireAdmin(
 
   return {
     userId: owner.id,
+    email: owner.email,
     sid,
     loginMethod: tracked.loginMethod,
     loginAccountId: tracked.accountId,
@@ -158,6 +165,7 @@ export async function getValidatedOwner(): Promise<AdminContext | null> {
 
   return {
     userId: owner.id,
+    email: owner.email,
     sid,
     loginMethod: tracked.loginMethod,
     loginAccountId: tracked.accountId,

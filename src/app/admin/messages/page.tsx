@@ -1,4 +1,4 @@
-import db from "@/lib/database";
+import { ContactMessageService } from "@/services/contact-message.service";
 import { requireAdmin } from "@/lib/require-admin";
 import { revalidatePath } from "next/cache";
 import { Inbox, Trash2, Mail, CheckCircle } from "lucide-react";
@@ -17,44 +17,31 @@ export default async function AdminMessagesPage({ searchParams }: PageProps) {
   const rawPage = parseInt(params.page ?? "1", 10);
   const page = Number.isFinite(rawPage) && rawPage >= 1 ? rawPage : 1;
 
-  const [total, messages] = await Promise.all([
-    db.contactMessage.count({ where: { deletedAt: null } }),
-    db.contactMessage.findMany({
-      where: { deletedAt: null },
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-    }),
-  ]);
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const { total, totalPages, messages } = await ContactMessageService.listPage(
+    page,
+    PAGE_SIZE
+  );
 
-  // Server actions for inline message state mutations
   async function toggleReadStatus(formData: FormData) {
     "use server";
-    // Server Actions are independently invocable POST endpoints — the admin
-    // layout guards page RENDERING, not this. Without its own check, anyone
-    // able to reach the action id could invoke it unauthenticated.
-    await requireAdmin();
-    const id = formData.get("id") as string;
-    const currentStatus = formData.get("status") as string;
-    
-    await db.contactMessage.update({
-      where: { id },
-      data: { status: currentStatus === "NEW" ? "READ" : "NEW" },
+    // Server Actions are independently invocable POST endpoints — the
+    // admin layout guards page RENDERING, not this.
+    const ctx = await requireAdmin();
+    await ContactMessageService.toggleRead(String(formData.get("id") || ""), {
+      actorId: ctx.userId,
+      loginMethod: ctx.loginMethod,
+      loginAccountId: ctx.loginAccountId,
     });
     revalidatePath("/admin/messages");
   }
 
   async function deleteMessage(formData: FormData) {
     "use server";
-    // Server Actions are independently invocable POST endpoints — the admin
-    // layout guards page RENDERING, not this. Without its own check, anyone
-    // able to reach the action id could invoke it unauthenticated.
-    await requireAdmin();
-    const id = formData.get("id") as string;
-    await db.contactMessage.update({
-      where: { id },
-      data: { deletedAt: new Date() },
+    const ctx = await requireAdmin();
+    await ContactMessageService.softDelete(String(formData.get("id") || ""), {
+      actorId: ctx.userId,
+      loginMethod: ctx.loginMethod,
+      loginAccountId: ctx.loginAccountId,
     });
     revalidatePath("/admin/messages");
   }
