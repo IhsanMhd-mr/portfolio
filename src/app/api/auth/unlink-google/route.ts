@@ -10,8 +10,7 @@
 
 import { NextResponse } from "next/server";
 import { safeRequireAdmin } from "@/lib/require-admin";
-import { recordAudit } from "@/lib/audit";
-import db from "@/lib/database";
+import { LinkedAccountService } from "@/services/linked-account.service";
 
 export async function DELETE(request: Request) {
   const { context, response } = await safeRequireAdmin(request);
@@ -22,41 +21,20 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Missing accountId" }, { status: 400 });
   }
 
-  // Verify the account belongs to this owner
-  const account = await db.account.findUnique({ where: { id: accountId } });
-  if (!account || account.userId !== context.userId || account.provider !== "google") {
-    return NextResponse.json({ error: "Account not found" }, { status: 404 });
-  }
-
-  // Count remaining login methods (other Google + local password)
-  const owner = await db.user.findUnique({ where: { id: context.userId } });
-  const otherGoogleCount = await db.account.count({
-    where: { userId: context.userId, provider: "google", id: { not: accountId } },
+  const result = await LinkedAccountService.unlinkGoogle(accountId, context.userId, {
+    actorId: context.userId,
+    loginMethod: context.loginMethod,
+    loginAccountId: context.loginAccountId,
   });
-  const hasLocalPassword = !!owner?.passwordHash;
 
-  if (otherGoogleCount === 0 && !hasLocalPassword) {
-    return NextResponse.json(
-      { error: "Cannot remove the last login method. Set a password first." },
-      { status: 409 }
-    );
+  if (!result.ok) {
+    return result.reason === "not-found"
+      ? NextResponse.json({ error: "Account not found" }, { status: 404 })
+      : NextResponse.json(
+          { error: "Cannot remove the last login method. Set a password first." },
+          { status: 409 }
+        );
   }
-
-  const email = account.email ?? account.providerAccountId;
-
-  await db.account.delete({ where: { id: accountId } });
-
-  await recordAudit({
-    action: "GOOGLE_UNLINKED",
-    entityType: "Account",
-    entityId: accountId,
-    summary: `Google account unlinked: ${email}`,
-    context: {
-      actorId: context.userId,
-      loginMethod: context.loginMethod,
-      loginAccountId: context.loginAccountId,
-    },
-  });
 
   return NextResponse.json({ success: true });
 }
