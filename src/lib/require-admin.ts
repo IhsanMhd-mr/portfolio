@@ -48,6 +48,7 @@ export const requireAdmin = cache(async function requireAdmin(
   apiMode?: boolean
 ): Promise<AdminContext> {
   const session = await auth();
+  const token = (session as any)?._token ?? session;
   const sid: string | undefined = (session?.user as any)?.sid;
   const userId: string | undefined = (session?.user as any)?.id;
 

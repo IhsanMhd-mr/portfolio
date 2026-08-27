@@ -41,7 +41,7 @@ export default function HeroSection({ profile, settings }: HeroSectionProps) {
           >
             {fullName && (
               <>
-                I&apos;m <span className="text-[var(--accent)]">{fullName}</span>
+                I'm <span className="text-[var(--accent)]">{fullName}</span>
                 {title ? "," : ""}
                 {title && <br />}
               </>

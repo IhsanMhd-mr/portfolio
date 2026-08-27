@@ -26,8 +26,7 @@ export default function StackGameSection({
   
   const [score, setScore] = useState(0);
   const [gameStarted, setGameStarted] = useState(false);
-  // Only the setter is used; the message is drawn onto the canvas, not rendered.
-  const [, setActiveMessage] = useState("Click canvas to interact");
+  const [activeMessage, setActiveMessage] = useState("Click canvas to interact");
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -271,7 +270,7 @@ export default function StackGameSection({
     }
     const blocks: FallingBlock[] = [];
     let currentBlock: FallingBlock | null = null;
-    const groundHeight = 20;
+    let groundHeight = 20;
 
     const spawnBlock = () => {
       const name = displayNames[Math.floor(Math.random() * displayNames.length)];

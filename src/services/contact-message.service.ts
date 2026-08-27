@@ -1,5 +1,13 @@
 import db from "@/lib/database";
-import { recordAudit, type ServiceAuditContext } from "@/lib/audit";
+import { recordAudit } from "@/lib/audit";
+
+type AuditContext = {
+  actorId: string;
+  loginMethod: string;
+  loginAccountId: string | null;
+  ipAddress?: string;
+  userAgent?: string;
+};
 
 /**
  * ContactMessageService — the inbox behind the public contact form.
@@ -74,7 +82,7 @@ export class ContactMessageService {
    * row no longer had. Reading it here makes the flip depend on the stored
    * state instead of on what the browser last rendered.
    */
-  static async toggleRead(id: string, auditContext: ServiceAuditContext) {
+  static async toggleRead(id: string, auditContext: AuditContext) {
     const current = await db.contactMessage.findUnique({ where: { id } });
     if (!current || current.deletedAt) throw new Error("Message not found.");
 
@@ -94,7 +102,7 @@ export class ContactMessageService {
     return updated;
   }
 
-  static async softDelete(id: string, auditContext: ServiceAuditContext) {
+  static async softDelete(id: string, auditContext: AuditContext) {
     const current = await db.contactMessage.findUnique({ where: { id } });
     if (!current || current.deletedAt) throw new Error("Message not found.");
 

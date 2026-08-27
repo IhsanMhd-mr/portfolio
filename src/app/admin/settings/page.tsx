@@ -1,12 +1,11 @@
 import { requireAdmin } from "@/lib/require-admin";
-import { currentPathname } from "@/lib/current-pathname";
 import { SiteProfileService } from "@/services/site-profile.service";
 import { updateSettingsAction } from "./actions";
 import { Settings, Save } from "lucide-react";
 import PendingButton from "@/components/ui/PendingButton";
 
 export default async function AdminSettingsPage() {
-  await requireAdmin(await currentPathname());
+  await requireAdmin("/admin/settings");
   const profile = await SiteProfileService.getOrCreate();
 
   /**

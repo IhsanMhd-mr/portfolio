@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { PublicContentService } from "@/services/public-content.service";
 import Link from "next/link";
-import { Link2 } from "lucide-react";
+import { Calendar, MapPin, Link2 } from "lucide-react";
 import { formatMonthYear } from "@/lib/format-date";
 import { text } from "@/lib/text";
 

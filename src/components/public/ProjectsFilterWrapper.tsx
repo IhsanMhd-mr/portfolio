@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Search, ArrowRight, ExternalLink } from "lucide-react";
+import { Search, ArrowRight, ExternalLink, SlidersHorizontal } from "lucide-react";
 import { Github } from "@/components/public/Icons";
 
 interface ProjectItem {

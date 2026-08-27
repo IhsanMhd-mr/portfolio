@@ -1,5 +1,5 @@
 import db from "@/lib/database";
-import { recordAudit, type ServiceAuditContext } from "@/lib/audit";
+import { recordAudit } from "@/lib/audit";
 
 export interface ExperienceInput {
   organization: string;
@@ -84,7 +84,7 @@ export class ExperienceService {
 
   static async createExperience(
     input: Partial<ExperienceInput>,
-    auditContext: ServiceAuditContext
+    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
   ) {
     const count = await db.experience.count({ where: { deletedAt: null } });
 
@@ -114,15 +114,16 @@ export class ExperienceService {
         },
       });
 
-      // Link technologies if provided — one batched insert rather than one
-      // round trip per skill.
+      // Link technologies if provided
       if (input.technologyIds && input.technologyIds.length > 0) {
-        await tx.experienceTechnology.createMany({
-          data: input.technologyIds.map((technologyId) => ({
-            experienceId: base.id,
-            technologyId,
-          })),
-        });
+        for (const techId of input.technologyIds) {
+          await tx.experienceTechnology.create({
+            data: {
+              experienceId: base.id,
+              technologyId: techId,
+            },
+          });
+        }
       }
 
       await recordAudit({
@@ -147,7 +148,7 @@ export class ExperienceService {
   static async updateExperience(
     id: string,
     input: Partial<ExperienceInput>,
-    auditContext: ServiceAuditContext
+    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
   ) {
     const base = await db.experience.findUnique({
       where: { id },
@@ -180,17 +181,15 @@ export class ExperienceService {
         },
       });
 
-      // Update technologies if provided. Replace-all semantics are preserved:
-      // an empty array clears the links, which is why the deleteMany is
-      // unconditional and the insert is guarded on length.
+      // Update technologies if provided
       if (input.technologyIds !== undefined) {
         await tx.experienceTechnology.deleteMany({ where: { experienceId: id } });
-        if (input.technologyIds.length > 0) {
-          await tx.experienceTechnology.createMany({
-            data: input.technologyIds.map((technologyId) => ({
+        for (const techId of input.technologyIds) {
+          await tx.experienceTechnology.create({
+            data: {
               experienceId: id,
-              technologyId,
-            })),
+              technologyId: techId,
+            },
           });
         }
       }
@@ -217,7 +216,7 @@ export class ExperienceService {
 
   static async deleteExperience(
     id: string,
-    auditContext: ServiceAuditContext
+    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
   ) {
     const base = await db.experience.findUnique({
       where: { id },
@@ -251,7 +250,7 @@ export class ExperienceService {
 
   static async reorderExperience(
     ids: string[],
-    auditContext: ServiceAuditContext
+    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
   ) {
     return await db.$transaction(async (tx) => {
       for (let i = 0; i < ids.length; i++) {
@@ -293,7 +292,7 @@ export class ExperienceService {
   static async moveOrder(
     id: string,
     direction: "up" | "down",
-    auditContext: ServiceAuditContext
+    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
   ) {
     return await db.$transaction(async (tx) => {
       const base = await tx.experience.findUnique({

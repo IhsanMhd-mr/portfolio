@@ -235,35 +235,7 @@ prisma commands in the normal workflow.
 
 ## 9. Debt (known rule violations)
 
-**The direct-`db` debt is paid.** No file under `src/app/` imports
-`@/lib/database` — routes, pages, Server Actions and API handlers all call a
-service. `src/components/` never did.
-
-This is now enforced rather than trusted:
-
-- **ESLint** — `no-restricted-imports` bans `@/lib/database` in
-  `src/app/**` and `src/components/**` (`eslint.config.mjs`).
-- **Tests** — `tests/contract/architecture.test.ts` asserts the same boundary,
-  plus that every inline Server Action which writes to the database calls
-  `requireAdmin()` itself. A Server Action is an independently invocable POST
-  endpoint; the admin layout guards page *rendering*, not direct invocation.
-- **CI** — `.github/workflows/ci.yml` runs typecheck, lint, `check:promoted`,
-  tests and build on every push and pull request.
-
-### Remaining, tracked
-
-| Item | Size | Notes |
-| --- | --- | --- |
-| `@typescript-eslint/no-explicit-any` | 127 | Mostly section/template props. Needs the view-model types to land first. |
-| `react/jsx-no-comment-textnodes` | 22 | |
-| `@next/next/no-img-element` | 15 | Needs a `next/image` migration. |
-| `react-hooks/set-state-in-effect` | 7 | |
-| `tsconfig` `noUncheckedIndexedAccess` | not set | `versions[0]` is indexed unchecked in several services. |
-| `AuditContext` duplicated | 5 services | Each declares a private copy, stricter than the exported type in `src/lib/audit.ts`. |
-| Versioned services' create return shape | 5 services | Three different shapes: `{ project, draft }`, `{ base, draft }`, `{ tech, draft }`. |
-| `admin/layout.tsx` login exemption | 1 file | Branches on the `x-pathname` header. Not forgeable (proxy.ts overwrites it, verified), but the structural fix is route groups: `admin/(auth)/login` outside the guarded layout. |
-| `IN (NULL)` on `/projects/[slug]` | 1 query | Related-projects `include` when a project has no category siblings. |
-| Technology visibility on `/projects/[slug]` | 1 query | Filtered by `state` only, so a hidden technology still shows a chip there while the homepage drops it. |
-
-Rule unchanged: **when touching a file, fix its debt as part of the change.**
-Do not add new violations.
+Direct `db` imports remain in some older routes/pages: admin settings, game,
+technologies, resume page, and several `/api/*` handlers. Rule: **when
+touching one of these files, extract its queries into the owning service as
+part of the change.** Do not add new violations.

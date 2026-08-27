@@ -267,7 +267,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth((request) => ({
      * On initial sign-in (user object is present): create a TrackedSession and
      * embed the random `sid` in the encrypted JWT.
      */
-    async jwt({ token, user, account, trigger: _trigger }) {
+    async jwt({ token, user, account, trigger }) {
       const ip = getTrustedClientIp(request);
       const ua = request?.headers.get("user-agent") ?? null;
 

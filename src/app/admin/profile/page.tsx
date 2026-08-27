@@ -2,7 +2,6 @@ import { SiteProfileService } from "@/services/site-profile.service";
 import { SocialLinkService } from "@/services/social-link.service";
 import dynamic from "next/dynamic";
 import { requireAdmin } from "@/lib/require-admin";
-import { currentPathname } from "@/lib/current-pathname";
 import ProfileForm from "@/components/admin/profile/ProfileForm";
 
 // dnd-kit (used by the handle-reorder drag-and-drop) is only needed on this
@@ -12,7 +11,7 @@ const SocialHandlesManager = dynamic(() => import("@/components/admin/profile/So
 export const metadata = { title: "Profile & Social Handles — Admin" };
 
 export default async function AdminProfilePage() {
-  await requireAdmin(await currentPathname());
+  await requireAdmin("/admin/profile");
 
   const profile = await SiteProfileService.getOrCreateWithMedia();
   const socialHandles = await SocialLinkService.list();

@@ -8,7 +8,7 @@ interface ContactCTASectionProps {
   profile?: any;
 }
 
-export default function ContactCTASection({ profile }: ContactCTASectionProps) {
+export default function ContactCTASection({ settings, profile }: ContactCTASectionProps) {
   // No invented contact details — see src/lib/text.ts.
   const contactEmail = text(profile?.contactEmail);
   const locationText = text(profile?.locationText);
@@ -28,7 +28,7 @@ export default function ContactCTASection({ profile }: ContactCTASectionProps) {
           className="text-display" 
           style={{ fontFamily: "var(--font-display)", fontSize: "clamp(32px, 5vw, 48px)" }}
         >
-          Let&apos;s Build Something Together
+          Let's Build Something Together
         </h2>
         <p className="text-body-lg text-[var(--ink-soft)] max-w-xl mx-auto leading-relaxed">
           I am currently open to full-time opportunities, freelance consulting, and open-source collaborations. Drop me a line or send a request.

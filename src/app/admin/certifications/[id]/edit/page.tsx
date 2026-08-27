@@ -1,7 +1,3 @@
-import { Suspense } from "react";
-import { requireAdmin } from "@/lib/require-admin";
-import { currentPathname } from "@/lib/current-pathname";
-import AdminPageSkeleton from "@/components/admin/AdminPageSkeleton";
 import dynamic from "next/dynamic";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
@@ -23,16 +19,7 @@ interface EditCertificationPageProps {
   params: Promise<{ id: string }>;
 }
 
-/**
- * Protected content for this route.
- *
- * Authorization runs FIRST, before any protected read. That ordering is the
- * security mechanism; the Suspense boundary below exists only to satisfy
- * cacheComponents, which rejects uncached data accessed outside a boundary.
- */
-async function ProtectedContent({ params }: EditCertificationPageProps) {
-  await requireAdmin(await currentPathname());
-
+export default async function EditCertificationPage({ params }: EditCertificationPageProps) {
   const { id } = await params;
 
   // Certifications are unversioned — edits apply immediately, matching the
@@ -137,13 +124,5 @@ async function ProtectedContent({ params }: EditCertificationPageProps) {
         </div>
       </form>
     </div>
-  );
-}
-
-export default function EditCertificationPage({ params }: EditCertificationPageProps) {
-  return (
-    <Suspense fallback={<AdminPageSkeleton />}>
-      <ProtectedContent params={params} />
-    </Suspense>
   );
 }

@@ -1,6 +1,14 @@
 import db from "@/lib/database";
-import { recordAudit, type ServiceAuditContext } from "@/lib/audit";
+import { recordAudit } from "@/lib/audit";
 import { PageService } from "./page.service";
+
+type AuditContext = {
+  actorId: string;
+  loginMethod: string;
+  loginAccountId: string | null;
+  ipAddress?: string;
+  userAgent?: string;
+};
 
 export interface GameSettingsInput {
   enabled: boolean;
@@ -43,7 +51,7 @@ export class GameSettingsService {
     );
   }
 
-  static async update(id: string, input: GameSettingsInput, auditContext: ServiceAuditContext) {
+  static async update(id: string, input: GameSettingsInput, auditContext: AuditContext) {
     const updated = await db.gameSettings.update({
       where: { id },
       data: {

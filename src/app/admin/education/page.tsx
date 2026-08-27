@@ -1,8 +1,4 @@
-import { Suspense } from "react";
 import { EducationService } from "@/services/education.service";
-import { requireAdmin } from "@/lib/require-admin";
-import { currentPathname } from "@/lib/current-pathname";
-import AdminPageSkeleton from "@/components/admin/AdminPageSkeleton";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { GraduationCap, Trash2, Save, Eye, EyeOff, ArrowUp, ArrowDown, Edit } from "lucide-react";
@@ -24,22 +20,7 @@ interface PageProps {
   searchParams: Promise<{ page?: string }>;
 }
 
-/**
- * Protected content for this route.
- *
- * Authorization runs FIRST, before any protected read. That ordering is the
- * security mechanism; the Suspense boundary below exists only to satisfy
- * cacheComponents, which rejects uncached data accessed outside a boundary.
- *
- * The pathname literal is required, not decorative: requireAdmin is
- * React.cache-wrapped with `pathname` in its cache key, so passing the same
- * string the layout passes means both calls share one entry and cost nothing
- * extra. Omitting it would create a second entry and silently double the
- * auth queries for this route.
- */
-async function ProtectedContent({ searchParams }: PageProps) {
-  await requireAdmin(await currentPathname());
-
+export default async function AdminEducationPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const rawPage = parseInt(params.page ?? "1", 10);
   const page = Number.isFinite(rawPage) && rawPage >= 1 ? rawPage : 1;
@@ -270,13 +251,5 @@ async function ProtectedContent({ searchParams }: PageProps) {
         </div>
       </div>
     </div>
-  );
-}
-
-export default function AdminEducationPage({ searchParams }: PageProps) {
-  return (
-    <Suspense fallback={<AdminPageSkeleton />}>
-      <ProtectedContent searchParams={searchParams} />
-    </Suspense>
   );
 }

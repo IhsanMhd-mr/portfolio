@@ -1,5 +1,5 @@
 import db from "@/lib/database";
-import { recordAudit, type ServiceAuditContext } from "@/lib/audit";
+import { recordAudit } from "@/lib/audit";
 
 /**
  * SectionGroupService — Phase 5.
@@ -25,6 +25,8 @@ import { recordAudit, type ServiceAuditContext } from "@/lib/audit";
  *      every existing page keeps rendering unchanged immediately after
  *      migration with zero admin action required.
  */
+
+type AuditContext = { actorId: string; loginMethod: string; loginAccountId: string | null };
 
 export interface GroupInput {
   title: string;
@@ -60,7 +62,7 @@ export class SectionGroupService {
     return db.sectionGroup.findMany({ where: { pageId }, orderBy: { order: "asc" } });
   }
 
-  static async createGroup(pageId: string, input: GroupInput, auditContext: ServiceAuditContext) {
+  static async createGroup(pageId: string, input: GroupInput, auditContext: AuditContext) {
     const last = await db.sectionGroup.findFirst({ where: { pageId }, orderBy: { order: "desc" } });
     const created = await db.$transaction(async (tx) => {
       const group = await tx.sectionGroup.create({
@@ -79,7 +81,7 @@ export class SectionGroupService {
   static async updateGroup(
     id: string,
     input: GroupInput & { visible?: boolean },
-    auditContext: ServiceAuditContext
+    auditContext: AuditContext
   ) {
     const existing = await db.sectionGroup.findUnique({ where: { id } });
     if (!existing) throw new Error("Section group not found.");
@@ -109,7 +111,7 @@ export class SectionGroupService {
    * "no destructive rebuild" invariant: deleting an empty organizational
    * container never loses content.
    */
-  static async deleteGroup(id: string, pageId: string, auditContext: ServiceAuditContext) {
+  static async deleteGroup(id: string, pageId: string, auditContext: AuditContext) {
     const existing = await db.sectionGroup.findUnique({ where: { id }, include: { sections: { orderBy: { order: "asc" } } } });
     if (!existing) throw new Error("Section group not found.");
 
@@ -134,7 +136,7 @@ export class SectionGroupService {
     });
   }
 
-  static async reorderGroups(pageId: string, orderedIds: string[], auditContext: ServiceAuditContext) {
+  static async reorderGroups(pageId: string, orderedIds: string[], auditContext: AuditContext) {
     const groups = await db.sectionGroup.findMany({ where: { pageId } });
     const validIds = new Set(groups.map((g) => g.id));
     if (orderedIds.some((id) => !validIds.has(id)) || orderedIds.length !== groups.length) {
@@ -161,7 +163,7 @@ export class SectionGroupService {
     pageId: string,
     groupId: string | null,
     orderedSectionIds: string[],
-    auditContext: ServiceAuditContext
+    auditContext: AuditContext
   ) {
     const sections = await db.pageSection.findMany({ where: { pageId, groupId } });
     const validIds = new Set(sections.map((s) => s.id));
@@ -188,7 +190,7 @@ export class SectionGroupService {
     sectionId: string,
     pageId: string,
     targetGroupId: string | null,
-    auditContext: ServiceAuditContext
+    auditContext: AuditContext
   ) {
     const section = await db.pageSection.findUnique({ where: { id: sectionId } });
     if (!section || section.pageId !== pageId) throw new Error("Module not found.");

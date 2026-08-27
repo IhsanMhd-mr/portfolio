@@ -1,5 +1,5 @@
 import db from "@/lib/database";
-import { recordAudit, type ServiceAuditContext } from "@/lib/audit";
+import { recordAudit } from "@/lib/audit";
 
 /**
  * SocialLinkService — owns all persistence for the SocialLink domain.
@@ -16,6 +16,12 @@ export interface SocialLinkInput {
   url: string;
   iconKey?: string | null;
 }
+
+type AuditContext = {
+  actorId: string;
+  loginMethod: string;
+  loginAccountId: string | null;
+};
 
 function normalizeUrl(platform: string, url: string): string {
   if (platform === "email") {
@@ -40,7 +46,7 @@ export class SocialLinkService {
     }
   }
 
-  static async create(input: SocialLinkInput, auditContext: ServiceAuditContext) {
+  static async create(input: SocialLinkInput, auditContext: AuditContext) {
     await SocialLinkService.assertNoDuplicatePlatform(input.platform);
 
     const last = await db.socialLink.findFirst({ orderBy: { order: "desc" } });
@@ -69,7 +75,7 @@ export class SocialLinkService {
   static async update(
     id: string,
     input: SocialLinkInput & { visible?: boolean },
-    auditContext: ServiceAuditContext
+    auditContext: AuditContext
   ) {
     const existing = await db.socialLink.findUnique({ where: { id } });
     if (!existing) throw new Error("Handle not found.");
@@ -98,7 +104,7 @@ export class SocialLinkService {
     return updated;
   }
 
-  static async setVisibility(id: string, visible: boolean, auditContext: ServiceAuditContext) {
+  static async setVisibility(id: string, visible: boolean, auditContext: AuditContext) {
     const existing = await db.socialLink.findUnique({ where: { id } });
     if (!existing) throw new Error("Handle not found.");
 
@@ -115,7 +121,7 @@ export class SocialLinkService {
     return updated;
   }
 
-  static async remove(id: string, auditContext: ServiceAuditContext) {
+  static async remove(id: string, auditContext: AuditContext) {
     const existing = await db.socialLink.findUnique({ where: { id } });
     if (!existing) throw new Error("Handle not found.");
 
@@ -130,7 +136,7 @@ export class SocialLinkService {
     });
   }
 
-  static async reorder(orderedIds: string[], auditContext: ServiceAuditContext) {
+  static async reorder(orderedIds: string[], auditContext: AuditContext) {
     await db.$transaction(
       orderedIds.map((id, index) =>
         db.socialLink.update({ where: { id }, data: { order: index } })

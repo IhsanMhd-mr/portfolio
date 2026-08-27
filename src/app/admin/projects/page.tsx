@@ -1,7 +1,3 @@
-import { Suspense } from "react";
-import { requireAdmin } from "@/lib/require-admin";
-import { currentPathname } from "@/lib/current-pathname";
-import AdminPageSkeleton from "@/components/admin/AdminPageSkeleton";
 import { ProjectService } from "@/services/project.service";
 import { TechnologyService } from "@/services/technology.service";
 import Link from "next/link";
@@ -42,16 +38,7 @@ interface PageProps {
   }>;
 }
 
-/**
- * Protected content for this route.
- *
- * Authorization runs FIRST, before any protected read. That ordering is the
- * security mechanism; the Suspense boundary below exists only to satisfy
- * cacheComponents, which rejects uncached data accessed outside a boundary.
- */
-async function ProtectedContent(props: PageProps) {
-  await requireAdmin(await currentPathname());
-
+export default async function AdminProjectsPage(props: PageProps) {
   const params = await props.searchParams;
   const q = params.q || "";
   const filter = params.filter || "all";
@@ -461,13 +448,5 @@ async function ProtectedContent(props: PageProps) {
         </div>
       </div>
     </div>
-  );
-}
-
-export default function AdminProjectsPage(props: PageProps) {
-  return (
-    <Suspense fallback={<AdminPageSkeleton />}>
-      <ProtectedContent {...props} />
-    </Suspense>
   );
 }

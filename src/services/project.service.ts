@@ -1,6 +1,7 @@
 import db from "@/lib/database";
-import { recordAudit, type ServiceAuditContext } from "@/lib/audit";
+import { recordAudit } from "@/lib/audit";
 import { projectChangeState } from "./publish-diff.service";
+import { revalidatePath } from "next/cache";
 
 export interface ProjectInput {
   title: string;
@@ -214,7 +215,7 @@ export class ProjectService {
 
   static async createProject(
     input: Partial<ProjectInput>,
-    auditContext: ServiceAuditContext
+    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
   ) {
     const slug = this.validateSlug(input.slug || `new-project-${Date.now()}`);
 
@@ -297,7 +298,7 @@ export class ProjectService {
   static async updateProjectDraft(
     id: string,
     input: Partial<ProjectInput>,
-    auditContext: ServiceAuditContext
+    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
   ) {
     const project = await db.project.findUnique({
       where: { id },
@@ -446,7 +447,7 @@ export class ProjectService {
    */
   static async duplicateProject(
     id: string,
-    auditContext: ServiceAuditContext
+    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
   ) {
     const project = await db.project.findUnique({
       where: { id },
@@ -468,27 +469,12 @@ export class ProjectService {
 
     const duplicateTitle = `${currentDraft.title} Copy`;
     const baseSlug = `${project.slug}-copy`;
-
-    // Find a free slug in ONE query instead of a round trip per collision.
-    // Duplicating the same project N times previously cost N+1 sequential
-    // queries just to discover the suffix; on a remote database that is N+1
-    // round trips of latency before any work happens.
-    //
-    // Soft-deleted rows still own their slug (it is `@unique` across the whole
-    // table), so they are deliberately NOT filtered out here — skipping them
-    // would pick a slug the insert then rejects.
-    const taken = new Set(
-      (
-        await db.project.findMany({
-          where: { OR: [{ slug: baseSlug }, { slug: { startsWith: `${baseSlug}-` } }] },
-          select: { slug: true },
-        })
-      ).map((p) => p.slug)
-    );
-
     let duplicateSlug = baseSlug;
-    for (let index = 1; taken.has(duplicateSlug); index++) {
+    let index = 1;
+
+    while (await db.project.findUnique({ where: { slug: duplicateSlug } })) {
       duplicateSlug = `${baseSlug}-${index}`;
+      index++;
     }
 
     const count = await db.project.count({ where: { deletedAt: null } });
@@ -539,27 +525,26 @@ export class ProjectService {
         },
       });
 
-      // Duplicate technology links and gallery images as two batched inserts
-      // rather than one insert per row. `order` is carried across explicitly,
-      // so the copy keeps the original's sequence.
-      if (project.technologies.length > 0) {
-        await tx.projectTechnology.createMany({
-          data: project.technologies.map((tech) => ({
+      // Duplicate Techs
+      for (const tech of project.technologies) {
+        await tx.projectTechnology.create({
+          data: {
             projectId: duplicatedProject.id,
             technologyId: tech.technologyId,
             order: tech.order,
-          })),
+          },
         });
       }
 
-      if (project.images.length > 0) {
-        await tx.projectImage.createMany({
-          data: project.images.map((img) => ({
+      // Duplicate Gallery
+      for (const img of project.images) {
+        await tx.projectImage.create({
+          data: {
             projectId: duplicatedProject.id,
             mediaId: img.mediaId,
             caption: img.caption,
             order: img.order,
-          })),
+          },
         });
       }
 
@@ -587,7 +572,7 @@ export class ProjectService {
    */
   static async softDeleteProject(
     id: string,
-    auditContext: ServiceAuditContext
+    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
   ) {
     const project = await db.project.findUnique({
       where: { id },
@@ -627,7 +612,7 @@ export class ProjectService {
    */
   static async restoreProject(
     id: string,
-    auditContext: ServiceAuditContext
+    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
   ) {
     const project = await db.project.findUnique({
       where: { id },
@@ -667,7 +652,7 @@ export class ProjectService {
    */
   static async permanentlyDeleteProject(
     id: string,
-    auditContext: ServiceAuditContext
+    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
   ) {
     const project = await db.project.findUnique({
       where: { id },
@@ -723,7 +708,7 @@ export class ProjectService {
   static async toggleVisibility(
     id: string,
     currentVisible: boolean,
-    auditContext: ServiceAuditContext
+    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
   ) {
     const project = await db.project.findUnique({
       where: { id },
@@ -763,7 +748,7 @@ export class ProjectService {
    */
   static async reorderProjects(
     orderedIds: string[],
-    auditContext: ServiceAuditContext
+    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
   ) {
     return await db.$transaction(async (tx) => {
       for (let i = 0; i < orderedIds.length; i++) {
@@ -807,7 +792,7 @@ export class ProjectService {
   static async moveOrder(
     id: string,
     direction: "up" | "down",
-    auditContext: ServiceAuditContext
+    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
   ) {
     return await db.$transaction(async (tx) => {
       const project = await tx.project.findUnique({

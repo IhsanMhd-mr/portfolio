@@ -1,5 +1,5 @@
 import db from "@/lib/database";
-import { recordAudit, type ServiceAuditContext } from "@/lib/audit";
+import { recordAudit } from "@/lib/audit";
 
 /**
  * CertificationService — owns the Certification domain (Phase 4).
@@ -18,6 +18,8 @@ export interface CertificationInput {
   mediaId?: string | null;
   visible?: boolean;
 }
+
+type AuditContext = { actorId: string; loginMethod: string; loginAccountId: string | null };
 
 export class CertificationService {
   static async list(publicOnly = false) {
@@ -45,7 +47,7 @@ export class CertificationService {
    * change a boolean. Doing it here keeps the route out of the database and
    * touches only the column that changes.
    */
-  static async toggleVisible(id: string, auditContext: ServiceAuditContext) {
+  static async toggleVisible(id: string, auditContext: AuditContext) {
     const current = await db.certification.findUnique({ where: { id } });
     if (!current) throw new Error("Certification not found.");
 
@@ -65,7 +67,7 @@ export class CertificationService {
     return updated;
   }
 
-  static async create(input: CertificationInput, auditContext: ServiceAuditContext) {
+  static async create(input: CertificationInput, auditContext: AuditContext) {
     const last = await db.certification.findFirst({ orderBy: { order: "desc" } });
     const created = await db.certification.create({
       data: { ...input, order: (last?.order ?? -1) + 1 },
@@ -77,7 +79,7 @@ export class CertificationService {
     return created;
   }
 
-  static async update(id: string, input: CertificationInput, auditContext: ServiceAuditContext) {
+  static async update(id: string, input: CertificationInput, auditContext: AuditContext) {
     const existing = await db.certification.findUnique({ where: { id } });
     if (!existing) throw new Error("Certification not found.");
     const updated = await db.certification.update({ where: { id }, data: input });
@@ -88,7 +90,7 @@ export class CertificationService {
     return updated;
   }
 
-  static async remove(id: string, auditContext: ServiceAuditContext) {
+  static async remove(id: string, auditContext: AuditContext) {
     const existing = await db.certification.findUnique({ where: { id } });
     if (!existing) throw new Error("Certification not found.");
     await db.certification.delete({ where: { id } });
@@ -98,7 +100,7 @@ export class CertificationService {
     });
   }
 
-  static async reorder(orderedIds: string[], auditContext: ServiceAuditContext) {
+  static async reorder(orderedIds: string[], auditContext: AuditContext) {
     await db.$transaction(
       orderedIds.map((id, index) => db.certification.update({ where: { id }, data: { order: index } }))
     );
@@ -109,7 +111,7 @@ export class CertificationService {
   }
 
   /** Swap a certification's `order` with its immediate neighbor — avoids refetching the full list. */
-  static async moveOrder(id: string, direction: "up" | "down", auditContext: ServiceAuditContext) {
+  static async moveOrder(id: string, direction: "up" | "down", auditContext: AuditContext) {
     return db.$transaction(async (tx) => {
       const current = await tx.certification.findUnique({ where: { id } });
       if (!current) return false;

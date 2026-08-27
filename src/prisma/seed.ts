@@ -27,7 +27,7 @@ async function main() {
 
   // 1. Seed Templates
   console.log("Creating Templates...");
-  await prisma.template.upsert({
+  const minimalTemplate = await prisma.template.upsert({
     where: { key: "PROFESSIONAL_MINIMAL" },
     update: {},
     create: {
@@ -49,7 +49,7 @@ async function main() {
     },
   });
 
-  await prisma.template.upsert({
+  const threedTemplate = await prisma.template.upsert({
     where: { key: "INTERACTIVE_3D" },
     update: {},
     create: {
@@ -63,7 +63,7 @@ async function main() {
   // 2. Seed Default Admin User
   console.log("Creating Admin User...");
   const hashedPassword = await hashPassword("admin123");
-  await prisma.user.upsert({
+  const adminUser = await prisma.user.upsert({
     where: { email: "admin@portfolio.com" },
     update: {},
     create: {

@@ -1,5 +1,5 @@
 import db from "@/lib/database";
-import { recordAudit, type ServiceAuditContext } from "@/lib/audit";
+import { recordAudit } from "@/lib/audit";
 
 export interface EducationInput {
   institution: string;
@@ -62,7 +62,7 @@ export class EducationService {
 
   static async createEducation(
     input: Partial<EducationInput>,
-    auditContext: ServiceAuditContext
+    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
   ) {
     const count = await db.education.count({ where: { deletedAt: null } });
 
@@ -110,7 +110,7 @@ export class EducationService {
   static async updateEducation(
     id: string,
     input: Partial<EducationInput>,
-    auditContext: ServiceAuditContext
+    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
   ) {
     const base = await db.education.findUnique({
       where: { id },
@@ -164,7 +164,7 @@ export class EducationService {
 
   static async deleteEducation(
     id: string,
-    auditContext: ServiceAuditContext
+    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
   ) {
     const base = await db.education.findUnique({
       where: { id },
@@ -197,7 +197,7 @@ export class EducationService {
 
   static async reorderEducation(
     ids: string[],
-    auditContext: ServiceAuditContext
+    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
   ) {
     return await db.$transaction(async (tx) => {
       for (let i = 0; i < ids.length; i++) {
@@ -239,7 +239,7 @@ export class EducationService {
   static async moveOrder(
     id: string,
     direction: "up" | "down",
-    auditContext: ServiceAuditContext
+    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
   ) {
     return await db.$transaction(async (tx) => {
       const base = await tx.education.findUnique({

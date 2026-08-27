@@ -1,7 +1,3 @@
-import { Suspense } from "react";
-import { requireAdmin } from "@/lib/require-admin";
-import { currentPathname } from "@/lib/current-pathname";
-import AdminPageSkeleton from "@/components/admin/AdminPageSkeleton";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Save, Navigation } from "lucide-react";
@@ -16,16 +12,7 @@ interface EditNavItemPageProps {
   params: Promise<{ id: string }>;
 }
 
-/**
- * Protected content for this route.
- *
- * Authorization runs FIRST, before any protected read. That ordering is the
- * security mechanism; the Suspense boundary below exists only to satisfy
- * cacheComponents, which rejects uncached data accessed outside a boundary.
- */
-async function ProtectedContent({ params }: EditNavItemPageProps) {
-  await requireAdmin(await currentPathname());
-
+export default async function EditNavItemPage({ params }: EditNavItemPageProps) {
   const { id } = await params;
 
   // Nav items are unversioned — edits apply immediately.
@@ -98,13 +85,5 @@ async function ProtectedContent({ params }: EditNavItemPageProps) {
         </div>
       </form>
     </div>
-  );
-}
-
-export default function EditNavItemPage({ params }: EditNavItemPageProps) {
-  return (
-    <Suspense fallback={<AdminPageSkeleton />}>
-      <ProtectedContent params={params} />
-    </Suspense>
   );
 }

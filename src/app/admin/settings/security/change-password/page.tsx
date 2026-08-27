@@ -1,11 +1,10 @@
 import { requireAdmin } from "@/lib/require-admin";
-import { currentPathname } from "@/lib/current-pathname";
 import ChangePasswordForm from "@/components/auth/ChangePasswordForm";
 
 export const metadata = { title: "Change Password — Admin" };
 
 export default async function ChangePasswordPage() {
-  const ctx = await requireAdmin(await currentPathname());
+  const ctx = await requireAdmin("/admin/settings/security/change-password");
 
   return (
     <div className="max-w-md mx-auto mt-8">

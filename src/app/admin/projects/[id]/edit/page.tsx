@@ -1,7 +1,3 @@
-import { Suspense } from "react";
-import { requireAdmin } from "@/lib/require-admin";
-import { currentPathname } from "@/lib/current-pathname";
-import AdminPageSkeleton from "@/components/admin/AdminPageSkeleton";
 import { ProjectService } from "@/services/project.service";
 import { TechnologyService } from "@/services/technology.service";
 import dynamic from "next/dynamic";
@@ -19,16 +15,7 @@ interface EditProjectPageProps {
   params: Promise<{ id: string }>;
 }
 
-/**
- * Protected content for this route.
- *
- * Authorization runs FIRST, before any protected read. That ordering is the
- * security mechanism; the Suspense boundary below exists only to satisfy
- * cacheComponents, which rejects uncached data accessed outside a boundary.
- */
-async function ProtectedContent({ params }: EditProjectPageProps) {
-  await requireAdmin(await currentPathname());
-
+export default async function EditProjectPage({ params }: EditProjectPageProps) {
   const { id } = await params;
 
   // Load project + technologies (for selector) concurrently — media is no
@@ -558,13 +545,5 @@ async function ProtectedContent({ params }: EditProjectPageProps) {
         </div>
       </form>
     </div>
-  );
-}
-
-export default function EditProjectPage({ params }: EditProjectPageProps) {
-  return (
-    <Suspense fallback={<AdminPageSkeleton />}>
-      <ProtectedContent params={params} />
-    </Suspense>
   );
 }

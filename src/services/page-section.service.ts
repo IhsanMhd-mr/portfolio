@@ -1,5 +1,5 @@
 import db from "@/lib/database";
-import { recordAudit, type ServiceAuditContext } from "@/lib/audit";
+import { recordAudit } from "@/lib/audit";
 
 /**
  * PageSectionService — CRUD for individual page modules (PageSection rows).
@@ -12,6 +12,8 @@ import { recordAudit, type ServiceAuditContext } from "@/lib/audit";
  * debt-reduction rule (routes must not query the database directly) while
  * touching this code for Phase 5.
  */
+
+type AuditContext = { actorId: string; loginMethod: string; loginAccountId: string | null };
 
 export interface CreateModuleInput {
   type: string;
@@ -30,7 +32,7 @@ export interface UpdateModuleInput {
 }
 
 export class PageSectionService {
-  static async create(pageId: string, input: CreateModuleInput, auditContext: ServiceAuditContext) {
+  static async create(pageId: string, input: CreateModuleInput, auditContext: AuditContext) {
     if (input.groupId) {
       const group = await db.sectionGroup.findUnique({ where: { id: input.groupId } });
       if (!group || group.pageId !== pageId) throw new Error("Target group not found.");
@@ -65,7 +67,7 @@ export class PageSectionService {
     return created;
   }
 
-  static async update(id: string, input: UpdateModuleInput, auditContext: ServiceAuditContext) {
+  static async update(id: string, input: UpdateModuleInput, auditContext: AuditContext) {
     const result = await db.$transaction(async (tx) => {
       const before = await tx.pageSection.findUniqueOrThrow({ where: { id } });
       const after = await tx.pageSection.update({
@@ -90,7 +92,7 @@ export class PageSectionService {
     return result;
   }
 
-  static async remove(id: string, auditContext: ServiceAuditContext) {
+  static async remove(id: string, auditContext: AuditContext) {
     await db.$transaction(async (tx) => {
       const section = await tx.pageSection.findUniqueOrThrow({ where: { id } });
       await tx.pageSection.delete({ where: { id } });

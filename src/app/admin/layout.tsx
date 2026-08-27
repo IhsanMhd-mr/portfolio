@@ -1,64 +1,10 @@
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import Link from "next/link";
-import { Suspense } from "react";
 import { headers } from "next/headers";
 import { ExternalLink } from "lucide-react";
 import { requireAdmin } from "@/lib/require-admin";
-import { currentPathname } from "@/lib/current-pathname";
 import { PageService } from "@/services/page.service";
 import ThemeToggle from "@/components/theme/theme-toggle";
-
-/**
- * Chrome that needs a database read.
- *
- * Split out and wrapped in Suspense because cacheComponents rejects uncached
- * data accessed outside a boundary — inline, these two reads block every admin
- * route from rendering.
- *
- * Neither is authorization: they are display-only, and each route protects
- * itself. They are also unreachable to an unauthenticated visitor, since
- * proxy.ts redirects before rendering begins.
- */
-async function PublishStatusChip() {
-  // Authorizes before reading. Publish state is small but it is still site
-  // state, and this component renders inside a streamed boundary — without a
-  // check, a revoked session would learn whether there are unpublished edits
-  // before its redirect lands. Verified by test: a revoked session must see
-  // the neutral placeholder, not the real state.
-  // requireAdmin with the request pathname — the SAME call and argument the
-  // page makes, so React.cache resolves both from one entry. Using
-  // getValidatedOwner() here created a second cache key and a second pair of
-  // session queries (measured: 14 queries against a 10-query baseline).
-  await requireAdmin(await currentPathname());
-
-  const page = await PageService.getHomePage();
-  return page?.hasUnpublishedChanges ? (
-    <div className="flex items-center gap-2 text-xs text-[var(--a-soft)]">
-      <span className="h-2.5 w-2.5 rounded-full bg-[var(--a-warn)] animate-pulse" />
-      <span className="hidden sm:inline">Unpublished changes</span>
-    </div>
-  ) : (
-    <div className="flex items-center gap-2 text-xs text-[var(--a-soft)]">
-      <span className="h-2.5 w-2.5 rounded-full bg-[var(--a-success)]" />
-      <span className="hidden sm:inline">Everything published</span>
-    </div>
-  );
-}
-
-function ChipPlaceholder({ label }: { label: string }) {
-  return (
-    <div className="flex items-center gap-2 text-xs text-[var(--a-soft)]">
-      <span className="h-2.5 w-2.5 rounded-full bg-[var(--a-line)]" />
-      <span className="hidden sm:inline">{label}</span>
-    </div>
-  );
-}
-
-/** Avatar initials. Falls back to "AD" while resolving. */
-async function OwnerInitials() {
-  const ctx = await requireAdmin(await currentPathname());
-  return <>{ctx.email.substring(0, 2).toUpperCase() || "AD"}</>;
-}
 
 export default async function AdminLayout({
   children,
@@ -79,21 +25,18 @@ export default async function AdminLayout({
   const pathname = headersList.get("x-pathname") || "";
   const isLoginPage = pathname === "/admin/login";
 
-  // NOTE: the layout no longer authorizes.
-  //
-  // Every protected admin page now calls requireAdmin() itself, before any
-  // protected read (see AdminPageSkeleton and the ProtectedContent pattern).
-  // Authorization is therefore a property of each sensitive entry point rather
-  // than of layout render order — which is both stronger and what makes the
-  // tree compatible with cacheComponents, since a blocking uncached read here
-  // prevents every admin route from prerendering.
-  //
-  // proxy.ts remains the outer gate: it redirects unauthenticated requests
-  // before rendering starts. The page-level checks catch what proxy cannot
-  // see — a revoked or expired TrackedSession behind a still-valid JWT.
-  //
-  // The owner email and publish state are UI chrome, not authorization, and
-  // are loaded inside their own Suspense boundaries below.
+  // On non-login admin pages, deep-validate the session against TrackedSession
+  let ownerEmail = "";
+  let hasUnpublishedChanges = false;
+  if (!isLoginPage) {
+    // requireAdmin already loads the owner row to validate the session, so the
+    // email comes back on the context — this used to issue a second
+    // db.user.findUnique for that one field.
+    const ctx = await requireAdmin(pathname);
+    const page = await PageService.getHomePage();
+    ownerEmail = ctx.email;
+    hasUnpublishedChanges = page?.hasUnpublishedChanges ?? false;
+  }
 
   if (isLoginPage) {
     return (
@@ -180,9 +123,17 @@ export default async function AdminLayout({
           {/* Right Area Actions */}
           <div className="flex items-center gap-2 sm:gap-4">
             {/* Draft status chip (live from Page.hasUnpublishedChanges) — label hidden on mobile, dot always visible */}
-            <Suspense fallback={<ChipPlaceholder label="…" />}>
-              <PublishStatusChip />
-            </Suspense>
+            {hasUnpublishedChanges ? (
+              <div className="flex items-center gap-2 text-xs text-[var(--a-soft)]">
+                <span className="h-2.5 w-2.5 rounded-full bg-[var(--a-warn)] animate-pulse" />
+                <span className="hidden sm:inline">Unpublished changes</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-xs text-[var(--a-soft)]">
+                <span className="h-2.5 w-2.5 rounded-full bg-[var(--a-success)]" />
+                <span className="hidden sm:inline">Everything published</span>
+              </div>
+            )}
 
             <div className="hidden sm:block">
               <ThemeToggle />
@@ -213,9 +164,7 @@ export default async function AdminLayout({
             <div
               className="h-8 w-8 rounded-full bg-[var(--a-primary-tint)] border border-solid border-[var(--a-line)] flex items-center justify-center text-xs font-bold text-[var(--a-soft)] shrink-0"
             >
-              <Suspense fallback={"AD"}>
-                <OwnerInitials />
-              </Suspense>
+              {ownerEmail.substring(0, 2).toUpperCase() || "AD"}
             </div>
           </div>
         </header>

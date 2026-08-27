@@ -1,6 +1,12 @@
 import db from "@/lib/database";
-import { recordAudit, type ServiceAuditContext } from "@/lib/audit";
+import { recordAudit } from "@/lib/audit";
 import { hashPassword, verifyPassword } from "@/lib/password";
+
+type AuditContext = {
+  actorId: string;
+  loginMethod: string;
+  loginAccountId: string | null;
+};
 
 /**
  * SessionService — TrackedSession lifecycle and password changes.
@@ -60,7 +66,7 @@ export class SessionService {
    * user reports `not-found` rather than a permission error, which avoids
    * confirming that the sid exists.
    */
-  static async revoke(sid: string, ownerId: string, auditContext: ServiceAuditContext): Promise<RevokeResult> {
+  static async revoke(sid: string, ownerId: string, auditContext: AuditContext): Promise<RevokeResult> {
     const session = await db.trackedSession.findUnique({ where: { sid } });
     if (!session || session.userId !== ownerId) return { ok: false, reason: "not-found" };
     if (session.revokedAt) return { ok: false, reason: "already-revoked" };
@@ -123,7 +129,7 @@ export class SessionService {
     currentSid: string,
     currentPassword: string,
     newPassword: string,
-    auditContext: ServiceAuditContext
+    auditContext: AuditContext
   ): Promise<PasswordChangeResult> {
     const owner = await db.user.findUnique({ where: { id: userId } });
     if (!owner?.passwordHash) return { ok: false, reason: "no-local-password" };

@@ -46,36 +46,12 @@ function safeSnapshot(obj: unknown): unknown {
   return redacted;
 }
 
-/**
- * What `recordAudit` accepts. Deliberately all-optional — an entry can be
- * written from a context that does not know every field.
- */
 export interface AuditContext {
   actorId?: string | null;
   loginMethod?: string | null;
   loginAccountId?: string | null;
   ipAddress?: string | null;
   userAgent?: string | null;
-}
-
-/**
- * What a service requires from its caller.
- *
- * Stricter than `AuditContext`: a service mutation always knows who performed
- * it, so `actorId` and `loginMethod` are required rather than optional. Still
- * assignable to `AuditContext`, so `recordAudit({ context })` is unchanged.
- *
- * This exists because the shape was previously redeclared at 47 sites across
- * `src/services/` — 11 private `type AuditContext` aliases and 36 more inlined
- * straight into method signatures — in two different variants. Whether a
- * service could record an IP address depended on which file you were editing.
- */
-export interface ServiceAuditContext {
-  actorId: string;
-  loginMethod: string;
-  loginAccountId: string | null;
-  ipAddress?: string;
-  userAgent?: string;
 }
 
 export interface RecordAuditOptions {
