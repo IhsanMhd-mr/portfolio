@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { EducationService } from "@/services/education.service";
 import { requireAdmin } from "@/lib/require-admin";
+import { currentPathname } from "@/lib/current-pathname";
 import AdminPageSkeleton from "@/components/admin/AdminPageSkeleton";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -37,7 +38,7 @@ interface PageProps {
  * auth queries for this route.
  */
 async function ProtectedContent({ searchParams }: PageProps) {
-  await requireAdmin("/admin/education");
+  await requireAdmin(await currentPathname());
 
   const params = await searchParams;
   const rawPage = parseInt(params.page ?? "1", 10);

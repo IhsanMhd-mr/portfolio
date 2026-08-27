@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/require-admin";
+import { currentPathname } from "@/lib/current-pathname";
 import { createCertificationAction, certificationRowAction } from "./actions";
 import { CertificationService } from "@/services/certification.service";
 import Link from "next/link";
@@ -15,7 +16,7 @@ const inputCls =
   "w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-surface)] focus:outline-none focus:border-[var(--a-primary)]";
 
 export default async function AdminCertificationsPage() {
-  await requireAdmin("/admin/certifications");
+  await requireAdmin(await currentPathname());
 
   const certs = await CertificationService.list();
 

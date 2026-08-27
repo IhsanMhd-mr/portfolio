@@ -1,6 +1,7 @@
 import { PageService } from "@/services/page.service";
 import dynamic from "next/dynamic";
 import { requireAdmin } from "@/lib/require-admin";
+import { currentPathname } from "@/lib/current-pathname";
 import { SectionGroupService } from "@/services/section-group.service";
 
 // dnd-kit (used by the board's drag-and-drop) is only needed on this route —
@@ -24,7 +25,7 @@ function toModule(s: any) {
 }
 
 export default async function PageBuilderPage() {
-  await requireAdmin("/admin/page-builder");
+  await requireAdmin(await currentPathname());
 
   const pageId = await PageService.getHomePageId();
   if (!pageId) {

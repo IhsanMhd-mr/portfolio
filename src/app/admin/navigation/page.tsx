@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/require-admin";
+import { currentPathname } from "@/lib/current-pathname";
 import { createNavItemAction, navItemRowAction } from "./actions";
 import Link from "next/link";
 import { NavItemService } from "@/services/nav-item.service";
@@ -11,7 +12,7 @@ const inputCls =
   "w-full px-3 py-1.5 border border-solid border-[var(--a-line)] rounded-[var(--a-r-sm)] text-xs text-[var(--a-ink)] bg-[var(--a-surface)] focus:outline-none focus:border-[var(--a-primary)]";
 
 export default async function AdminNavigationPage() {
-  await requireAdmin("/admin/navigation");
+  await requireAdmin(await currentPathname());
   const items = await NavItemService.list();
 
   async function createAction(formData: FormData) {

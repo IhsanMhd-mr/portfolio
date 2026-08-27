@@ -1,11 +1,12 @@
 import { GameSettingsService } from "@/services/game-settings.service";
 import { requireAdmin } from "@/lib/require-admin";
+import { currentPathname } from "@/lib/current-pathname";
 import { revalidatePath } from "next/cache";
 import { Gamepad2, Save } from "lucide-react";
 import PendingButton from "@/components/ui/PendingButton";
 
 export default async function AdminGamePage() {
-  await requireAdmin("/admin/game");
+  await requireAdmin(await currentPathname());
   const settings = await GameSettingsService.getOrCreate();
 
   async function updateSettings(formData: FormData) {

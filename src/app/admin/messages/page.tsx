@@ -1,5 +1,8 @@
+import { Suspense } from "react";
+import AdminPageSkeleton from "@/components/admin/AdminPageSkeleton";
 import { ContactMessageService } from "@/services/contact-message.service";
 import { requireAdmin } from "@/lib/require-admin";
+import { currentPathname } from "@/lib/current-pathname";
 import { revalidatePath } from "next/cache";
 import { Inbox, Trash2, Mail, CheckCircle } from "lucide-react";
 import Pagination from "@/components/admin/Pagination";
@@ -12,7 +15,17 @@ interface PageProps {
   searchParams: Promise<{ page?: string }>;
 }
 
-export default async function AdminMessagesPage({ searchParams }: PageProps) {
+/**
+ * Protected content for this route.
+ *
+ * Authorization runs FIRST, before any protected read. This page renders
+ * visitor-submitted contact messages — names, email addresses and message
+ * bodies — and previously had no page-level check at all: the requireAdmin
+ * calls below guard the Server Actions, not the render.
+ */
+async function ProtectedContent({ searchParams }: PageProps) {
+  await requireAdmin(await currentPathname());
+
   const params = await searchParams;
   const rawPage = parseInt(params.page ?? "1", 10);
   const page = Number.isFinite(rawPage) && rawPage >= 1 ? rawPage : 1;
@@ -133,5 +146,13 @@ export default async function AdminMessagesPage({ searchParams }: PageProps) {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AdminMessagesPage({ searchParams }: PageProps) {
+  return (
+    <Suspense fallback={<AdminPageSkeleton />}>
+      <ProtectedContent searchParams={searchParams} />
+    </Suspense>
   );
 }
