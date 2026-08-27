@@ -1,4 +1,5 @@
-import db from "@/lib/database";
+import { ProjectService } from "@/services/project.service";
+import { TechnologyService } from "@/services/technology.service";
 import Link from "next/link";
 import {
   Briefcase, Plus, Trash2, Eye, EyeOff, Edit,
@@ -46,128 +47,26 @@ export default async function AdminProjectsPage(props: PageProps) {
   const techFilter = params.tech || "";
   const rawPage = parseInt(params.page ?? "1", 10);
   const page = Number.isFinite(rawPage) && rawPage >= 1 ? rawPage : 1;
-  const needsInMemoryDiff = filter === "draft";
-
-  // Compute changeState (requires full draft+published field diffing) for one project.
-  function computeChangeState(draft: any, published: any): "SYNC" | "DRAFT_ONLY" | "DRAFT_CHANGES" {
-    if (!published) return "DRAFT_ONLY";
-    if (!draft) return "SYNC";
-    const fields = [
-      "title", "summary", "fullDescription", "category", "status",
-      "startDate", "endDate", "featured", "visible", "myRole",
-      "problem", "solution", "mainFeatures", "systemArchitecture",
-      "developmentProcess", "challenges", "solutionsDetail", "testing",
-      "results", "lessonsLearned", "liveDemoUrl", "githubUrl",
-      "reportUrl", "documentationUrl", "videoUrl", "presentationUrl",
-      "seoTitle", "seoDescription", "thumbnailId", "coverImageId",
-      "architectureImageId"
-    ];
-    const hasDiff = fields.some((f) => {
-      const val1 = draft[f];
-      const val2 = published[f];
-      if (val1 instanceof Date || val2 instanceof Date) {
-        return new Date(val1).getTime() !== new Date(val2).getTime();
-      }
-      return val1 !== val2;
-    });
-    return hasDiff ? "DRAFT_CHANGES" : "SYNC";
-  }
-
-  const allTechsPromise = db.technology.findMany({
-    where: { deletedAt: null },
-    include: { versions: { where: { state: "DRAFT" }, take: 1, orderBy: { createdAt: "desc" } } },
-  });
-
-  let filteredProjects: Array<{ id: string; slug: string; updatedAt: Date; _count: { technologies: number; images: number }; draft: any; published: any; changeState: "SYNC" | "DRAFT_ONLY" | "DRAFT_CHANGES" }>;
-  let totalCount: number;
-  let totalPages: number;
-  let allTechs: Awaited<typeof allTechsPromise>;
-
-  if (needsInMemoryDiff) {
-    // "Draft Changes" requires the full draft+published field diff, which can't be
-    // expressed as a `where` clause — scan a capped window and paginate in memory.
-    const [allTechsResult, projectsRaw] = await Promise.all([
-      allTechsPromise,
-      db.project.findMany({
-        where: {
-          deletedAt: null,
-          versions: { some: { state: "DRAFT" } },
-          technologies: techFilter ? { some: { technologyId: techFilter } } : undefined,
-        },
-        include: {
-          versions: true,
-          _count: { select: { technologies: true, images: true } },
-        },
-        take: DRAFT_FILTER_SCAN_LIMIT,
-      }),
-    ]);
-    allTechs = allTechsResult;
-
-    const allMatching = projectsRaw
-      .map((proj) => {
-        const draft = proj.versions.find((v) => v.state === "DRAFT");
-        const published = proj.versions.find((v) => v.state === "PUBLISHED");
-        return { ...proj, draft, published, changeState: computeChangeState(draft, published) };
-      })
-      .filter((p) => p.changeState === "DRAFT_CHANGES" || p.changeState === "DRAFT_ONLY")
-      .sort((a, b) => (a.draft?.manualOrder || 0) - (b.draft?.manualOrder || 0));
-
-    totalCount = allMatching.length;
-    totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
-    filteredProjects = allMatching.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  } else {
-    // All other tabs are fully expressible in a `where` clause — query
-    // ProjectVersion directly so `manualOrder` can be sorted/paginated at the
-    // database boundary (Prisma can't orderBy a to-many relation field on Project).
-    const versionWhere = {
-      state: "DRAFT" as const,
-      title: q ? { contains: q, mode: "insensitive" as const } : undefined,
-      category: categoryFilter ? (categoryFilter as any) : undefined,
-      status: statusFilter ? (statusFilter as any) : undefined,
-      featured: filter === "featured" ? true : undefined,
-      visible: filter === "hidden" ? false : (filter === "visible" ? true : undefined),
-      project: {
-        deletedAt: filter === "trash" ? { not: null } : null,
-        technologies: techFilter ? { some: { technologyId: techFilter } } : undefined,
-        versions: filter === "published" ? { some: { state: "PUBLISHED" as const } } : undefined,
-      },
-    };
-
-    const [allTechsResult, total, draftVersions] = await Promise.all([
-      allTechsPromise,
-      db.projectVersion.count({ where: versionWhere }),
-      db.projectVersion.findMany({
-        where: versionWhere,
-        orderBy: [{ manualOrder: "asc" }, { id: "asc" }],
-        skip: (page - 1) * PAGE_SIZE,
-        take: PAGE_SIZE,
-        include: {
-          project: {
-            include: {
-              versions: { where: { state: "PUBLISHED" }, take: 1 },
-              _count: { select: { technologies: true, images: true } },
-            },
-          },
-        },
-      }),
-    ]);
-    allTechs = allTechsResult;
-
-    totalCount = total;
-    totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-    filteredProjects = draftVersions.map((draft) => {
-      const published = draft.project.versions[0];
-      return {
-        id: draft.project.id,
-        slug: draft.project.slug,
-        updatedAt: draft.project.updatedAt,
-        _count: draft.project._count,
-        draft,
-        published,
-        changeState: computeChangeState(draft, published),
-      };
-    });
-  }
+  // Search, filtering, pagination and each row's draft-vs-published change
+  // state now live in ProjectService.listAdminPage. The change-state diff in
+  // particular was a hand-written field list here that had drifted from
+  // PROMOTED_FIELDS by five columns — see publish-diff.service.projectChangeState.
+  const [
+    { totalCount, totalPages, items: filteredProjects },
+    allTechs,
+  ] = await Promise.all([
+    ProjectService.listAdminPage({
+      page,
+      pageSize: PAGE_SIZE,
+      q,
+      filter,
+      category: categoryFilter,
+      status: statusFilter,
+      tech: techFilter,
+      scanLimit: DRAFT_FILTER_SCAN_LIMIT,
+    }),
+    TechnologyService.listForPicker(),
+  ]);
 
   // Create Project action
   async function handleCreateProject() {

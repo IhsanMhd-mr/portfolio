@@ -1,4 +1,5 @@
-import db from "@/lib/database";
+import { ProjectService } from "@/services/project.service";
+import { TechnologyService } from "@/services/technology.service";
 import dynamic from "next/dynamic";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
@@ -7,7 +8,6 @@ import PendingButton from "@/components/ui/PendingButton";
 import { updateProjectAction } from "../../actions";
 import GalleryManager from "@/components/admin/projects/GalleryManager";
 import TechnologyPicker from "@/components/admin/TechnologyPicker";
-import { TechnologyService } from "@/services/technology.service";
 
 const MediaPickerModal = dynamic(() => import("@/components/admin/MediaPickerModal"));
 
@@ -21,37 +21,13 @@ export default async function EditProjectPage({ params }: EditProjectPageProps) 
   // Load project + technologies (for selector) concurrently — media is no
   // longer fetched in full here; MediaPickerModal/GalleryManager fetch
   // paginated/searchable results on demand instead.
-  const [project, allTechs] = await Promise.all([
-    db.project.findUnique({
-      where: { id },
-      include: {
-        versions: {
-          where: { state: "DRAFT" },
-          take: 1,
-          include: {
-            thumbnail: { select: { filename: true, url: true } },
-            coverImage: { select: { filename: true, url: true } },
-            architectureImage: { select: { filename: true, url: true } },
-          },
-        },
-        technologies: { orderBy: { order: "asc" } },
-        images: { include: { media: true }, orderBy: { order: "asc" } },
-      },
-    }),
-    db.technology.findMany({
-      where: { deletedAt: null },
-      include: { versions: { where: { state: "DRAFT" }, take: 1, orderBy: { createdAt: "desc" } } },
-    }),
+  const [found, allTechs] = await Promise.all([
+    ProjectService.getDraftById(id),
+    TechnologyService.listForPicker(),
   ]);
 
-  if (!project || project.deletedAt) {
-    notFound();
-  }
-
-  const draft = project.versions[0];
-  if (!draft) {
-    notFound();
-  }
+  if (!found) notFound();
+  const { project, draft } = found;
 
   // Server action handler inside compiler-friendly space
   async function updateProjectCaseStudy(formData: FormData) {
