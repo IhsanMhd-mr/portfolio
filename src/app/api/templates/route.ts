@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { TemplateService } from "@/services/template.service";
 import { safeRequireAdmin } from "@/lib/require-admin";
+import { revalidatePublicContentCache } from "@/lib/public-content-cache";
 
 /**
  * Admin-only. This handler was previously unauthenticated while the POST
@@ -49,6 +50,7 @@ export async function POST(request: Request) {
     // template — so the homepage can change immediately on a fresh install.
     revalidatePath("/admin/templates");
     revalidatePath("/");
+    revalidatePublicContentCache();
 
     return NextResponse.json({ success: true, draftTemplateId: template.id });
   } catch (error) {

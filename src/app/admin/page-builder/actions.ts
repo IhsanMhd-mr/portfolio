@@ -13,6 +13,7 @@ import { revalidatePath } from "next/cache";
 import { PageService } from "@/services/page.service";
 import { SectionGroupService } from "@/services/section-group.service";
 import { PageSectionService } from "@/services/page-section.service";
+import { updatePublicContentCache } from "@/lib/public-content-cache";
 import { registryKeyFor } from "@/components/sections/registry";
 
 type ActionResult<T = undefined> =
@@ -41,6 +42,7 @@ function domainFailure(e: unknown): ActionResult<never> {
 }
 
 function revalidateBuilder() {
+  updatePublicContentCache();
   revalidatePath("/admin/page-builder");
   revalidatePath("/");
 }

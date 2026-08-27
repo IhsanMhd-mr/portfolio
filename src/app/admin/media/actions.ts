@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { MediaService } from "@/services/media.service";
 import { requireAdmin } from "@/lib/require-admin";
 import { headers } from "next/headers";
+import { updatePublicContentCache } from "@/lib/public-content-cache";
 
 async function getAuditContext() {
   const admin = await requireAdmin();
@@ -23,6 +24,7 @@ async function getAuditContext() {
 export async function deleteMediaAction(id: string) {
   const context = await getAuditContext();
   const result = await MediaService.deleteAsset(id, context);
+  updatePublicContentCache();
   revalidatePath("/admin/media");
   revalidatePath("/admin/projects");
   return result;
@@ -42,6 +44,7 @@ export interface MediaMetadataInput {
 export async function updateMediaMetadataAction(id: string, input: MediaMetadataInput) {
   const context = await getAuditContext();
   const updated = await MediaService.updateMetadata(id, input, context);
+  updatePublicContentCache();
   revalidatePath("/admin/media");
   return updated;
 }

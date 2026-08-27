@@ -4,6 +4,7 @@ import { currentPathname } from "@/lib/current-pathname";
 import { revalidatePath } from "next/cache";
 import { Gamepad2, Save } from "lucide-react";
 import PendingButton from "@/components/ui/PendingButton";
+import { updatePublicContentCache } from "@/lib/public-content-cache";
 
 export default async function AdminGamePage() {
   await requireAdmin(await currentPathname());
@@ -33,6 +34,7 @@ export default async function AdminGamePage() {
       },
       { actorId: ctx.userId, loginMethod: ctx.loginMethod, loginAccountId: ctx.loginAccountId }
     );
+    updatePublicContentCache();
 
     revalidatePath("/admin/game");
     // The sandbox renders on the homepage and GameSettings is unversioned,

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { safeRequireAdmin } from "@/lib/require-admin";
 import { MediaService } from "@/services/media.service";
+import { revalidatePublicContentCache } from "@/lib/public-content-cache";
 
 const PICKER_PAGE_SIZE = 24;
 
@@ -58,6 +59,7 @@ export async function POST(request: Request) {
     if (replaceId) {
       // Replacement flow
       const asset = await MediaService.replaceAsset(replaceId, file, auditContext);
+      revalidatePublicContentCache();
       return NextResponse.json({ success: true, asset });
     } else {
       // Normal upload flow

@@ -1,5 +1,7 @@
 import { cache } from "react";
+import { cacheLife, cacheTag } from "next/cache";
 import db from "@/lib/database";
+import { PUBLIC_CONTENT_TAG } from "@/lib/public-content-cache";
 import { SectionGroupService } from "./section-group.service";
 import {
   PUBLISHED_VISIBLE,
@@ -76,6 +78,9 @@ export class PublicContentService {
    * therefore could not dedupe.
    */
   static getSiteProfile = cache(async () => {
+    "use cache";
+    cacheLife("max");
+    cacheTag(PUBLIC_CONTENT_TAG);
     return db.siteProfile.findFirst({
       include: {
         // Only the two relations anything actually renders. logoImage/favicon
@@ -94,6 +99,9 @@ export class PublicContentService {
    * plus footer-visible social links, ordered.
    */
   static getPublicChrome = cache(async () => {
+    "use cache";
+    cacheLife("max");
+    cacheTag(PUBLIC_CONTENT_TAG);
     const [profile, socialLinksRaw, navItemsRaw] = await Promise.all([
       PublicContentService.getSiteProfile(),
       db.socialLink.findMany({
@@ -124,6 +132,9 @@ export class PublicContentService {
    * publish state.
    */
   static getHomePageData = cache(async (): Promise<HomePageData> => {
+    "use cache";
+    cacheLife("max");
+    cacheTag(PUBLIC_CONTENT_TAG);
     const state = "PUBLISHED" as const;
 
     // Visibility is filtered in SQL rather than by a JS pass over every row.
@@ -329,6 +340,9 @@ export class PublicContentService {
    * the underlying `pages`/`page_versions`/`templates` reads.
    */
   private static getHomePageRecord = cache(async () => {
+    "use cache";
+    cacheLife("max");
+    cacheTag(PUBLIC_CONTENT_TAG);
     return db.page.findUnique({
       where: { key: "home" },
       include: {
@@ -349,6 +363,9 @@ export class PublicContentService {
    * than page-wide.
    */
   private static resolveSections = cache(async (): Promise<SectionData[]> => {
+    "use cache";
+    cacheLife("max");
+    cacheTag(PUBLIC_CONTENT_TAG);
     let sections: SectionData[] = [];
 
     // Deliberately NOT wrapped in try/catch. It used to be, logging the error
@@ -389,6 +406,9 @@ export class PublicContentService {
    * cached page read) rather than reimplementing the lookup.
    */
   static resolveTemplateKey = cache(async (): Promise<string> => {
+    "use cache";
+    cacheLife("max");
+    cacheTag(PUBLIC_CONTENT_TAG);
     // The MODERN_GLASS default below covers a real, legitimate state: no
     // published version and no draft pointer. It must not also cover "the
     // database is unreachable" — the previous try/catch conflated the two, so
@@ -407,6 +427,9 @@ export class PublicContentService {
    * this one.
    */
   static getAboutPageData = cache(async () => {
+    "use cache";
+    cacheLife("max");
+    cacheTag(PUBLIC_CONTENT_TAG);
     const [profile, educationRaw, experienceRaw] = await Promise.all([
       PublicContentService.getSiteProfile(),
       db.education.findMany({
@@ -437,6 +460,9 @@ export class PublicContentService {
    * was invisible until someone tried to use it.
    */
   static getResumePageData = cache(async () => {
+    "use cache";
+    cacheLife("max");
+    cacheTag(PUBLIC_CONTENT_TAG);
     const [profile, educationRaw, experienceRaw, technologiesRaw] = await Promise.all([
       PublicContentService.getSiteProfile(),
       db.education.findMany({
@@ -474,6 +500,9 @@ export class PublicContentService {
    * the page. getHomePageData already selected the thumbnail this way.
    */
   static getProjectsPageData = cache(async () => {
+    "use cache";
+    cacheLife("max");
+    cacheTag(PUBLIC_CONTENT_TAG);
     const [projectsRaw, technologiesRaw] = await Promise.all([
       db.project.findMany({
         where: { deletedAt: null },
@@ -547,6 +576,9 @@ export class PublicContentService {
    * than issuing the same lookup twice per request.
    */
   static getProjectDetail = cache(async (slug: string) => {
+    "use cache";
+    cacheLife("max");
+    cacheTag(PUBLIC_CONTENT_TAG);
     const project = await db.project.findUnique({
       where: { slug },
       include: {
@@ -604,6 +636,9 @@ export class PublicContentService {
 
   /** Everything /timeline renders. */
   static getTimelinePageData = cache(async () => {
+    "use cache";
+    cacheLife("max");
+    cacheTag(PUBLIC_CONTENT_TAG);
     const raw = await db.timelineEntry.findMany({
       where: { deletedAt: null },
       include: {
@@ -630,6 +665,9 @@ export class PublicContentService {
 
   /** Everything /contact renders. */
   static getContactPageData = cache(async () => {
+    "use cache";
+    cacheLife("max");
+    cacheTag(PUBLIC_CONTENT_TAG);
     const [profile, socialLinks] = await Promise.all([
       PublicContentService.getSiteProfile(),
       db.socialLink.findMany({ where: { visible: true }, orderBy: { order: "asc" } }),

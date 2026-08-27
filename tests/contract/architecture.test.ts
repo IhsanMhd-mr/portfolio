@@ -117,3 +117,116 @@ describe("server action authorization", () => {
     ).toEqual([]);
   });
 });
+
+/**
+ * Server-side authorization on admin routes.
+ *
+ * The rule is an ORDERING rule, not a presence rule:
+ *
+ *   authorization must complete BEFORE any protected data access.
+ *
+ * A page that reads first and authorizes afterwards is not protected even
+ * though both calls exist. `/admin/messages` was exactly that — its
+ * `requireAdmin` calls guarded its Server Actions while the render read
+ * visitor names, emails and message bodies unchecked. A presence-only check
+ * would have called it compliant.
+ *
+ * Server Action bodies are REMOVED before analysis rather than truncated at
+ * the first one. Truncating skipped any page whose data read appears after an
+ * inline action in source order — which silently excluded /admin/experience
+ * and /admin/projects/[id]/edit from an earlier version of this guard.
+ *
+ * Client pages are excluded: they render no server data, and the `/api/*`
+ * handlers they fetch from are covered by the Server-Action guard above.
+ */
+describe("admin route authorization", () => {
+  const AUTH = /await\s+(requireAdmin|getValidatedOwner)\s*\(/;
+  // Deliberately NOT anchored on a preceding `await`: reads are often wrapped
+  // in Promise.all([Service.method(), ...]), which an await-anchored pattern
+  // misses entirely — that is how /admin/experience escaped an earlier
+  // version of this guard.
+  const DATA_READ = /(?:[A-Z][A-Za-z]*Service\.[a-zA-Z]+|db\.[a-zA-Z]+\.[a-zA-Z]+)\s*\(/;
+
+  /**
+   * Blanks out every inline Server Action body, preserving offsets so the
+   * ordering comparison below stays meaningful.
+   */
+  function withoutActionBodies(src: string): string {
+    const chars = src.split("");
+    let marker = src.indexOf('"use server"');
+
+    while (marker !== -1) {
+      // Walk back to the enclosing function's opening brace.
+      const open = src.lastIndexOf("{", marker);
+      if (open === -1) break;
+
+      // Forward brace match to its close.
+      let depth = 0;
+      let end = open;
+      for (let i = open; i < src.length; i++) {
+        if (src[i] === "{") depth++;
+        else if (src[i] === "}") {
+          depth--;
+          if (depth === 0) { end = i; break; }
+        }
+      }
+      for (let i = open; i <= end; i++) chars[i] = " ";
+      marker = src.indexOf('"use server"', end + 1);
+    }
+
+    return chars.join("");
+  }
+
+  function adminServerPages(): Array<{ rel: string; scope: string }> {
+    const root = path.resolve(__dirname, "../../src/app/admin");
+    return filesUnder(root)
+      .filter((f) => f.endsWith("page.tsx"))
+      .map((f) => ({
+        rel: path.relative(root, f),
+        src: readFileSync(f, "utf8"),
+      }))
+      .filter(({ src }) => !src.slice(0, 200).includes('"use client"'))
+      .map(({ rel, src }) => ({ rel, scope: withoutActionBodies(src) }))
+      .filter(({ scope }) => DATA_READ.test(scope));
+  }
+
+  it("every admin page that reads data authorizes first", () => {
+    const offenders: string[] = [];
+
+    for (const { rel, scope } of adminServerPages()) {
+      const auth = scope.search(AUTH);
+      const read = scope.search(DATA_READ);
+
+      if (auth === -1) offenders.push(`${rel} — reads data with NO authorization`);
+      else if (read !== -1 && auth > read) offenders.push(`${rel} — authorizes AFTER its first data read`);
+    }
+
+    expect(offenders, "admin pages must authorize before reading").toEqual([]);
+  });
+
+  it("covers every data-reading admin page, so the filter cannot silently shrink", () => {
+    const covered = adminServerPages().map((p) => p.rel.split(path.sep).join("/"));
+    // Named explicitly: a filter regression that drops pages would otherwise
+    // leave this suite passing while checking fewer and fewer files.
+    for (const required of [
+      "experience/page.tsx",
+      "projects/[id]/edit/page.tsx",
+      "messages/page.tsx",
+      "media/page.tsx",
+    ]) {
+      expect(covered, `${required} must be covered by the authorization guard`).toContain(required);
+    }
+    expect(covered.length).toBeGreaterThanOrEqual(18);
+  });
+
+  it("passes the request pathname, keeping one auth cache key per request", () => {
+    // requireAdmin is React.cache-wrapped with `pathname` in the key. A bare
+    // requireAdmin() creates a second entry and doubles the session queries —
+    // measured as 14 queries against a 10-query baseline before this was fixed.
+    const offenders = adminServerPages()
+      .filter(({ scope }) => /await\s+requireAdmin\(\s*\)/.test(scope))
+      .map(({ rel }) => `${rel} — requireAdmin() without a pathname`);
+
+    expect(offenders, "pass currentPathname() so the auth cache key is shared").toEqual([]);
+  });
+});

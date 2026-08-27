@@ -4,6 +4,7 @@ import { PublicContentService } from "@/services/public-content.service";
 import Link from "next/link";
 import { ArrowLeft, Calendar, User, CheckCircle2, Globe, FileText, ChevronRight } from "lucide-react";
 import { Github } from "@/components/public/Icons";
+import { Suspense } from "react";
 
 interface ProjectDetailPageProps {
   params: Promise<{ slug: string }>;
@@ -36,7 +37,15 @@ export async function generateMetadata({ params }: ProjectDetailPageProps): Prom
   };
 }
 
-export default async function ProjectDetailPage({ params }: ProjectDetailPageProps) {
+export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
+  return (
+    <Suspense fallback={<div className="min-h-[50vh]" aria-busy="true" />}>
+      <ProjectDetailContent params={params} />
+    </Suspense>
+  );
+}
+
+async function ProjectDetailContent({ params }: ProjectDetailPageProps) {
   const { slug } = await params;
   
   // Find project with active state version (request-cached — generateMetadata

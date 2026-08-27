@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { safeRequireAdmin } from "@/lib/require-admin";
 import { PublishService } from "@/services/publish.service";
+import { revalidatePublicContentCache } from "@/lib/public-content-cache";
 
 /**
  * Publishing endpoints.
@@ -50,6 +51,7 @@ export async function POST(request: Request) {
 
     for (const path of PublishService.REVALIDATE_PATHS) revalidatePath(path);
     for (const path of PublishService.REVALIDATE_DYNAMIC_PATHS) revalidatePath(path, "page");
+    revalidatePublicContentCache();
 
     return NextResponse.json({ success: true, version: result.versionNumber });
   } catch (error) {
