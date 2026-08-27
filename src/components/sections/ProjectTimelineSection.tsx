@@ -11,7 +11,7 @@ interface ProjectTimelineSectionProps {
 export default function ProjectTimelineSection({ timelineEntries, settings }: ProjectTimelineSectionProps) {
   // Option to filter by ID list if configured
   const selectedIds = settings?.selectedTimelineIds;
-  let items = Array.isArray(selectedIds) && selectedIds.length > 0
+  const items = Array.isArray(selectedIds) && selectedIds.length > 0
     ? timelineEntries.filter(t => selectedIds.includes(t.id))
     : timelineEntries;
 
@@ -21,7 +21,7 @@ export default function ProjectTimelineSection({ timelineEntries, settings }: Pr
 
   // Admin ordering first, newest-first only as a tiebreak — see
   // byOrderThenNewest. Sorting purely by date discarded the owner's sequence.
-  let sorted = [...items].sort(byOrderThenNewest);
+  const sorted = [...items].sort(byOrderThenNewest);
 
   // Slice entries based on configuration
   const limitVal = settings?.limit || 3;

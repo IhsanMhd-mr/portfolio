@@ -22,7 +22,7 @@ export default async function EditTechnologyPage({ params }: EditTechnologyPageP
   // the create flow and projects/[id]/edit.
   const found = await TechnologyService.getDraftById(id);
   if (!found) notFound();
-  const { tech, draft } = found;
+  const { draft } = found;
 
   async function handleUpdate(formData: FormData) {
     "use server";

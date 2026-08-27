@@ -1,7 +1,6 @@
 import db from "@/lib/database";
 import { recordAudit } from "@/lib/audit";
 import { projectChangeState } from "./publish-diff.service";
-import { revalidatePath } from "next/cache";
 
 export interface ProjectInput {
   title: string;

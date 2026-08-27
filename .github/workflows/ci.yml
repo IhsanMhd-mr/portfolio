@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main, test]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    services:
+      # The test harness provisions its own `_test` database inside this
+      # instance; see tests/setup/global.ts.
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: portfolio
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # tests/setup/test-db-url.ts derives the throwaway database from this and
+      # refuses anything whose name does not end in `_test`.
+      DATABASE_URL_LOCAL: postgresql://postgres:postgres@localhost:5432/portfolio?schema=public
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/portfolio?schema=public
+      AUTH_SECRET: ci-only-secret-not-used-for-anything-real-0123456789
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      # Guards the DRAFT -> PUBLISHED promotion contract. A version-table column
+      # missing from PROMOTED_FIELDS is invisible to both the promotion and the
+      # change detection at once, so publishing silently never updates it while
+      # the admin reports "nothing to publish". This has happened before.
+      - name: Promotion contract
+        run: npm run check:promoted
+
+      - name: Tests
+        run: npm test
+
+      - name: Build
+        run: npm run build

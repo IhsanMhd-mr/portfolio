@@ -31,7 +31,7 @@ export default async function EditExperiencePage({ params }: EditExperiencePageP
   ]);
 
   if (!found) notFound();
-  const { experience, draft, linkedTechIds } = found;
+  const { draft, linkedTechIds } = found;
 
 
   async function handleUpdate(formData: FormData) {

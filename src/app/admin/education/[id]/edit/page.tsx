@@ -26,7 +26,7 @@ export default async function EditEducationPage({ params }: EditEducationPagePro
   // Read the DRAFT version — edits stay unpublished until a publish.
   const found = await EducationService.getDraftById(id);
   if (!found) notFound();
-  const { education, draft } = found;
+  const { draft } = found;
 
   async function handleUpdate(formData: FormData) {
     "use server";
