@@ -216,94 +216,94 @@ export class MediaService {
   }
 
   /**
-   * Scan every entity in the database to check if the media is in use
+   * Everything currently referencing a media asset, as human-readable labels.
+   *
+   * Shown before deleting an asset, so it must cover every table that can hold
+   * a media id. The nine reads are mutually independent and now run as one
+   * parallel wave — they previously ran strictly in sequence, which on a remote
+   * database meant nine round trips of latency (~2s on Neon at ~250ms each) for
+   * work that takes one.
+   *
+   * The result strings and their order are unchanged: the reads are awaited
+   * together, then the labels are built in the same sequence as before.
    */
   static async getMediaUsages(id: string) {
+    const [
+      projectVersions,
+      projectImages,
+      techVersions,
+      timelineVersions,
+      eduVersions,
+      expVersions,
+      siteProfiles,
+      socialLinks,
+      pageSections,
+    ] = await Promise.all([
+      // 1. Project thumbnails / covers / architecture diagrams
+      db.projectVersion.findMany({
+        where: {
+          OR: [{ thumbnailId: id }, { coverImageId: id }, { architectureImageId: id }],
+        },
+      }),
+      // 2. Project gallery images
+      db.projectImage.findMany({
+        where: { mediaId: id },
+        include: { project: { include: { versions: { where: { state: "DRAFT" } } } } },
+      }),
+      // 3. Technology logos
+      db.technologyVersion.findMany({ where: { logoId: id } }),
+      // 4. Timeline entry images
+      db.timelineEntryVersion.findMany({ where: { imageId: id } }),
+      // 5. Education logos
+      db.educationVersion.findMany({ where: { logoId: id } }),
+      // 6. Experience logos
+      db.experienceVersion.findMany({ where: { logoId: id } }),
+      // 7. Site profile: avatar, logo, favicon, CV
+      db.siteProfile.findMany({
+        where: {
+          OR: [{ profileImageId: id }, { logoImageId: id }, { faviconId: id }, { cvFileId: id }],
+        },
+      }),
+      // 8. Social link icons
+      db.socialLink.findMany({ where: { iconMediaId: id } }),
+      // 9. Page-builder section settings.
+      //
+      // Deliberately unfiltered. A media id can appear anywhere inside a
+      // section's untyped `settings` blob, whose shape differs per section
+      // type, and the column is `Json` rather than `Jsonb` — so there is no
+      // containment operator to push this into SQL. Scanning in application
+      // code is correct; the table is small (one row per homepage module).
+      db.pageSection.findMany({}),
+    ]);
+
     const usages: string[] = [];
 
-    // 1. Projects thumbnails/covers/architecture
-    const projectVersions = await db.projectVersion.findMany({
-      where: {
-        OR: [
-          { thumbnailId: id },
-          { coverImageId: id },
-          { architectureImageId: id },
-        ],
-      },
-    });
     for (const pv of projectVersions) {
       usages.push(`Project version: ${pv.title} (${pv.state})`);
     }
-
-    // 2. Project images gallery
-    const projectImages = await db.projectImage.findMany({
-      where: { mediaId: id },
-      include: { project: { include: { versions: { where: { state: "DRAFT" } } } } },
-    });
     for (const pi of projectImages) {
       usages.push(`Project Gallery: ${pi.project.versions[0]?.title || pi.project.slug}`);
     }
-
-    // 3. Technology logo
-    const techVersions = await db.technologyVersion.findMany({
-      where: { logoId: id },
-    });
     for (const tv of techVersions) {
       usages.push(`Technology Logo: ${tv.name} (${tv.state})`);
     }
-
-    // 4. Timeline entry image
-    const timelineVersions = await db.timelineEntryVersion.findMany({
-      where: { imageId: id },
-    });
     for (const tlv of timelineVersions) {
       usages.push(`Timeline Image: ${tlv.title} (${tlv.state})`);
     }
-
-    // 5. Education logo
-    const eduVersions = await db.educationVersion.findMany({
-      where: { logoId: id },
-    });
     for (const ev of eduVersions) {
       usages.push(`Education Logo: ${ev.institution} (${ev.state})`);
     }
-
-    // 6. Experience logo
-    const expVersions = await db.experienceVersion.findMany({
-      where: { logoId: id },
-    });
     for (const exv of expVersions) {
       usages.push(`Experience Logo: ${exv.organization} (${exv.state})`);
     }
-
-    // 7. Site Profile settings (profile, logo, favicon, cv)
-    const siteProfiles = await db.siteProfile.findMany({
-      where: {
-        OR: [
-          { profileImageId: id },
-          { logoImageId: id },
-          { faviconId: id },
-          { cvFileId: id },
-        ],
-      },
-    });
     if (siteProfiles.length > 0) {
       usages.push(`Site Settings / Profile`);
     }
-
-    // 8. Social Link icons
-    const socialLinks = await db.socialLink.findMany({
-      where: { iconMediaId: id },
-    });
     for (const sl of socialLinks) {
       usages.push(`Social Link Icon: ${sl.platform}`);
     }
-
-    // 9. PageBuilder section settings
-    const pageSections = await db.pageSection.findMany({});
     for (const sec of pageSections) {
-      const settingsStr = JSON.stringify(sec.settings || {});
-      if (settingsStr.includes(id)) {
+      if (JSON.stringify(sec.settings || {}).includes(id)) {
         usages.push(`PageBuilder Section: ${sec.internalLabel} (${sec.type})`);
       }
     }

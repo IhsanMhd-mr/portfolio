@@ -114,16 +114,15 @@ export class ExperienceService {
         },
       });
 
-      // Link technologies if provided
+      // Link technologies if provided — one batched insert rather than one
+      // round trip per skill.
       if (input.technologyIds && input.technologyIds.length > 0) {
-        for (const techId of input.technologyIds) {
-          await tx.experienceTechnology.create({
-            data: {
-              experienceId: base.id,
-              technologyId: techId,
-            },
-          });
-        }
+        await tx.experienceTechnology.createMany({
+          data: input.technologyIds.map((technologyId) => ({
+            experienceId: base.id,
+            technologyId,
+          })),
+        });
       }
 
       await recordAudit({
@@ -181,15 +180,17 @@ export class ExperienceService {
         },
       });
 
-      // Update technologies if provided
+      // Update technologies if provided. Replace-all semantics are preserved:
+      // an empty array clears the links, which is why the deleteMany is
+      // unconditional and the insert is guarded on length.
       if (input.technologyIds !== undefined) {
         await tx.experienceTechnology.deleteMany({ where: { experienceId: id } });
-        for (const techId of input.technologyIds) {
-          await tx.experienceTechnology.create({
-            data: {
+        if (input.technologyIds.length > 0) {
+          await tx.experienceTechnology.createMany({
+            data: input.technologyIds.map((technologyId) => ({
               experienceId: id,
-              technologyId: techId,
-            },
+              technologyId,
+            })),
           });
         }
       }
