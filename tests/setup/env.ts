@@ -1,4 +1,5 @@
 import { resolveTestDatabaseUrl } from "./test-db-url";
+import { existsSync } from "node:fs";
 import { vi } from "vitest";
 
 // Service contract tests execute modules directly, outside Next's Cache
@@ -24,5 +25,5 @@ vi.mock("next/cache", async (importOriginal) => {
  * at module load, so the variable has to be correct before the first import of
  * anything that reaches it — which is what setupFiles guarantees.
  */
-process.loadEnvFile(".env");
+if (existsSync(".env")) process.loadEnvFile(".env");
 process.env.DATABASE_URL = resolveTestDatabaseUrl();

@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { Client } from "pg";
 import { startHttpServer, stopHttpServer } from "./http-server";
 import {
@@ -22,7 +23,7 @@ import {
  * concern from behaviour coverage.
  */
 export default async function setup() {
-  process.loadEnvFile(".env");
+  if (existsSync(".env")) process.loadEnvFile(".env");
 
   const testUrl = resolveTestDatabaseUrl();
   const dbName = databaseNameOf(testUrl);
