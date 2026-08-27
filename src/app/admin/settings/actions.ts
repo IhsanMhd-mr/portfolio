@@ -15,6 +15,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getValidatedOwner, type AdminContext } from "@/lib/require-admin";
 import { SiteProfileService } from "@/services/site-profile.service";
+import { updatePublicContentCache } from "@/lib/public-content-cache";
 
 type ActionResult<T = undefined> =
   | { success: true; data: T }
@@ -83,6 +84,7 @@ export async function updateSettingsAction(
 
   try {
     const updated = await SiteProfileService.updateSettings(parsed.data, auditContextOf(owner));
+    updatePublicContentCache();
 
     // These fields render on the homepage, /about and /contact. The previous
     // inline action revalidated /admin/settings ONLY, so a settings change was

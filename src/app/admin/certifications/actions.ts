@@ -15,6 +15,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getValidatedOwner, type AdminContext } from "@/lib/require-admin";
 import { CertificationService } from "@/services/certification.service";
+import { updatePublicContentCache } from "@/lib/public-content-cache";
 
 type ActionResult<T = undefined> =
   | { success: true; data: T }
@@ -46,6 +47,7 @@ function auditContextOf(owner: AdminContext) {
 }
 
 function revalidate() {
+  updatePublicContentCache();
   revalidatePath("/admin/certifications");
   revalidatePath("/");
 }

@@ -16,6 +16,7 @@ import { revalidatePath } from "next/cache";
 import { PLATFORM_KEYS } from "@/lib/social-platforms";
 import { SiteProfileService } from "@/services/site-profile.service";
 import { SocialLinkService } from "@/services/social-link.service";
+import { updatePublicContentCache } from "@/lib/public-content-cache";
 
 type ActionResult<T = undefined> =
   | { success: true; data: T }
@@ -43,6 +44,7 @@ function auditContextOf(owner: AdminContext) {
 }
 
 function revalidatePublicSurfaces() {
+  updatePublicContentCache();
   revalidatePath("/");
   revalidatePath("/about");
   revalidatePath("/contact");

@@ -113,7 +113,6 @@ export const metadata: Metadata = {
    Root Layout
    ========================================================================== */
 
-import { headers } from "next/headers";
 import { PublicContentService } from "@/services/public-content.service";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 
@@ -152,10 +151,6 @@ export default async function RootLayout({
    * inverting it ("resolve only if known") would strip the template from every
    * non-homepage public page.
    */
-  const headersList = await headers();
-  const pathname = headersList.get("x-pathname") || "";
-  const skipTemplate = pathname.startsWith("/admin");
-
   let templateKey = "MODERN_GLASS";
   let defaultTheme = "light";
 
@@ -165,7 +160,7 @@ export default async function RootLayout({
     // third independent copy of the same two queries per render.
     // getSiteProfile() is always needed — admin reads defaultTheme from it.
     const [resolvedTemplateKey, siteProfile] = await Promise.all([
-      skipTemplate ? Promise.resolve(templateKey) : PublicContentService.resolveTemplateKey(),
+      PublicContentService.resolveTemplateKey(),
       PublicContentService.getSiteProfile(),
     ]);
     templateKey = resolvedTemplateKey;
