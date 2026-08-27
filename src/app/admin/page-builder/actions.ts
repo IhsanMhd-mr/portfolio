@@ -10,7 +10,7 @@
 import { z } from "zod";
 import { getValidatedOwner, type AdminContext } from "@/lib/require-admin";
 import { revalidatePath } from "next/cache";
-import db from "@/lib/database";
+import { PageService } from "@/services/page.service";
 import { SectionGroupService } from "@/services/section-group.service";
 import { PageSectionService } from "@/services/page-section.service";
 import { registryKeyFor } from "@/components/sections/registry";
@@ -45,10 +45,12 @@ function revalidateBuilder() {
   revalidatePath("/");
 }
 
+/**
+ * Private on purpose: the client never supplies a pageId, so there is no way
+ * to target another page by tampering with the request.
+ */
 async function getHomePageId(): Promise<string> {
-  const page = await db.page.findUnique({ where: { key: "home" }, select: { id: true } });
-  if (!page) throw new Error("Homepage record not found.");
-  return page.id;
+  return PageService.requireHomePageId();
 }
 
 // ─── Groups ───────────────────────────────────────────────────────────────
