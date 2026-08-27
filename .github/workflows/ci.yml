@@ -38,8 +38,19 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Must match the toolchain the lockfile is generated with, and must
+          # be >= 22: @prisma/streams-local declares `node >=22` and Node 20
+          # produced an EBADENGINE warning on every run.
+          node-version: 22
           cache: npm
+
+      # npm 10 and npm 11 resolve optional platform dependencies differently.
+      # A lockfile written by npm 11 (Node 22 ships npm 10.x, so developers on
+      # npm 11 are common) fails `npm ci` under npm 10 with
+      # "Missing: @emnapi/runtime from lock file" — the wasm optional deps of
+      # sharp and tailwind's oxide binding. Pinning the major keeps CI and the
+      # lockfile in agreement.
+      - run: npm install -g npm@11
 
       - run: npm ci
 
