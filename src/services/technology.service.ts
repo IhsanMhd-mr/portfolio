@@ -1,5 +1,5 @@
 import db from "@/lib/database";
-import { recordAudit } from "@/lib/audit";
+import { recordAudit, type ServiceAuditContext } from "@/lib/audit";
 
 export interface TechnologyInput {
   name: string;
@@ -92,7 +92,7 @@ export class TechnologyService {
    */
   static async quickAdd(
     rawName: string,
-    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+    auditContext: ServiceAuditContext
   ): Promise<{ id: string; name: string; existed: boolean }> {
     const name = rawName.trim();
     const slug = TechnologyService.slugify(name);
@@ -230,7 +230,7 @@ export class TechnologyService {
 
   static async createTechnology(
     input: Partial<TechnologyInput>,
-    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+    auditContext: ServiceAuditContext
   ) {
     if (!input.slug) throw new Error("Slug is required.");
     const slug = input.slug.trim().toLowerCase();
@@ -299,7 +299,7 @@ export class TechnologyService {
   static async updateTechnology(
     id: string,
     input: Partial<TechnologyInput>,
-    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+    auditContext: ServiceAuditContext
   ) {
     const tech = await db.technology.findUnique({
       where: { id },
@@ -373,7 +373,7 @@ export class TechnologyService {
    */
   static async deleteTechnology(
     id: string,
-    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+    auditContext: ServiceAuditContext
   ) {
     const tech = await db.technology.findUnique({
       where: { id },
@@ -446,7 +446,7 @@ export class TechnologyService {
    */
   static async reorderTechnologies(
     ids: string[],
-    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+    auditContext: ServiceAuditContext
   ) {
     return await db.$transaction(async (tx) => {
       for (let i = 0; i < ids.length; i++) {
@@ -489,7 +489,7 @@ export class TechnologyService {
   static async moveOrder(
     id: string,
     direction: "up" | "down",
-    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+    auditContext: ServiceAuditContext
   ) {
     return await db.$transaction(async (tx) => {
       const tech = await tx.technology.findUnique({

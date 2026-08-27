@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PublicContentService } from "@/services/public-content.service";
-import { headers } from "next/headers";
 import Link from "next/link";
-import { ArrowLeft, Calendar, User, CheckCircle2, Globe, FileText, ChevronRight, Image as ImageIcon } from "lucide-react";
+import { ArrowLeft, Calendar, User, CheckCircle2, Globe, FileText, ChevronRight } from "lucide-react";
 import { Github } from "@/components/public/Icons";
 
 interface ProjectDetailPageProps {

@@ -71,7 +71,7 @@ export default function ContactForm() {
           Message Sent!
         </h3>
         <p className="text-small text-[var(--ink-soft)] max-w-sm mx-auto">
-          Thank you for reaching out. Your message has been received, and I'll get back to you as soon as possible.
+          Thank you for reaching out. Your message has been received, and I&apos;ll get back to you as soon as possible.
         </p>
         <button
           onClick={() => setSuccess(false)}

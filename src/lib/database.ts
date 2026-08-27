@@ -41,6 +41,24 @@ const prismaClientSingleton = () => {
 
   const adapter = new PrismaPg(pool);
 
+  // Query timing for the performance baseline. OFF unless PRISMA_TIMING=1 —
+  // it emits one line per query, which is far too noisy for normal running and
+  // must never be enabled by default in production.
+  //
+  // Emitted as an event rather than stdout logging so each line carries the
+  // duration, which is what separates database time from render time. See the
+  // "Production baseline" section of docs/query-baseline.md.
+  if (process.env.PRISMA_TIMING === "1") {
+    const client = new PrismaClient({
+      adapter,
+      log: [{ emit: "event", level: "query" }, "error", "warn"],
+    });
+    (client as any).$on("query", (e: { duration: number; query: string }) => {
+      console.log(`prisma:timing ${e.duration} ${e.query.slice(0, 120)}`);
+    });
+    return client;
+  }
+
   return new PrismaClient({
     adapter,
     log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],

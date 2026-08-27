@@ -26,7 +26,7 @@ export const authConfig = {
     authorized({ auth }) {
       return !!auth?.user;
     },
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, account: _account }) {
       // Mirror fields from auth.ts jwt callback so client session is consistent
       if (user) {
         token.userId = user.id;

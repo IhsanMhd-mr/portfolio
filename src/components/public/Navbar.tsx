@@ -35,7 +35,7 @@ export default function Navbar({
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const isLoggedIn = status === "authenticated";
 
   const [isScrolled, setIsScrolled] = useState(false);

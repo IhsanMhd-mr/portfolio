@@ -1,3 +1,7 @@
+import { Suspense } from "react";
+import { requireAdmin } from "@/lib/require-admin";
+import { currentPathname } from "@/lib/current-pathname";
+import AdminPageSkeleton from "@/components/admin/AdminPageSkeleton";
 import { TimelineService } from "@/services/timeline.service";
 import { ProjectService } from "@/services/project.service";
 import dynamic from "next/dynamic";
@@ -20,7 +24,16 @@ interface EditTimelinePageProps {
   params: Promise<{ id: string }>;
 }
 
-export default async function EditTimelinePage({ params }: EditTimelinePageProps) {
+/**
+ * Protected content for this route.
+ *
+ * Authorization runs FIRST, before any protected read. That ordering is the
+ * security mechanism; the Suspense boundary below exists only to satisfy
+ * cacheComponents, which rejects uncached data accessed outside a boundary.
+ */
+async function ProtectedContent({ params }: EditTimelinePageProps) {
+  await requireAdmin(await currentPathname());
+
   const { id } = await params;
 
   // Read the DRAFT version, plus projects for the "linked project" selector.
@@ -149,5 +162,13 @@ export default async function EditTimelinePage({ params }: EditTimelinePageProps
         </div>
       </form>
     </div>
+  );
+}
+
+export default function EditTimelinePage({ params }: EditTimelinePageProps) {
+  return (
+    <Suspense fallback={<AdminPageSkeleton />}>
+      <ProtectedContent params={params} />
+    </Suspense>
   );
 }

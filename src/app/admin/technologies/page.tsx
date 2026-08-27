@@ -1,3 +1,7 @@
+import { Suspense } from "react";
+import { requireAdmin } from "@/lib/require-admin";
+import { currentPathname } from "@/lib/current-pathname";
+import AdminPageSkeleton from "@/components/admin/AdminPageSkeleton";
 import { TechnologyService } from "@/services/technology.service";
 import dynamic from "next/dynamic";
 import { redirect } from "next/navigation";
@@ -27,7 +31,16 @@ interface PageProps {
   searchParams: Promise<SearchParams>;
 }
 
-export default async function AdminTechnologiesPage(props: PageProps) {
+/**
+ * Protected content for this route.
+ *
+ * Authorization runs FIRST, before any protected read. That ordering is the
+ * security mechanism; the Suspense boundary below exists only to satisfy
+ * cacheComponents, which rejects uncached data accessed outside a boundary.
+ */
+async function ProtectedContent(props: PageProps) {
+  await requireAdmin(await currentPathname());
+
   const params = await props.searchParams;
   const error = params.error || "";
   const rawPage = parseInt(params.page ?? "1", 10);
@@ -303,5 +316,13 @@ export default async function AdminTechnologiesPage(props: PageProps) {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AdminTechnologiesPage(props: PageProps) {
+  return (
+    <Suspense fallback={<AdminPageSkeleton />}>
+      <ProtectedContent {...props} />
+    </Suspense>
   );
 }

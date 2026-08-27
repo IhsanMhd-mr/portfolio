@@ -1,3 +1,7 @@
+import { Suspense } from "react";
+import { requireAdmin } from "@/lib/require-admin";
+import { currentPathname } from "@/lib/current-pathname";
+import AdminPageSkeleton from "@/components/admin/AdminPageSkeleton";
 import { EducationService } from "@/services/education.service";
 import dynamic from "next/dynamic";
 import { notFound, redirect } from "next/navigation";
@@ -20,13 +24,22 @@ interface EditEducationPageProps {
   params: Promise<{ id: string }>;
 }
 
-export default async function EditEducationPage({ params }: EditEducationPageProps) {
+/**
+ * Protected content for this route.
+ *
+ * Authorization runs FIRST, before any protected read. That ordering is the
+ * security mechanism; the Suspense boundary below exists only to satisfy
+ * cacheComponents, which rejects uncached data accessed outside a boundary.
+ */
+async function ProtectedContent({ params }: EditEducationPageProps) {
+  await requireAdmin(await currentPathname());
+
   const { id } = await params;
 
   // Read the DRAFT version — edits stay unpublished until a publish.
   const found = await EducationService.getDraftById(id);
   if (!found) notFound();
-  const { education, draft } = found;
+  const { draft } = found;
 
   async function handleUpdate(formData: FormData) {
     "use server";
@@ -132,5 +145,13 @@ export default async function EditEducationPage({ params }: EditEducationPagePro
         </div>
       </form>
     </div>
+  );
+}
+
+export default function EditEducationPage({ params }: EditEducationPageProps) {
+  return (
+    <Suspense fallback={<AdminPageSkeleton />}>
+      <ProtectedContent params={params} />
+    </Suspense>
   );
 }
