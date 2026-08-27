@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { safeRequireAdmin } from "@/lib/require-admin";
 import { MediaService } from "@/services/media.service";
-import db from "@/lib/database";
 
 const PICKER_PAGE_SIZE = 24;
 
@@ -20,26 +19,16 @@ export async function GET(request: Request) {
   const rawPage = parseInt(url.searchParams.get("page") || "1", 10);
   const page = Number.isFinite(rawPage) && rawPage >= 1 ? rawPage : 1;
 
-  const where = {
-    deletedAt: null,
-    ...(search ? { filename: { contains: search, mode: "insensitive" as const } } : {}),
-  };
-
-  const [total, assets] = await Promise.all([
-    db.mediaAsset.count({ where }),
-    db.mediaAsset.findMany({
-      where,
-      select: { id: true, filename: true, url: true, mimeType: true, kind: true },
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * PICKER_PAGE_SIZE,
-      take: PICKER_PAGE_SIZE,
-    }),
-  ]);
+  const { total, totalPages, assets } = await MediaService.listForPicker(
+    search,
+    page,
+    PICKER_PAGE_SIZE
+  );
 
   return NextResponse.json({
     assets,
     page,
-    totalPages: Math.max(1, Math.ceil(total / PICKER_PAGE_SIZE)),
+    totalPages,
     total,
   });
 }

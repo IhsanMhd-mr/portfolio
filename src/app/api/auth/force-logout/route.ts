@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth, clearAuthCookies } from "@/lib/auth";
-import db from "@/lib/database";
+import { SessionService } from "@/services/session.service";
 
 /**
  * GET /api/auth/force-logout?reason=...
@@ -26,10 +26,7 @@ export async function GET(request: Request) {
     if (sid) {
       // Best-effort — already revoked/missing is fine, this just ensures
       // consistency if we got here via expiry rather than an explicit revoke.
-      await db.trackedSession.updateMany({
-        where: { sid, revokedAt: null },
-        data: { revokedAt: new Date(), revokeReason: reason },
-      });
+      await SessionService.revokeIfActive(sid, reason);
     }
   } catch (error) {
     // Fail open on the DB side — clearing the cookie below is what actually

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import db from "@/lib/database";
+import { revalidatePath } from "next/cache";
+import { TemplateService } from "@/services/template.service";
 import { safeRequireAdmin } from "@/lib/require-admin";
-import { recordAudit } from "@/lib/audit";
 
 /**
  * Admin-only. This handler was previously unauthenticated while the POST
@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   if (response) return response;
 
   try {
-    const templates = await db.template.findMany({ orderBy: { key: "asc" } });
+    const templates = await TemplateService.list();
     return NextResponse.json(templates);
   } catch (error) {
     console.error("GET templates error:", error);
@@ -35,33 +35,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Template ID is required" }, { status: 400 });
     }
 
-    const template = await db.template.findUnique({ where: { id: templateId } });
+    const template = await TemplateService.selectDraftTemplate(templateId, {
+      actorId: context.userId,
+      loginMethod: context.loginMethod,
+      loginAccountId: context.loginAccountId,
+    });
     if (!template) {
       return NextResponse.json({ error: "Template not found" }, { status: 404 });
     }
 
-    const auditCtx = {
-      actorId: context.userId,
-      loginMethod: context.loginMethod,
-      loginAccountId: context.loginAccountId,
-    };
-
-    await db.$transaction(async (tx) => {
-      const before = await tx.page.findUnique({ where: { key: "home" }, select: { draftTemplateId: true } });
-      await tx.page.update({
-        where: { key: "home" },
-        data: { draftTemplateId: template.id, hasUnpublishedChanges: true },
-      });
-      await recordAudit({
-        action: "TEMPLATE_CHANGED",
-        entityType: "Page",
-        summary: `Changed draft template to: ${template.name}`,
-        before: { draftTemplateId: before?.draftTemplateId },
-        after: { draftTemplateId: template.id, templateName: template.name },
-        context: auditCtx,
-        tx,
-      });
-    });
+    // Selecting a template is a DRAFT change, but a site with no active
+    // PageVersion falls through to the draft pointer for its public
+    // template — so the homepage can change immediately on a fresh install.
+    revalidatePath("/admin/templates");
+    revalidatePath("/");
 
     return NextResponse.json({ success: true, draftTemplateId: template.id });
   } catch (error) {

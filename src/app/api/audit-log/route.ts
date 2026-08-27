@@ -6,7 +6,7 @@
 
 import { NextResponse } from "next/server";
 import { safeRequireAdmin } from "@/lib/require-admin";
-import db from "@/lib/database";
+import { AuditLogService } from "@/services/audit-log.service";
 
 export async function GET(request: Request) {
   const { context, response } = await safeRequireAdmin(request);
@@ -19,40 +19,18 @@ export async function GET(request: Request) {
   const entityType = searchParams.get("entityType") ?? undefined;
   const search = searchParams.get("search") ?? undefined;
 
-  const where: any = { actorId: context.userId };
-  if (action) where.action = action;
-  if (entityType) where.entityType = entityType;
-  if (search) {
-    where.summary = { contains: search, mode: "insensitive" };
-  }
-
-  const [total, entries] = await db.$transaction([
-    db.auditLog.count({ where }),
-    db.auditLog.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * limit,
-      take: limit,
-      select: {
-        id: true,
-        action: true,
-        entityType: true,
-        entityId: true,
-        summary: true,
-        loginMethod: true,
-        ipAddress: true,
-        createdAt: true,
-        beforeJson: true,
-        afterJson: true,
-      },
-    }),
-  ]);
+  const { total, totalPages, entries } = await AuditLogService.listPageForActor(
+    context.userId,
+    { action, entityType, search },
+    page,
+    limit
+  );
 
   return NextResponse.json({
     total,
     page,
     limit,
-    totalPages: Math.ceil(total / limit),
+    totalPages,
     entries,
   });
 }

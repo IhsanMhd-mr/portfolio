@@ -33,6 +33,114 @@ export class TechnologyService {
    * would otherwise surface as a foreign-key error at insert time).
    */
   /**
+   * The inline "add skill" picker.
+   *
+   * The picker only ever needs `{ id, name }`, and a technology has no name of
+   * its own — the name lives on the version. Admin edit pages read the DRAFT
+   * version, so these do too: a newly added skill is usable immediately
+   * without publishing.
+   */
+  private static readonly DRAFT_NAME_SELECT = {
+    id: true,
+    slug: true,
+    versions: {
+      where: { state: "DRAFT" as const },
+      take: 1,
+      orderBy: { createdAt: "desc" as const },
+      select: { name: true, order: true },
+    },
+  };
+
+  /** "React Native" -> "react-native". Matches the slug rules createTechnology expects. */
+  static slugify(name: string): string {
+    return name
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
+  /** Picker options, ordered by the admin's `order`, reduced to id + name. */
+  static async listPickerOptions(): Promise<Array<{ id: string; name: string }>> {
+    const techs = await db.technology.findMany({
+      where: { deletedAt: null },
+      select: TechnologyService.DRAFT_NAME_SELECT,
+    });
+
+    return techs
+      .map((t) => ({
+        id: t.id,
+        name: t.versions[0]?.name || t.slug,
+        order: t.versions[0]?.order ?? 0,
+      }))
+      .sort((a, b) => a.order - b.order)
+      .map(({ id, name }) => ({ id, name }));
+  }
+
+  /**
+   * Quick-add a skill by name.
+   *
+   * Typing a name that already exists means "select that one", not an error:
+   * for a skills list a repeated name almost always means the skill is already
+   * there, and silently creating `react-2` would be a data-quality problem.
+   *
+   * Matching is on slug OR display name. Slug alone is not enough — existing
+   * rows do not always agree with slugify(): "Node.js" is stored as `nodejs`
+   * while slugify gives `node-js`, and "Express.js" as `expressjs` vs
+   * `express-js`. A slug-only check sails past those and creates a second
+   * "Node.js".
+   */
+  static async quickAdd(
+    rawName: string,
+    auditContext: { actorId: string; loginMethod: string; loginAccountId: string | null; ipAddress?: string; userAgent?: string }
+  ): Promise<{ id: string; name: string; existed: boolean }> {
+    const name = rawName.trim();
+    const slug = TechnologyService.slugify(name);
+    if (!slug) throw new Error("That name has no usable letters or numbers.");
+
+    const existing = await db.technology.findFirst({
+      where: {
+        deletedAt: null,
+        OR: [
+          { slug },
+          { versions: { some: { state: "DRAFT", name: { equals: name, mode: "insensitive" } } } },
+        ],
+      },
+      select: TechnologyService.DRAFT_NAME_SELECT,
+    });
+    if (existing) {
+      return { id: existing.id, name: existing.versions[0]?.name || existing.slug, existed: true };
+    }
+
+    try {
+      const created = await TechnologyService.createTechnology({ name, slug }, auditContext);
+      return { id: created.tech.id, name: created.draft.name, existed: false };
+    } catch (error: unknown) {
+      // The check above is check-then-create, so two requests for the same name
+      // can both pass it and race to the insert. The loser hits the slug unique
+      // constraint — the same situation the check was guarding against, so
+      // resolve it the same way (return the row that won) rather than surfacing
+      // a 500 for what is really "that skill already exists".
+      const err = error as { code?: string; message?: string };
+      const isDuplicate = err?.code === "P2002" || /already exists/i.test(err?.message ?? "");
+      if (isDuplicate) {
+        // `deletedAt: null` matters: createTechnology's own slug check is not
+        // scoped to live rows, so a soft-deleted technology can own the slug and
+        // block creation. Handing that row back would silently link deleted
+        // content, so let it fall through to a real error instead.
+        const winner = await db.technology.findFirst({
+          where: { slug, deletedAt: null },
+          select: TechnologyService.DRAFT_NAME_SELECT,
+        });
+        if (winner) {
+          return { id: winner.id, name: winner.versions[0]?.name || winner.slug, existed: true };
+        }
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Technologies for a picker/checklist, with their DRAFT names.
    *
    * The same query was written out in four admin routes (experience list,

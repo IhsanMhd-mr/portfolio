@@ -31,6 +31,30 @@ export class MediaService {
   /**
    * Save upload file to local disk and record in DB
    */
+  /**
+   * One page for the media picker: searchable, and selecting only the columns
+   * the picker renders rather than whole asset rows.
+   */
+  static async listForPicker(search: string, page: number, pageSize: number) {
+    const where = {
+      deletedAt: null,
+      ...(search ? { filename: { contains: search, mode: "insensitive" as const } } : {}),
+    };
+
+    const [total, assets] = await Promise.all([
+      db.mediaAsset.count({ where }),
+      db.mediaAsset.findMany({
+        where,
+        select: { id: true, filename: true, url: true, mimeType: true, kind: true },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    ]);
+
+    return { total, totalPages: Math.max(1, Math.ceil(total / pageSize)), assets };
+  }
+
   /** One page of the media library, newest first. */
   static async listPage(page: number, pageSize: number) {
     const [total, assets] = await Promise.all([

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth, clearAuthCookies } from "@/lib/auth";
 import { recordAudit } from "@/lib/audit";
-import db from "@/lib/database";
+import { SessionService } from "@/services/session.service";
 
 export async function POST() {
   try {
@@ -11,10 +11,7 @@ export async function POST() {
 
     if (sid) {
       // Soft-revoke the TrackedSession (preserves history for audit)
-      await db.trackedSession.update({
-        where: { sid },
-        data: { revokedAt: new Date(), revokeReason: "LOGOUT" },
-      });
+      await SessionService.revokeOwn(sid, "LOGOUT");
 
       // Log the logout
       await recordAudit({

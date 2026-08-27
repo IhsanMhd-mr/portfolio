@@ -8,7 +8,7 @@
 import { NextResponse } from "next/server";
 import { safeRequireAdmin } from "@/lib/require-admin";
 import { createLinkIntent } from "@/lib/linking";
-import db from "@/lib/database";
+import { LinkedAccountService } from "@/services/linked-account.service";
 
 export async function POST(request: Request) {
   const { context, response } = await safeRequireAdmin(request);
@@ -26,14 +26,7 @@ export async function GET(request: Request) {
   const { context, response } = await safeRequireAdmin(request);
   if (response) return response;
 
-  const accounts = await db.account.findMany({
-    where: { userId: context.userId, provider: "google" },
-    select: {
-      id: true,
-      email: true,
-      providerAccountId: true,
-    },
-  });
+  const accounts = await LinkedAccountService.listGoogleAccounts(context.userId);
 
   return NextResponse.json(accounts);
 }
