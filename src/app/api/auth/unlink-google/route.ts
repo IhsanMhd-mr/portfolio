@@ -28,12 +28,19 @@ export async function DELETE(request: Request) {
   });
 
   if (!result.ok) {
-    return result.reason === "not-found"
-      ? NextResponse.json({ error: "Account not found" }, { status: 404 })
-      : NextResponse.json(
-          { error: "Cannot remove the last login method. Set a password first." },
-          { status: 409 }
-        );
+    if (result.reason === "not-found") {
+      return NextResponse.json({ error: "Account not found" }, { status: 404 });
+    }
+    if (result.reason === "immutable-account") {
+      return NextResponse.json(
+        { error: "Super Admin login methods cannot be changed in the application." },
+        { status: 403 }
+      );
+    }
+    return NextResponse.json(
+      { error: "Cannot remove the last login method. Set a password first." },
+      { status: 409 }
+    );
   }
 
   return NextResponse.json({ success: true });

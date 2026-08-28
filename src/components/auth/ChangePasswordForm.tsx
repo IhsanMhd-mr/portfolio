@@ -45,7 +45,11 @@ export default function ChangePasswordForm() {
       const res = await fetch("/api/auth/change-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currentPassword, newPassword }),
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+          confirmPassword,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -86,21 +90,21 @@ export default function ChangePasswordForm() {
         </div>
       )}
 
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="current-password" className="text-xs font-semibold text-[var(--a-soft)]">
-          Current password
-        </label>
-        <input
-          id="current-password"
-          type={showPasswords ? "text" : "password"}
-          autoComplete="current-password"
-          required
-          disabled={isLoading}
-          value={currentPassword}
-          onChange={(e) => setCurrentPassword(e.target.value)}
-          className={inputClass}
-        />
-      </div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="current-password" className="text-xs font-semibold text-[var(--a-soft)]">
+            Current password
+          </label>
+          <input
+            id="current-password"
+            type={showPasswords ? "text" : "password"}
+            autoComplete="current-password"
+            required
+            disabled={isLoading}
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            className={inputClass}
+          />
+        </div>
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="new-password" className="text-xs font-semibold text-[var(--a-soft)]">

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import PasswordInput from "./PasswordInput";
 import AuthError from "./AuthError";
 
@@ -165,6 +166,12 @@ export default function LoginForm({ onSuccess, standalone = false }: LoginFormPr
       // just reopen the dialog on arrival.
       const callbackUrl =
         nextTarget ?? (standalone ? DEFAULT_NEXT : window.location.pathname);
+      const start = await fetch("/api/auth/google/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "LOGIN", callbackUrl }),
+      });
+      if (!start.ok) throw new Error("Unable to start Google sign-in");
       await signIn("google", { callbackUrl });
     } catch {
       setErrorType("OAUTH_REFUSED");
@@ -255,6 +262,14 @@ export default function LoginForm({ onSuccess, standalone = false }: LoginFormPr
             error={fieldErrors.password}
           />
 
+          <Link
+            href="/auth/forgot-password"
+            aria-disabled={busy}
+            className="self-end text-xs font-semibold text-[var(--accent)] hover:text-[var(--accent-hover)] disabled:opacity-50"
+          >
+            Forgot password?
+          </Link>
+
           <button
             type="submit"
             disabled={busy}
@@ -271,7 +286,7 @@ export default function LoginForm({ onSuccess, standalone = false }: LoginFormPr
           </span>
         </div>
 
-        {/* Google sign-in (only previously linked Google accounts are accepted) */}
+        {/* Google sign-in supports linked accounts and secure account completion. */}
         <button
           type="button"
           disabled={busy}

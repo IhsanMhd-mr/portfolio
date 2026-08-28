@@ -8,13 +8,13 @@ import { formatDateTime } from "@/lib/format-date";
 interface LinkedAccount {
   id: string;
   email: string | null;
-  providerAccountId: string;
 }
 
 interface TrackedSession {
   id: string;
   sid: string;
   loginMethod: string;
+  loginIdentity: string;
   ipAddress: string | null;
   userAgent: string | null;
   createdAt: string;
@@ -36,6 +36,7 @@ export default function SecuritySettingsPage() {
   const [revoking, setRevoking] = useState<string | null>(null);
   const [unlinking, setUnlinking] = useState<string | null>(null);
   const [linking, setLinking] = useState(false);
+  const [role, setRole] = useState<string>("ADMIN");
 
   async function load() {
     setLoading(true);
@@ -43,7 +44,11 @@ export default function SecuritySettingsPage() {
       fetch("/api/auth/link-google"),
       fetch("/api/auth/sessions"),
     ]);
-    if (accRes.ok) setAccounts(await accRes.json());
+    if (accRes.ok) {
+      const data = await accRes.json();
+      setAccounts(data.accounts ?? []);
+      setRole(data.role ?? "ADMIN");
+    }
     if (sesRes.ok) setSessions(await sesRes.json());
     setLoading(false);
   }
@@ -60,11 +65,18 @@ export default function SecuritySettingsPage() {
     const res = await fetch("/api/auth/change-password", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ currentPassword: currentPw, newPassword: newPw }),
+      body: JSON.stringify({
+        currentPassword: currentPw,
+        newPassword: newPw,
+        confirmPassword: confirmPw,
+      }),
     });
     const data = await res.json();
     if (res.ok) {
-      setPwStatus({ type: "success", msg: "Password changed. Other sessions have been revoked." });
+      setPwStatus({
+        type: "success",
+        msg: "Password changed. Other sessions have been revoked.",
+      });
       setCurrentPw(""); setNewPw(""); setConfirmPw("");
       load();
     } else {
@@ -86,11 +98,12 @@ export default function SecuritySettingsPage() {
   async function linkGoogle() {
     setLinking(true);
     try {
-      // Proper CSRF-protected sign-in flow (matches LoginForm.tsx). The current
-      // admin session cookie survives this whole redirect round trip, which is
-      // what lets auth.ts's signIn callback recognize this as a link attempt —
-      // a plain <a href="/api/auth/signin/google"> link does not go through the
-      // required CSRF POST and never actually reaches Google.
+      const start = await fetch("/api/auth/google/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "LINK", callbackUrl: "/admin/settings/security" }),
+      });
+      if (!start.ok) throw new Error("Unable to start Google linking");
       await signIn("google", { callbackUrl: "/admin/settings/security" });
     } catch {
       setLinking(false);
@@ -115,6 +128,7 @@ export default function SecuritySettingsPage() {
 
   const activeSessions = sessions.filter((s) => !s.revokedAt && new Date(s.expiresAt) > new Date());
   const revokedSessions = sessions.filter((s) => s.revokedAt);
+  const isSuperAdmin = role === "SUPERADMIN";
 
   return (
     <div className="max-w-3xl space-y-8">
@@ -128,20 +142,25 @@ export default function SecuritySettingsPage() {
       </div>
 
       {/* ── Change Password ─────────────────────────────────────── */}
-      <section className="bg-[var(--a-surface)] border border-[var(--a-line)] rounded-[var(--a-r-md)] p-6 space-y-4">
+      {isSuperAdmin ? (
+        <section className="bg-[var(--a-surface)] border border-[var(--a-line)] rounded-[var(--a-r-md)] p-6 space-y-2">
+          <h2 className="font-semibold text-[var(--a-ink)] flex items-center gap-2"><Key size={16} /> Super Admin Credential</h2>
+          <p className="text-sm text-[var(--a-soft)]">This break-glass credential is credentials-only and immutable from inside the application.</p>
+        </section>
+      ) : <section className="bg-[var(--a-surface)] border border-[var(--a-line)] rounded-[var(--a-r-md)] p-6 space-y-4">
         <h2 className="font-semibold text-[var(--a-ink)] flex items-center gap-2"><Key size={16} /> Local Password</h2>
         <form onSubmit={changePassword} className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-3">
-            <div>
-              <label className="block text-xs font-medium text-[var(--a-soft)] mb-1">Current Password</label>
-              <input
-                type="password"
-                value={currentPw}
-                onChange={(e) => setCurrentPw(e.target.value)}
-                required
-                className="w-full text-sm px-3 py-2 bg-[var(--a-bg)] border border-[var(--a-line)] rounded-[var(--a-r-sm)] text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)]"
-              />
-            </div>
+              <div>
+                <label className="block text-xs font-medium text-[var(--a-soft)] mb-1">Current Password</label>
+                <input
+                  type="password"
+                  value={currentPw}
+                  onChange={(e) => setCurrentPw(e.target.value)}
+                  required
+                  className="w-full text-sm px-3 py-2 bg-[var(--a-bg)] border border-[var(--a-line)] rounded-[var(--a-r-sm)] text-[var(--a-ink)] focus:outline-none focus:border-[var(--a-primary)]"
+                />
+              </div>
             <div>
               <label className="block text-xs font-medium text-[var(--a-soft)] mb-1">New Password</label>
               <input
@@ -176,10 +195,10 @@ export default function SecuritySettingsPage() {
             Change Password
           </button>
         </form>
-      </section>
+      </section>}
 
       {/* ── Linked Google Accounts ──────────────────────────────── */}
-      <section className="bg-[var(--a-surface)] border border-[var(--a-line)] rounded-[var(--a-r-md)] p-6 space-y-4">
+      {!isSuperAdmin && <section className="bg-[var(--a-surface)] border border-[var(--a-line)] rounded-[var(--a-r-md)] p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-[var(--a-ink)] flex items-center gap-2"><Link2 size={16} /> Linked Google Accounts</h2>
           <button
@@ -199,8 +218,7 @@ export default function SecuritySettingsPage() {
             {accounts.map((acc) => (
               <li key={acc.id} className="flex items-center justify-between py-3">
                 <div>
-                  <p className="text-sm font-medium text-[var(--a-ink)]">{acc.email ?? acc.providerAccountId}</p>
-                  <p className="text-xs text-[var(--a-faint)]">ID: {acc.providerAccountId}</p>
+                  <p className="text-sm font-medium text-[var(--a-ink)]">{acc.email ?? "Linked Google identity"}</p>
                 </div>
                 <button
                   onClick={() => unlinkGoogle(acc.id)}
@@ -214,7 +232,7 @@ export default function SecuritySettingsPage() {
             ))}
           </ul>
         )}
-      </section>
+      </section>}
 
       {/* ── Active Sessions ─────────────────────────────────────── */}
       <section className="bg-[var(--a-surface)] border border-[var(--a-line)] rounded-[var(--a-r-md)] p-6 space-y-4">
@@ -235,7 +253,7 @@ export default function SecuritySettingsPage() {
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-[var(--a-ink)]">
-                      {s.loginMethod === "LOCAL" ? "Username / Password" : "Google"}
+                      {s.loginMethod === "LOCAL" ? "Credentials" : "Google"} — by {s.loginIdentity}
                     </span>
                     {s.isCurrent && (
                       <span className="text-xs px-1.5 py-0.5 bg-[var(--a-success-bg)] text-[var(--a-success-ink)] rounded font-medium">Current</span>
@@ -271,7 +289,7 @@ export default function SecuritySettingsPage() {
               {revokedSessions.map((s) => (
                 <li key={s.sid} className="py-2 space-y-0.5">
                   <p className="text-xs text-[var(--a-ink)]">
-                    {s.loginMethod} — {s.ipAddress ?? "unknown"} — Revoked: {formatDateTime(s.revokedAt!)}
+                    {s.loginMethod === "LOCAL" ? "Credentials" : "Google"} — by {s.loginIdentity} — {s.ipAddress ?? "unknown"} — Revoked: {formatDateTime(s.revokedAt!)}
                     {s.revokeReason ? ` (${s.revokeReason})` : ""}
                   </p>
                 </li>

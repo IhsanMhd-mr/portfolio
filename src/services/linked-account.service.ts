@@ -13,7 +13,8 @@ import { recordAudit, type ServiceAuditContext } from "@/lib/audit";
 export type UnlinkResult =
   | { ok: true; email: string }
   | { ok: false; reason: "not-found" }
-  | { ok: false; reason: "last-login-method" };
+  | { ok: false; reason: "last-login-method" }
+  | { ok: false; reason: "immutable-account" };
 
 export class LinkedAccountService {
   /** The owner's linked Google accounts. */
@@ -21,6 +22,7 @@ export class LinkedAccountService {
     return db.account.findMany({
       where: { userId, provider: "google" },
       orderBy: { id: "asc" },
+      select: { id: true, email: true, provider: true },
     });
   }
 
@@ -46,6 +48,10 @@ export class LinkedAccountService {
         where: { userId: ownerId, provider: "google", id: { not: accountId } },
       }),
     ]);
+
+    if (owner?.role === "SUPERADMIN" || owner?.passwordLocked) {
+      return { ok: false, reason: "immutable-account" };
+    }
 
     // The lockout guard. Removing this check makes the account unreachable.
     if (otherGoogleCount === 0 && !owner?.passwordHash) {

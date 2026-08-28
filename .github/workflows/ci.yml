@@ -74,7 +74,10 @@ jobs:
       # reads from the separate `portfolio` database, so it must receive the
       # tracked schema and required singleton records before prerendering.
       - name: Prepare build database
-        run: npm run db:setup
+        run: |
+          initial_password="Ci!$(openssl rand -hex 24)aA1"
+          echo "::add-mask::$initial_password"
+          INITIAL_PASSWORD="$initial_password" npm run db:setup
         env:
           NODE_ENV: production
 

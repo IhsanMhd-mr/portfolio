@@ -54,7 +54,10 @@ export async function seedTestData() {
       data: {
         username: FIXTURE.ownerUsername,
         email: "owner@example.test",
+        emailNormalized: "owner@example.test",
         name: "Test Owner",
+        role: "ADMIN",
+        passwordHash: "fixture-hash-not-used-for-authentication",
       },
     });
 
