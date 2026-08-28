@@ -10,9 +10,8 @@ const { Pool } = require("pg");
 const { PrismaPg } = require("@prisma/adapter-pg");
 const { PrismaClient } = require("@prisma/client");
 
-const connectionString =
-  process.env.DATABASE_URL ||
-  "postgresql://postgres:postgres@localhost:5432/portfolio?schema=public";
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) throw new Error("DATABASE_URL is not configured");
 
 // 10s: a cold Neon compute can take 5-14s just to accept a connection.
 const pool = new Pool({ connectionString, max: 2, connectionTimeoutMillis: 10000 });
@@ -23,11 +22,10 @@ const VALID_TEMPLATE_KEYS = ["PROFESSIONAL_MINIMAL", "MODERN_GLASS", "INTERACTIV
 async function main() {
   const missing = [];
 
-  // Exactly one owner with a valid password hash. Password-locked accounts
-  // (the permanent superadmin) are excluded — they're managed separately by
-  // scripts/initialise_admin.js and must not trip the single-owner check.
+  // Exactly one ADMIN owner with a valid password hash. Normal USER accounts
+  // and the separately managed SUPERADMIN do not count toward this invariant.
   const users = await db.user.findMany({
-    where: { passwordLocked: false },
+    where: { role: "ADMIN" },
     select: { passwordHash: true },
   });
   if (users.length === 0) missing.push("Owner account");

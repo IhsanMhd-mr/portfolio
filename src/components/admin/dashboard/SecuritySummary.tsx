@@ -30,7 +30,7 @@ export default function SecuritySummary({
         <div>
           <p className="text-[var(--a-faint)] uppercase font-semibold">Current Login</p>
           <p className="mt-1 font-bold text-[var(--a-ink)]">
-            <span className="capitalize">{loginMethod.toLowerCase()}</span> &middot; {loginIdentity}
+            {loginMethod === "LOCAL" ? "Credentials" : "Google"} &mdash; by {loginIdentity}
           </p>
         </div>
 

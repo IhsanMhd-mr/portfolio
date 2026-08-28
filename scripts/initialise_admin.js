@@ -12,17 +12,15 @@
  *     (initialize.js and verify-initialization.js filter locked users out, so
  *     this account is invisible to them and can never be reset by them).
  *
- * Privileges are identical to the owner's: requireAdmin() grants full admin to
- * any User row, and there is no role column. The lock governs the password
- * lifecycle only, not permissions.
+ * The SUPERADMIN role is credentials-only. Application routes enforce that
+ * its password and linked login methods cannot be changed.
  *
  * Usage:
  *   npm run admin:super
  *
  * Password resolution:
- *   process.env.SUPERADMIN_PASSWORD, falling back to the built-in default.
- *   Set SUPERADMIN_PASSWORD in production so the real secret never lives in
- *   version control.
+ *   process.env.SUPERADMIN_PASSWORD is required for first creation. There is
+ *   deliberately no source-controlled fallback.
  */
 
 const crypto = require("crypto");
@@ -32,11 +30,9 @@ const { PrismaClient } = require("@prisma/client");
 
 const SUPERADMIN_USERNAME = "superadmin";
 const SUPERADMIN_EMAIL = "superadmin@local.invalid";
-const DEFAULT_SUPERADMIN_PASSWORD = "Pass@123#";
 
-const connectionString =
-  process.env.DATABASE_URL ||
-  "postgresql://postgres:postgres@localhost:5432/portfolio?schema=public";
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) throw new Error("DATABASE_URL is not configured");
 
 // 10s, matching initialize.js: a cold Neon compute can take 5-14s just to
 // accept a connection.
@@ -87,19 +83,24 @@ async function assertSchemaReady() {
 async function ensureSuperadmin() {
   const existing = await db.user.findUnique({
     where: { username: SUPERADMIN_USERNAME },
-    select: { id: true, username: true, passwordLocked: true },
+    select: { id: true, username: true, passwordLocked: true, role: true, status: true },
   });
 
   if (existing) {
     console.log(`Superadmin: OK (already exists — credentials unchanged)\n`);
     console.log(`Username:   ${existing.username}`);
     console.log(`Login page: http://localhost:3000/admin/login\n`);
-    if (!existing.passwordLocked) {
+    if (!existing.passwordLocked || existing.role !== "SUPERADMIN" || existing.status !== "ACTIVE") {
       // Self-heal: the account exists but isn't lock-protected, so
       // `initialize --reset` could still rotate it.
       await db.user.update({
         where: { id: existing.id },
-        data: { passwordLocked: true, mustChangePassword: false },
+        data: {
+          passwordLocked: true,
+          mustChangePassword: false,
+          role: "SUPERADMIN",
+          status: "ACTIVE",
+        },
       });
       console.log("Note: re-applied the password lock (was unset).\n");
     }
@@ -131,17 +132,32 @@ async function ensureSuperadmin() {
     throw new Error("identifier-collision");
   }
 
-  const password = (process.env.SUPERADMIN_PASSWORD || DEFAULT_SUPERADMIN_PASSWORD).trim();
+  const password = (process.env.SUPERADMIN_PASSWORD || "").trim();
+  if (!password) {
+    console.error("Superadmin creation failed: SUPERADMIN_PASSWORD is required.\n");
+    throw new Error("superadmin-password-required");
+  }
+  const classes = [/[A-Z]/, /[a-z]/, /[0-9]/, /[^A-Za-z0-9]/].filter((rule) =>
+    rule.test(password)
+  ).length;
+  if (password.length < 12 || classes < 3) {
+    console.error("Superadmin creation failed: SUPERADMIN_PASSWORD does not meet password policy.\n");
+    throw new Error("superadmin-password-policy");
+  }
   const passwordHash = await hashPassword(password);
 
   const user = await db.user.create({
     data: {
       username: SUPERADMIN_USERNAME,
       email: SUPERADMIN_EMAIL,
+      emailNormalized: SUPERADMIN_EMAIL,
+      emailVerified: new Date(),
       name: "Super Admin",
       passwordHash,
       mustChangePassword: false, // never forced to change
       passwordLocked: true, // excluded from initialize --reset
+      role: "SUPERADMIN",
+      status: "ACTIVE",
     },
   });
 
@@ -157,8 +173,7 @@ async function ensureSuperadmin() {
   console.log("==================================================\n");
   console.log("Username:");
   console.log(`${SUPERADMIN_USERNAME}\n`);
-  console.log("Password:");
-  console.log(`${password}\n`);
+  console.log("Password: configured from SUPERADMIN_PASSWORD (not displayed)\n");
   console.log("Login page:");
   console.log("http://localhost:3000/admin/login\n");
   console.log("This password is permanent. It is never rotated by");

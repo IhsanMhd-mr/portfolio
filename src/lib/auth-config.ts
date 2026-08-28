@@ -31,6 +31,7 @@ export const authConfig = {
       if (user) {
         token.userId = user.id;
         token.mustChangePassword = (user as any).mustChangePassword ?? false;
+        token.role = (user as any).role ?? "USER";
       }
       return token;
     },
@@ -40,6 +41,7 @@ export const authConfig = {
         (session.user as any).sid = token.sid;
         (session.user as any).loginMethod = token.loginMethod;
         (session.user as any).mustChangePassword = token.mustChangePassword;
+        (session.user as any).role = token.role;
       }
       return session;
     },

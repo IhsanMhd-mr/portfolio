@@ -2,6 +2,7 @@ import { cache } from "react";
 import { auth, clearAuthCookies } from "./auth";
 import { redirect } from "next/navigation";
 import db from "./database";
+import { requiresPasswordChange } from "./auth-policy";
 
 const LAST_SEEN_THROTTLE_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -13,6 +14,8 @@ export interface AdminContext {
    * `db.user.findUnique` for this one field.
    */
   email: string;
+  username: string;
+  role: "ADMIN" | "SUPERADMIN";
   sid: string;
   loginMethod: string;
   loginAccountId: string | null;
@@ -97,17 +100,30 @@ export const requireAdmin = cache(async function requireAdmin(
     throw new Error("unreachable");
   }
 
-  // Verify canonical owner still exists
+  // Resolve authorization from the canonical account, never from OAuth email.
   const owner = await db.user.findUnique({ where: { id: userId } });
   if (!owner) {
     await deny("owner-not-found");
     throw new Error("unreachable");
   }
+  if (owner.status !== "ACTIVE") {
+    await deny("account-disabled");
+    throw new Error("unreachable");
+  }
+  if (owner.role !== "ADMIN" && owner.role !== "SUPERADMIN") {
+    await deny("admin-required");
+    throw new Error("unreachable");
+  }
 
-  // mustChangePassword enforcement
+  // Temporary-password rotation applies only to a session authenticated with
+  // that password. Google sessions remain valid independent login methods.
   const changePwPath = "/admin/settings/security/change-password";
   const currentPath = pathname ?? "";
-  if (owner.mustChangePassword && currentPath !== changePwPath && currentPath !== "/api/auth/logout") {
+  const mustChangePassword = requiresPasswordChange(
+    owner.mustChangePassword,
+    tracked.loginMethod
+  );
+  if (mustChangePassword && currentPath !== changePwPath && currentPath !== "/api/auth/logout") {
     if (apiMode) {
       throw new Response(JSON.stringify({ error: "must-change-password", redirect: changePwPath }), {
         status: 403,
@@ -130,10 +146,12 @@ export const requireAdmin = cache(async function requireAdmin(
   return {
     userId: owner.id,
     email: owner.email,
+    username: owner.username,
+    role: owner.role,
     sid,
     loginMethod: tracked.loginMethod,
     loginAccountId: tracked.accountId,
-    mustChangePassword: owner.mustChangePassword,
+    mustChangePassword,
   };
 });
 
@@ -160,15 +178,26 @@ export async function getValidatedOwner(): Promise<AdminContext | null> {
   if (!tracked || tracked.revokedAt || tracked.expiresAt < new Date()) return null;
 
   const owner = await db.user.findUnique({ where: { id: userId } });
-  if (!owner) return null;
+  if (
+    !owner ||
+    owner.status !== "ACTIVE" ||
+    (owner.role !== "ADMIN" && owner.role !== "SUPERADMIN")
+  ) return null;
+
+  const mustChangePassword = requiresPasswordChange(
+    owner.mustChangePassword,
+    tracked.loginMethod
+  );
 
   return {
     userId: owner.id,
     email: owner.email,
+    username: owner.username,
+    role: owner.role,
     sid,
     loginMethod: tracked.loginMethod,
     loginAccountId: tracked.accountId,
-    mustChangePassword: owner.mustChangePassword,
+    mustChangePassword,
   };
 }
 

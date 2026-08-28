@@ -1,22 +1,9 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
-import crypto from "crypto";
 
-// Helper to hash password matching src/lib/auth.ts PBKDF2 logic
-async function hashPassword(password: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const salt = crypto.randomBytes(16).toString("hex");
-    crypto.pbkdf2(password, salt, 10000, 64, "sha512", (err, derivedKey) => {
-      if (err) reject(err);
-      resolve(`${salt}:${derivedKey.toString("hex")}`);
-    });
-  });
-}
-
-const connectionString =
-  process.env.DATABASE_URL ||
-  "postgresql://postgres:postgres@localhost:5432/portfolio?schema=public";
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) throw new Error("DATABASE_URL is not configured");
 // 10s: a cold Neon compute can take 5-14s just to accept a connection.
 const pool = new Pool({ connectionString, connectionTimeoutMillis: 10000 });
 const adapter = new PrismaPg(pool);
@@ -60,22 +47,9 @@ async function main() {
     },
   });
 
-  // 2. Seed Default Admin User
-  console.log("Creating Admin User...");
-  const hashedPassword = await hashPassword("admin123");
-  await prisma.user.upsert({
-    where: { email: "admin@portfolio.com" },
-    update: {},
-    create: {
-      username: "admin",
-      email: "admin@portfolio.com",
-      name: "Portfolio Owner",
-      passwordHash: hashedPassword,
-      mustChangePassword: true,
-    },
-  });
-
-  // 3. Seed Default SiteProfile (Identity & Settings)
+  // 2. Seed Default SiteProfile (Identity & Settings).
+  // Authentication accounts are created only by the dedicated initialization
+  // workflows, never by the optional demo-content seeder.
   console.log("Creating Site Profile...");
   const siteProfile = await prisma.siteProfile.findFirst();
   if (!siteProfile) {

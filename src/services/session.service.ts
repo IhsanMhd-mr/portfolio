@@ -27,7 +27,8 @@ export type RevokeResult =
 export type PasswordChangeResult =
   | { ok: true }
   | { ok: false; reason: "no-local-password" }
-  | { ok: false; reason: "wrong-password" };
+  | { ok: false; reason: "wrong-password" }
+  | { ok: false; reason: "immutable-account" };
 
 export class SessionService {
   /** Every session for the owner, newest first, flagged with which is current. */
@@ -35,12 +36,20 @@ export class SessionService {
     const sessions = await db.trackedSession.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
+      include: {
+        user: { select: { username: true } },
+        account: { select: { email: true } },
+      },
     });
 
     return sessions.map((s) => ({
       id: s.id,
       sid: s.sid,
       loginMethod: s.loginMethod,
+      loginIdentity:
+        s.loginMethod === "GOOGLE"
+          ? s.account?.email ?? "Unknown Google account"
+          : s.user.username,
       ipAddress: s.ipAddress,
       userAgent: s.userAgent,
       createdAt: s.createdAt,
@@ -126,6 +135,9 @@ export class SessionService {
     auditContext: ServiceAuditContext
   ): Promise<PasswordChangeResult> {
     const owner = await db.user.findUnique({ where: { id: userId } });
+    if (owner?.role === "SUPERADMIN" || owner?.passwordLocked) {
+      return { ok: false, reason: "immutable-account" };
+    }
     if (!owner?.passwordHash) return { ok: false, reason: "no-local-password" };
 
     const isMatch = await verifyPassword(currentPassword, owner.passwordHash);
@@ -157,4 +169,5 @@ export class SessionService {
 
     return { ok: true };
   }
+
 }
