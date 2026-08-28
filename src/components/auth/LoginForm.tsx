@@ -173,6 +173,20 @@ export default function LoginForm({ onSuccess, standalone = false }: LoginFormPr
     }
   };
 
+  const handlePasswordRecovery = async () => {
+    setIsRedirectingOAuth(true);
+    setErrorType(null);
+    try {
+      await signIn("google", {
+        callbackUrl: "/admin/settings/security/change-password",
+      });
+    } catch {
+      setErrorType("OAUTH_REFUSED");
+      triggerShake();
+      setIsRedirectingOAuth(false);
+    }
+  };
+
   const triggerShake = () => {
     setShake(true);
     setTimeout(() => setShake(false), 120);
@@ -254,6 +268,15 @@ export default function LoginForm({ onSuccess, standalone = false }: LoginFormPr
             onChange={(e) => setPassword(e.target.value)}
             error={fieldErrors.password}
           />
+
+          <button
+            type="button"
+            disabled={busy}
+            onClick={handlePasswordRecovery}
+            className="self-end text-xs font-semibold text-[var(--accent)] hover:text-[var(--accent-hover)] disabled:opacity-50"
+          >
+            Forgot password? Recover with Google
+          </button>
 
           <button
             type="submit"

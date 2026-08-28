@@ -18,8 +18,9 @@ export async function POST(request: Request) {
   if (response) return response;
 
   const { currentPassword, newPassword } = await request.json();
+  const googleRecovery = context.loginMethod === "GOOGLE" && !currentPassword;
 
-  if (!currentPassword || !newPassword) {
+  if ((!currentPassword && !googleRecovery) || !newPassword) {
     return NextResponse.json({ error: "Both passwords are required" }, { status: 400 });
   }
 
@@ -27,16 +28,33 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "New password must be at least 12 characters" }, { status: 400 });
   }
 
+  const auditContext = {
+    actorId: context.userId,
+    loginMethod: context.loginMethod,
+    loginAccountId: context.loginAccountId,
+  };
+
+  if (googleRecovery) {
+    const result = await SessionService.resetPasswordWithGoogle(
+      context.userId,
+      context.sid,
+      newPassword,
+      auditContext
+    );
+    return result.ok
+      ? NextResponse.json({ success: true })
+      : NextResponse.json(
+          { error: "A verified linked Google session is required" },
+          { status: 403 }
+        );
+  }
+
   const result = await SessionService.changePassword(
     context.userId,
     context.sid,
     currentPassword,
     newPassword,
-    {
-      actorId: context.userId,
-      loginMethod: context.loginMethod,
-      loginAccountId: context.loginAccountId,
-    }
+    auditContext
   );
 
   if (!result.ok) {

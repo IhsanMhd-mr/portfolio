@@ -29,18 +29,30 @@ export type PasswordChangeResult =
   | { ok: false; reason: "no-local-password" }
   | { ok: false; reason: "wrong-password" };
 
+export type GooglePasswordResetResult =
+  | { ok: true }
+  | { ok: false; reason: "google-session-required" };
+
 export class SessionService {
   /** Every session for the owner, newest first, flagged with which is current. */
   static async listForOwner(userId: string, currentSid: string) {
     const sessions = await db.trackedSession.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
+      include: {
+        user: { select: { username: true } },
+        account: { select: { email: true } },
+      },
     });
 
     return sessions.map((s) => ({
       id: s.id,
       sid: s.sid,
       loginMethod: s.loginMethod,
+      loginIdentity:
+        s.loginMethod === "GOOGLE"
+          ? s.account?.email ?? "Unknown Google account"
+          : s.user.username,
       ipAddress: s.ipAddress,
       userAgent: s.userAgent,
       createdAt: s.createdAt,
@@ -152,6 +164,57 @@ export class SessionService {
       entityType: "User",
       entityId: userId,
       summary: "Owner changed their password. Other sessions revoked.",
+      context: auditContext,
+    });
+
+    return { ok: true };
+  }
+
+  /**
+   * Replaces the local password after recovery through a linked Google login.
+   * The tracked session and linked account are re-verified here, immediately
+   * beside the password mutation, rather than trusting a client-selected mode.
+   */
+  static async resetPasswordWithGoogle(
+    userId: string,
+    currentSid: string,
+    newPassword: string,
+    auditContext: ServiceAuditContext
+  ): Promise<GooglePasswordResetResult> {
+    const googleSession = await db.trackedSession.findFirst({
+      where: {
+        sid: currentSid,
+        userId,
+        loginMethod: "GOOGLE",
+        revokedAt: null,
+        expiresAt: { gt: new Date() },
+        account: { is: { userId, provider: "google" } },
+      },
+      select: { id: true },
+    });
+    if (!googleSession) {
+      return { ok: false, reason: "google-session-required" };
+    }
+
+    const newHash = await hashPassword(newPassword);
+
+    await db.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: { passwordHash: newHash, mustChangePassword: false },
+      });
+
+      await tx.trackedSession.updateMany({
+        where: { userId, revokedAt: null, sid: { not: currentSid } },
+        data: { revokedAt: new Date(), revokeReason: "PASSWORD_RESET" },
+      });
+    });
+
+    await recordAudit({
+      action: "PASSWORD_CHANGED",
+      entityType: "User",
+      entityId: userId,
+      summary: "Owner reset the local password through a linked Google account. Other sessions revoked.",
       context: auditContext,
     });
 

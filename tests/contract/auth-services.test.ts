@@ -2,7 +2,8 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import db from "@/lib/database";
 import { SessionService } from "@/services/session.service";
 import { LinkedAccountService } from "@/services/linked-account.service";
-import { hashPassword } from "@/lib/password";
+import { hashPassword, verifyPassword } from "@/lib/password";
+import { requiresPasswordChange } from "@/lib/auth-policy";
 import { FIXTURE } from "../fixtures/seed";
 
 /**
@@ -18,12 +19,18 @@ let ctx: { actorId: string; loginMethod: string; loginAccountId: string | null }
 const CREATED_SESSIONS: string[] = [];
 const CREATED_ACCOUNTS: string[] = [];
 
-async function makeSession(sid: string, userId = ownerId) {
+async function makeSession(
+  sid: string,
+  userId = ownerId,
+  loginMethod = "LOCAL",
+  accountId: string | null = null
+) {
   const s = await db.trackedSession.create({
     data: {
       sid,
       userId,
-      loginMethod: "credentials",
+      loginMethod,
+      accountId,
       expiresAt: new Date(Date.now() + 60 * 60 * 1000),
     },
   });
@@ -59,6 +66,20 @@ afterAll(async () => {
     await db.account.deleteMany({ where: { id: { in: CREATED_ACCOUNTS } } });
   }
   await db.user.update({ where: { id: ownerId }, data: { passwordHash: null } });
+});
+
+describe("temporary-password policy", () => {
+  it("requires a reset for a local session when the owner flag is set", () => {
+    expect(requiresPasswordChange(true, "LOCAL")).toBe(true);
+  });
+
+  it("does not require a reset for a Google session", () => {
+    expect(requiresPasswordChange(true, "GOOGLE")).toBe(false);
+  });
+
+  it("does not require a reset when the owner flag is clear", () => {
+    expect(requiresPasswordChange(false, "LOCAL")).toBe(false);
+  });
 });
 
 describe("SessionService.revoke", () => {
@@ -112,6 +133,30 @@ describe("SessionService.revokeIfActive", () => {
   });
 });
 
+describe("SessionService.listForOwner", () => {
+  it("labels credential sessions with the username and Google sessions with the linked email", async () => {
+    const local = await makeSession("sid-identity-local");
+    const account = await makeGoogleAccount("identity-google");
+    const google = await makeSession("sid-identity-google", ownerId, "GOOGLE", account.id);
+
+    const sessions = await SessionService.listForOwner(ownerId, google.sid);
+
+    expect(sessions.find((s) => s.sid === local.sid)).toMatchObject({
+      loginMethod: "LOCAL",
+      loginIdentity: FIXTURE.ownerUsername,
+      isCurrent: false,
+    });
+    expect(sessions.find((s) => s.sid === google.sid)).toMatchObject({
+      loginMethod: "GOOGLE",
+      loginIdentity: "identity-google@example.test",
+      isCurrent: true,
+    });
+
+    await db.trackedSession.delete({ where: { id: google.id } });
+    await db.account.delete({ where: { id: account.id } });
+  });
+});
+
 describe("SessionService.changePassword", () => {
   it("rejects when no local password is set", async () => {
     await db.user.update({ where: { id: ownerId }, data: { passwordHash: null } });
@@ -151,6 +196,53 @@ describe("SessionService.changePassword", () => {
     expect(currentAfter.revokedAt).toBeNull();
     expect(otherAfter.revokedAt).not.toBeNull();
     expect(otherAfter.revokeReason).toBe("PASSWORD_CHANGED");
+  });
+});
+
+describe("SessionService.resetPasswordWithGoogle", () => {
+  it("rejects recovery from a credentials session", async () => {
+    const local = await makeSession("sid-reset-local");
+
+    const result = await SessionService.resetPasswordWithGoogle(
+      ownerId,
+      local.sid,
+      "Recovered-password-123",
+      ctx
+    );
+
+    expect(result).toEqual({ ok: false, reason: "google-session-required" });
+  });
+
+  it("resets the local password from a linked Google session and revokes other sessions", async () => {
+    const account = await makeGoogleAccount("password-recovery");
+    const current = await makeSession("sid-reset-google", ownerId, "GOOGLE", account.id);
+    const other = await makeSession("sid-reset-other");
+    const googleCtx = {
+      actorId: ownerId,
+      loginMethod: "GOOGLE",
+      loginAccountId: account.id,
+    };
+
+    const result = await SessionService.resetPasswordWithGoogle(
+      ownerId,
+      current.sid,
+      "Recovered-password-123",
+      googleCtx
+    );
+
+    expect(result.ok).toBe(true);
+    const owner = await db.user.findUniqueOrThrow({ where: { id: ownerId } });
+    expect(await verifyPassword("Recovered-password-123", owner.passwordHash!)).toBe(true);
+    expect(owner.mustChangePassword).toBe(false);
+
+    const currentAfter = await db.trackedSession.findUniqueOrThrow({ where: { sid: current.sid } });
+    const otherAfter = await db.trackedSession.findUniqueOrThrow({ where: { sid: other.sid } });
+    expect(currentAfter.revokedAt).toBeNull();
+    expect(otherAfter.revokedAt).not.toBeNull();
+    expect(otherAfter.revokeReason).toBe("PASSWORD_RESET");
+
+    await db.trackedSession.delete({ where: { id: current.id } });
+    await db.account.delete({ where: { id: account.id } });
   });
 });
 

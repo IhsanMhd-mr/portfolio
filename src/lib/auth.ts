@@ -21,6 +21,7 @@ import crypto from "crypto";
 import db from "./database";
 import { verifyPassword } from "./password";
 import { recordAudit } from "./audit";
+import { requiresPasswordChange } from "./auth-policy";
 
 // ─── Typed credential errors (surfaced to the client as `res.code`) ──────────
 
@@ -323,7 +324,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth((request) => ({
         token.userId = user.id;
         token.loginMethod = loginMethod;
         token.loginAccountId = accountId;
-        token.mustChangePassword = (user as any).mustChangePassword ?? false;
+        token.mustChangePassword = requiresPasswordChange(
+          (user as any).mustChangePassword ?? false,
+          loginMethod
+        );
       }
 
       return token;

@@ -36,7 +36,7 @@ export default function DashboardHeader({
         <div>
           <p className="text-[var(--a-faint)] uppercase font-semibold tracking-wider">Signed in with</p>
           <p className="mt-1 font-medium text-[var(--a-ink)]">
-            <span className="capitalize">{loginMethod.toLowerCase()}</span> &middot; {loginIdentity}
+            {loginMethod === "LOCAL" ? "Credentials" : "Google"} &mdash; by {loginIdentity}
           </p>
         </div>
       </div>

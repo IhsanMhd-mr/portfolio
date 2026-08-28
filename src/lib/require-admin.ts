@@ -2,6 +2,7 @@ import { cache } from "react";
 import { auth, clearAuthCookies } from "./auth";
 import { redirect } from "next/navigation";
 import db from "./database";
+import { requiresPasswordChange } from "./auth-policy";
 
 const LAST_SEEN_THROTTLE_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -104,10 +105,15 @@ export const requireAdmin = cache(async function requireAdmin(
     throw new Error("unreachable");
   }
 
-  // mustChangePassword enforcement
+  // Temporary-password rotation applies only to a session authenticated with
+  // that password. Google sessions remain valid independent login methods.
   const changePwPath = "/admin/settings/security/change-password";
   const currentPath = pathname ?? "";
-  if (owner.mustChangePassword && currentPath !== changePwPath && currentPath !== "/api/auth/logout") {
+  const mustChangePassword = requiresPasswordChange(
+    owner.mustChangePassword,
+    tracked.loginMethod
+  );
+  if (mustChangePassword && currentPath !== changePwPath && currentPath !== "/api/auth/logout") {
     if (apiMode) {
       throw new Response(JSON.stringify({ error: "must-change-password", redirect: changePwPath }), {
         status: 403,
@@ -133,7 +139,7 @@ export const requireAdmin = cache(async function requireAdmin(
     sid,
     loginMethod: tracked.loginMethod,
     loginAccountId: tracked.accountId,
-    mustChangePassword: owner.mustChangePassword,
+    mustChangePassword,
   };
 });
 
@@ -162,13 +168,18 @@ export async function getValidatedOwner(): Promise<AdminContext | null> {
   const owner = await db.user.findUnique({ where: { id: userId } });
   if (!owner) return null;
 
+  const mustChangePassword = requiresPasswordChange(
+    owner.mustChangePassword,
+    tracked.loginMethod
+  );
+
   return {
     userId: owner.id,
     email: owner.email,
     sid,
     loginMethod: tracked.loginMethod,
     loginAccountId: tracked.accountId,
-    mustChangePassword: owner.mustChangePassword,
+    mustChangePassword,
   };
 }
 

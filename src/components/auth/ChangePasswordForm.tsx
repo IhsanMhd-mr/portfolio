@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function ChangePasswordForm() {
+export default function ChangePasswordForm({ googleRecovery = false }: { googleRecovery?: boolean }) {
   const router = useRouter();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -35,7 +35,7 @@ export default function ChangePasswordForm() {
       setError("New password and confirmation do not match.");
       return;
     }
-    if (newPassword === currentPassword) {
+    if (!googleRecovery && newPassword === currentPassword) {
       setError("New password must be different from the current password.");
       return;
     }
@@ -45,7 +45,10 @@ export default function ChangePasswordForm() {
       const res = await fetch("/api/auth/change-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currentPassword, newPassword }),
+        body: JSON.stringify({
+          currentPassword: googleRecovery ? undefined : currentPassword,
+          newPassword,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -86,21 +89,27 @@ export default function ChangePasswordForm() {
         </div>
       )}
 
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="current-password" className="text-xs font-semibold text-[var(--a-soft)]">
-          Current password
-        </label>
-        <input
-          id="current-password"
-          type={showPasswords ? "text" : "password"}
-          autoComplete="current-password"
-          required
-          disabled={isLoading}
-          value={currentPassword}
-          onChange={(e) => setCurrentPassword(e.target.value)}
-          className={inputClass}
-        />
-      </div>
+      {googleRecovery ? (
+        <p className="text-sm text-[var(--a-soft)]">
+          Your linked Google account verified this recovery. Set a new local password below.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="current-password" className="text-xs font-semibold text-[var(--a-soft)]">
+            Current password
+          </label>
+          <input
+            id="current-password"
+            type={showPasswords ? "text" : "password"}
+            autoComplete="current-password"
+            required
+            disabled={isLoading}
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            className={inputClass}
+          />
+        </div>
+      )}
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="new-password" className="text-xs font-semibold text-[var(--a-soft)]">
@@ -152,7 +161,9 @@ export default function ChangePasswordForm() {
         disabled={isLoading}
         className="w-full py-2.5 bg-[var(--a-primary)] hover:bg-[var(--a-primary-hover)] text-white font-semibold rounded-[var(--a-r-sm)] text-sm transition-colors disabled:opacity-50 border-none cursor-pointer"
       >
-        {isLoading ? "Changing password…" : "Change Password"}
+        {isLoading
+          ? googleRecovery ? "Resetting password…" : "Changing password…"
+          : googleRecovery ? "Reset Local Password" : "Change Password"}
       </button>
     </form>
   );
