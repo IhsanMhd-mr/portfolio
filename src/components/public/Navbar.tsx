@@ -35,8 +35,10 @@ export default function Navbar({
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const isLoggedIn = status === "authenticated";
+  const role = (session?.user as { role?: string } | undefined)?.role;
+  const isAdmin = role === "ADMIN" || role === "SUPERADMIN";
 
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -139,19 +141,21 @@ export default function Navbar({
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 className="text-xs font-semibold px-4 py-2 bg-[var(--accent)] rounded-[var(--radius-sm)] text-[var(--bg)] transition-colors hover:bg-[var(--accent-hover)] flex items-center gap-1"
               >
-                Admin ▾
+                {isAdmin ? "Admin" : "Account"} ▾
               </button>
               {isDropdownOpen && (
                 <div
                   className="absolute right-0 mt-2 w-40 rounded-[var(--radius-sm)] border border-solid border-[var(--line)] bg-[var(--bg-raised)] py-1 shadow-lg z-[110]"
                 >
-                  <Link
-                    href="/admin/dashboard"
-                    onClick={() => setIsDropdownOpen(false)}
-                    className="block px-4 py-2 text-xs font-medium text-[var(--ink-soft)] hover:text-[var(--accent)] transition-all hover:bg-[var(--bg)]"
-                  >
-                    Dashboard
-                  </Link>
+                  {isAdmin && (
+                    <Link
+                      href="/admin/dashboard"
+                      onClick={() => setIsDropdownOpen(false)}
+                      className="block px-4 py-2 text-xs font-medium text-[var(--ink-soft)] hover:text-[var(--accent)] transition-all hover:bg-[var(--bg)]"
+                    >
+                      Dashboard
+                    </Link>
+                  )}
                   <Link
                     href="/"
                     onClick={() => setIsDropdownOpen(false)}
@@ -232,13 +236,15 @@ export default function Navbar({
             </a>
             {isLoggedIn ? (
               <>
-                <Link
-                  href="/admin/dashboard"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="w-full py-3 border border-solid border-[var(--line)] text-[var(--ink)] font-semibold rounded-[var(--radius-sm)] text-center"
-                >
-                  Dashboard
-                </Link>
+                {isAdmin && (
+                  <Link
+                    href="/admin/dashboard"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="w-full py-3 border border-solid border-[var(--line)] text-[var(--ink)] font-semibold rounded-[var(--radius-sm)] text-center"
+                  >
+                    Dashboard
+                  </Link>
+                )}
                 <button
                   onClick={() => {
                     setIsMobileMenuOpen(false);

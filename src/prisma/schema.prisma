@@ -124,33 +124,61 @@ enum GameMode {
   STATIC_FALLBACK
 }
 
+enum UserRole {
+  USER
+  ADMIN
+  SUPERADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum GoogleAuthIntentKind {
+  LOGIN
+  LINK
+}
+
+enum GoogleAuthIntentState {
+  STARTED
+  NEW_ACCOUNT
+  EXISTING_ACCOUNT
+}
+
 // ============================================================================
-//  USER  (the single canonical portfolio owner)
+//  USER  (one canonical application account per human)
 // ============================================================================
 
 model User {
-  id                   String    @id @default(cuid())
-  username             String    @unique
-  email                String    @unique
-  name                 String?
-  /// PBKDF2-SHA256 hash: "iterations:salt:hash" — null when no local password set
-  passwordHash         String?   @map("password_hash")
-  mustChangePassword   Boolean   @default(false) @map("must_change_password")
+  id                 String     @id @default(cuid())
+  username           String     @unique
+  email              String     @unique
+  /// Lower-cased, trimmed email used for every identity lookup and uniqueness check.
+  emailNormalized    String     @unique @map("email_normalized")
+  emailVerified      DateTime?  @map("email_verified")
+  name               String?
+  /// PBKDF2-SHA256 hash: "algorithm:iterations:salt:hash". Never plaintext.
+  passwordHash       String     @map("password_hash")
+  mustChangePassword Boolean    @default(false) @map("must_change_password")
   /// Password is permanent: this account is excluded from `initialize --reset`
   /// rotation. Honoured ONLY by the owner-management scripts (initialize.js,
   /// verify-initialization.js) — the application itself ignores this column.
-  passwordLocked       Boolean   @default(false) @map("password_locked")
-  avatarUrl            String?   @map("avatar_url")
-  lastLoginAt          DateTime? @map("last_login_at")
-  createdAt            DateTime  @default(now()) @map("created_at")
-  updatedAt            DateTime  @updatedAt @map("updated_at")
+  passwordLocked     Boolean    @default(false) @map("password_locked")
+  role               UserRole   @default(USER)
+  status             UserStatus @default(ACTIVE)
+  avatarUrl          String?    @map("avatar_url")
+  lastLoginAt        DateTime?  @map("last_login_at")
+  createdAt          DateTime   @default(now()) @map("created_at")
+  updatedAt          DateTime   @updatedAt @map("updated_at")
 
   // Relations
   accounts          Account[]
   trackedSessions   TrackedSession[]
   auditLogs         AuditLog[]
-  publishedVersions PageVersion[]    @relation("VersionPublisher")
-  uploadedMedia     MediaAsset[]     @relation("MediaUploader")
+  publishedVersions PageVersion[]       @relation("VersionPublisher")
+  uploadedMedia     MediaAsset[]        @relation("MediaUploader")
+  googleAuthIntents AccountLinkIntent[]
 
   @@map("users")
 }
@@ -214,19 +242,27 @@ model TrackedSession {
 }
 
 // ============================================================================
-//  ACCOUNT LINK INTENT  (short-lived token for linking a Google account)
-//  Created when authenticated owner clicks "Link Another Google Account".
-//  Validated in the OAuth callback before linking the Account row.
+//  GOOGLE AUTH INTENT (short-lived pending state; never a half-created User)
 // ============================================================================
 
 model AccountLinkIntent {
-  id          String    @id @default(cuid())
-  userId      String    @map("user_id")
-  /// SHA-256 hash of the one-time link token (never store the raw token)
-  tokenHash   String    @unique @map("token_hash")
-  expiresAt   DateTime  @map("expires_at")
-  completedAt DateTime? @map("completed_at")
-  createdAt   DateTime  @default(now()) @map("created_at")
+  id                String                @id @default(cuid())
+  /// Present only for an explicit link initiated by an authenticated account,
+  /// or after an existing email owner has been identified by the OAuth callback.
+  userId            String?               @map("user_id")
+  user              User?                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind              GoogleAuthIntentKind
+  state             GoogleAuthIntentState @default(STARTED)
+  /// SHA-256 hash of the one-time browser-cookie token (never store the raw token).
+  tokenHash         String                @unique @map("token_hash")
+  providerAccountId String?               @map("provider_account_id")
+  verifiedEmail     String?               @map("verified_email")
+  displayName       String?               @map("display_name")
+  callbackUrl       String?               @map("callback_url")
+  attemptCount      Int                   @default(0) @map("attempt_count")
+  expiresAt         DateTime              @map("expires_at")
+  completedAt       DateTime?             @map("completed_at")
+  createdAt         DateTime              @default(now()) @map("created_at")
 
   @@map("account_link_intents")
 }

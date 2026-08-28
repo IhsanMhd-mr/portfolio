@@ -26,18 +26,20 @@ export default edgeAuth((req) => {
   const isLogin = pathname === "/admin/login";
   const isOnAdmin = pathname.startsWith("/admin");
   const isLoggedIn = !!session?.user;
+  const role = (session?.user as { role?: string } | undefined)?.role;
+  const isAdmin = isLoggedIn && (role === "ADMIN" || role === "SUPERADMIN");
 
   if (isOnAdmin) {
     // Already logged in + on login page → go to dashboard
     if (isLogin) {
-      if (isLoggedIn) {
+      if (isAdmin) {
         return NextResponse.redirect(new URL("/admin/dashboard", req.url));
       }
       return NextResponse.next({ request: { headers: requestHeaders } });
     }
 
     // Not authenticated → redirect to login
-    if (!isLoggedIn) {
+    if (!isAdmin) {
       const url = new URL("/admin/login", req.url);
       url.searchParams.set("next", pathname);
       return NextResponse.redirect(url);

@@ -20,9 +20,8 @@ const { Pool } = require("pg");
 const { PrismaPg } = require("@prisma/adapter-pg");
 const { PrismaClient } = require("@prisma/client");
 
-const connectionString =
-  process.env.DATABASE_URL ||
-  "postgresql://postgres:postgres@localhost:5432/portfolio?schema=public";
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) throw new Error("DATABASE_URL is not configured");
 
 // 10s: a cold Neon compute can take 5-14s just to accept a connection.
 const pool = new Pool({ connectionString, max: 2, connectionTimeoutMillis: 10000 });

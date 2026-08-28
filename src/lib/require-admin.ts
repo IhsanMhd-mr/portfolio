@@ -14,6 +14,8 @@ export interface AdminContext {
    * `db.user.findUnique` for this one field.
    */
   email: string;
+  username: string;
+  role: "ADMIN" | "SUPERADMIN";
   sid: string;
   loginMethod: string;
   loginAccountId: string | null;
@@ -98,10 +100,18 @@ export const requireAdmin = cache(async function requireAdmin(
     throw new Error("unreachable");
   }
 
-  // Verify canonical owner still exists
+  // Resolve authorization from the canonical account, never from OAuth email.
   const owner = await db.user.findUnique({ where: { id: userId } });
   if (!owner) {
     await deny("owner-not-found");
+    throw new Error("unreachable");
+  }
+  if (owner.status !== "ACTIVE") {
+    await deny("account-disabled");
+    throw new Error("unreachable");
+  }
+  if (owner.role !== "ADMIN" && owner.role !== "SUPERADMIN") {
+    await deny("admin-required");
     throw new Error("unreachable");
   }
 
@@ -136,6 +146,8 @@ export const requireAdmin = cache(async function requireAdmin(
   return {
     userId: owner.id,
     email: owner.email,
+    username: owner.username,
+    role: owner.role,
     sid,
     loginMethod: tracked.loginMethod,
     loginAccountId: tracked.accountId,
@@ -166,7 +178,11 @@ export async function getValidatedOwner(): Promise<AdminContext | null> {
   if (!tracked || tracked.revokedAt || tracked.expiresAt < new Date()) return null;
 
   const owner = await db.user.findUnique({ where: { id: userId } });
-  if (!owner) return null;
+  if (
+    !owner ||
+    owner.status !== "ACTIVE" ||
+    (owner.role !== "ADMIN" && owner.role !== "SUPERADMIN")
+  ) return null;
 
   const mustChangePassword = requiresPasswordChange(
     owner.mustChangePassword,
@@ -176,6 +192,8 @@ export async function getValidatedOwner(): Promise<AdminContext | null> {
   return {
     userId: owner.id,
     email: owner.email,
+    username: owner.username,
+    role: owner.role,
     sid,
     loginMethod: tracked.loginMethod,
     loginAccountId: tracked.accountId,

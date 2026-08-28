@@ -19,9 +19,11 @@ if (process.env.DB_TARGET === "local") {
   process.env.DATABASE_URL = process.env.DATABASE_URL_LOCAL;
 }
 
-const connectionString =
-  process.env.DATABASE_URL ||
-  "postgresql://postgres:123@localhost:5432/portfolio?schema=public";
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  console.error("[dev-start] DATABASE_URL is not configured");
+  process.exit(1);
+}
 
 const isLocalDatabase = /localhost|127\.0\.0\.1/.test(connectionString);
 

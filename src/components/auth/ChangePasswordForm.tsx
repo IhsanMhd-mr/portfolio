@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function ChangePasswordForm({ googleRecovery = false }: { googleRecovery?: boolean }) {
+export default function ChangePasswordForm() {
   const router = useRouter();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -35,7 +35,7 @@ export default function ChangePasswordForm({ googleRecovery = false }: { googleR
       setError("New password and confirmation do not match.");
       return;
     }
-    if (!googleRecovery && newPassword === currentPassword) {
+    if (newPassword === currentPassword) {
       setError("New password must be different from the current password.");
       return;
     }
@@ -46,8 +46,9 @@ export default function ChangePasswordForm({ googleRecovery = false }: { googleR
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          currentPassword: googleRecovery ? undefined : currentPassword,
+          currentPassword,
           newPassword,
+          confirmPassword,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -89,11 +90,6 @@ export default function ChangePasswordForm({ googleRecovery = false }: { googleR
         </div>
       )}
 
-      {googleRecovery ? (
-        <p className="text-sm text-[var(--a-soft)]">
-          Your linked Google account verified this recovery. Set a new local password below.
-        </p>
-      ) : (
         <div className="flex flex-col gap-1.5">
           <label htmlFor="current-password" className="text-xs font-semibold text-[var(--a-soft)]">
             Current password
@@ -109,7 +105,6 @@ export default function ChangePasswordForm({ googleRecovery = false }: { googleR
             className={inputClass}
           />
         </div>
-      )}
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="new-password" className="text-xs font-semibold text-[var(--a-soft)]">
@@ -161,9 +156,7 @@ export default function ChangePasswordForm({ googleRecovery = false }: { googleR
         disabled={isLoading}
         className="w-full py-2.5 bg-[var(--a-primary)] hover:bg-[var(--a-primary-hover)] text-white font-semibold rounded-[var(--a-r-sm)] text-sm transition-colors disabled:opacity-50 border-none cursor-pointer"
       >
-        {isLoading
-          ? googleRecovery ? "Resetting password…" : "Changing password…"
-          : googleRecovery ? "Reset Local Password" : "Change Password"}
+        {isLoading ? "Changing password…" : "Change Password"}
       </button>
     </form>
   );

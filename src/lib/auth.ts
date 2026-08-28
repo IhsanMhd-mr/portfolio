@@ -7,9 +7,9 @@
  *  - The `sid` is embedded in the encrypted JWT.
  *  - requireAdmin() (lib/require-admin.ts) validates the sid against the DB
  *    on every protected request — enabling immediate session revocation.
- *  - Google sign-in only succeeds if the providerAccountId is already linked
- *    to the canonical owner (via Account table). Unknown Google accounts are
- *    rejected before a session is created.
+ *  - Google identities resolve through Auth.js Account rows linked to one User.
+ *    Unknown identities are redirected into explicit setup or ownership
+ *    confirmation before any User or Account is persisted.
  */
 
 import NextAuth, { CredentialsSignin } from "next-auth";
@@ -19,9 +19,10 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import crypto from "crypto";
 import db from "./database";
-import { verifyPassword } from "./password";
 import { recordAudit } from "./audit";
 import { requiresPasswordChange } from "./auth-policy";
+import { CredentialAuthService } from "@/services/credential-auth.service";
+import { GOOGLE_AUTH_INTENT_COOKIE, GoogleAuthService } from "@/services/google-auth.service";
 
 // ─── Typed credential errors (surfaced to the client as `res.code`) ──────────
 
@@ -30,45 +31,6 @@ class AccountLockedError extends CredentialsSignin {
 }
 class RateLimitedError extends CredentialsSignin {
   code = "rate_limited";
-}
-
-// ─── Rate-limiting helpers ────────────────────────────────────────────────────
-
-function sha256(text: string): string {
-  return crypto.createHash("sha256").update(text).digest("hex");
-}
-
-/**
- * Failure ceilings are counted separately per identifier and per IP.
- *
- * A single OR'd counter would mean one admin's failed attempts lock out every
- * other admin behind the same IP/NAT — harmless when there was only ever one
- * account, a real cross-user lockout once there are two. Splitting them keeps
- * the targeted-account limit tight while leaving enough headroom for several
- * people on one network; the IP ceiling still stops credential spraying across
- * many usernames from one source.
- */
-const MAX_FAILURES_PER_IDENTIFIER = 10;
-const MAX_FAILURES_PER_IP = 30;
-
-async function assertNotRateLimited(email: string, ip: string) {
-  const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
-  const [identifierFailures, ipFailures] = await Promise.all([
-    db.loginAttempt.count({
-      where: { emailHash: sha256(email), success: false, createdAt: { gte: fifteenMinutesAgo } },
-    }),
-    db.loginAttempt.count({
-      where: { ipHash: sha256(ip), success: false, createdAt: { gte: fifteenMinutesAgo } },
-    }),
-  ]);
-  if (identifierFailures >= MAX_FAILURES_PER_IDENTIFIER) throw new RateLimitedError();
-  if (ipFailures >= MAX_FAILURES_PER_IP) throw new RateLimitedError();
-}
-
-async function recordLoginAttempt(email: string, ip: string, success: boolean) {
-  await db.loginAttempt.create({
-    data: { emailHash: sha256(email), ipHash: sha256(ip), success },
-  });
 }
 
 // ─── IP extraction helper (only trust well-known proxy headers) ───────────────
@@ -116,9 +78,21 @@ async function getValidAdminUserIdFromRequest(request: Request | undefined): Pro
   if (!tracked || tracked.revokedAt || tracked.expiresAt < new Date()) return null;
 
   const owner = await db.user.findUnique({ where: { id: userId } });
-  if (!owner) return null;
+  if (!owner || owner.status !== "ACTIVE" || !["ADMIN", "SUPERADMIN"].includes(owner.role)) {
+    return null;
+  }
 
   return owner.id;
+}
+
+function requestCookie(request: Request | undefined, name: string): string | null {
+  const cookieHeader = request?.headers.get("cookie");
+  if (!cookieHeader) return null;
+  for (const part of cookieHeader.split(";")) {
+    const [key, ...value] = part.trim().split("=");
+    if (key === name) return decodeURIComponent(value.join("="));
+  }
+  return null;
 }
 
 // ─── Lazy NextAuth factory (captures the incoming Request for IP/UA) ──────────
@@ -158,54 +132,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth((request) => ({
         const password = credentials.password as string;
         const ip = getTrustedClientIp(request);
 
-        // Rate-limit check
-        await assertNotRateLimited(identifier, ip);
-
-        // Look up by email OR username
-        const user = await db.user.findFirst({
-          where: {
-            OR: [{ email: identifier }, { username: identifier }],
-          },
-        });
-
-        if (!user || !user.passwordHash) {
-          // Constant-time dummy check to prevent timing attacks
-          await verifyPassword(password, "pbkdf2sha256:600000:dummysalt:dummyhash");
-          await recordLoginAttempt(identifier, ip, false);
+        const result = await CredentialAuthService.authenticate(identifier, password, ip);
+        if (!result.ok) {
+          if (result.reason === "account-locked") throw new AccountLockedError();
+          if (result.reason === "rate-limited") throw new RateLimitedError();
           return null;
         }
+        const user = result.user;
 
         // Account lockout check
         // (lockedUntil field removed from User — now handled via LoginAttempt count)
         // 5 consecutive failures within 15 min = locked for 15 min
-        const recentFailures = await db.loginAttempt.count({
-          where: {
-            emailHash: sha256(identifier),
-            success: false,
-            createdAt: { gte: new Date(Date.now() - 15 * 60 * 1000) },
-          },
-        });
-        if (recentFailures >= 5) {
-          throw new AccountLockedError();
-        }
-
-        const isMatch = await verifyPassword(password, user.passwordHash);
-        if (!isMatch) {
-          await recordLoginAttempt(identifier, ip, false);
-          return null;
-        }
-
-        await recordLoginAttempt(identifier, ip, true);
-        await db.user.update({
-          where: { id: user.id },
-          data: { lastLoginAt: new Date() },
-        });
-
         // Return the user object — TrackedSession is created in jwt callback below
         return {
           id: user.id,
           email: user.email,
           name: user.name,
+          role: user.role,
           mustChangePassword: user.mustChangePassword,
         };
       },
@@ -214,26 +157,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth((request) => ({
 
   callbacks: {
     /**
-     * signIn callback — only controls whether the sign-in is allowed.
-     *
-     * For Google, two cases are legitimate:
-     *  1. The providerAccountId is already linked to the owner (an ordinary
-     *     "Continue with Google" login by a previously-linked account).
-     *  2. There's no link yet, but the browser completing this OAuth round trip
-     *     already carries a VALID admin session cookie — i.e. the owner is
-     *     currently logged in and clicked "Link Google Account". Auth.js's
-     *     PrismaAdapter (see handleLoginOrRegister in @auth/core) natively
-     *     auto-links a new OAuth account to the CURRENT session's user when one
-     *     is present — no custom token/state plumbing needed or possible (Auth.js
-     *     always overwrites any custom `state` query param with its own CSRF
-     *     value before redirecting to the provider, so passing a link token
-     *     through `state` cannot work).
-     *
-     * Anything else — an unlinked Google account with no current admin session —
-     * is an unknown account trying to self-register as owner. Reject it.
+     * Google is accepted only with a provider-verified email. Linked identities
+     * log in directly. Explicit ADMIN linking requires both a valid tracked
+     * session and a matching short-lived intent. Other unknown identities are
+     * staged and redirected before Auth.js can auto-create a User/Account.
      */
-    async signIn({ user, account }) {
+    async signIn({ user, account, profile }) {
       if (account?.provider === "google") {
+        const googleProfile = profile as
+          | { email?: string; email_verified?: boolean; name?: string }
+          | undefined;
+        if (!googleProfile?.email || googleProfile.email_verified !== true) {
+          await recordAudit({
+            action: "LOGIN_FAILED",
+            entityType: "User",
+            summary: "Rejected Google authentication without a verified email.",
+            context: {
+              ipAddress: getTrustedClientIp(request),
+              userAgent: request?.headers.get("user-agent") ?? null,
+            },
+          });
+          return false;
+        }
+
         const linked = await db.account.findUnique({
           where: {
             provider_providerAccountId: {
@@ -241,24 +187,40 @@ export const { handlers, auth, signIn, signOut } = NextAuth((request) => ({
               providerAccountId: account.providerAccountId,
             },
           },
+          include: { user: true },
         });
 
-        if (!linked) {
-          const currentAdminUserId = await getValidAdminUserIdFromRequest(request);
-          if (!currentAdminUserId) {
-            // Unknown Google account, no active admin session — reject silently, log the attempt
-            const ip = getTrustedClientIp(request);
-            await recordAudit({
-              action: "LOGIN_FAILED",
-              entityType: "User",
-              summary: `Rejected unknown Google account: ${user.email ?? "unknown"} (sub: ${account.providerAccountId})`,
-              context: { ipAddress: ip, userAgent: request?.headers.get("user-agent") ?? null },
-            });
-            return false;
-          }
-          // Valid admin session present — this is a genuine link attempt. Auth.js's
-          // adapter will auto-link this account to that same session's user.
+        if (linked) {
+          return linked.user.status === "ACTIVE" && linked.user.role !== "SUPERADMIN";
         }
+
+        const rawIntent = requestCookie(request, GOOGLE_AUTH_INTENT_COOKIE);
+        const intent = await GoogleAuthService.getActiveIntent(rawIntent);
+        if (!intent) return false;
+
+        if (intent.kind === "LINK") {
+          const currentAdminUserId = await getValidAdminUserIdFromRequest(request);
+          if (!currentAdminUserId || currentAdminUserId !== intent.userId) return false;
+          const currentUser = await db.user.findUnique({ where: { id: currentAdminUserId } });
+          if (currentUser?.role !== "ADMIN" || currentUser.status !== "ACTIVE") return false;
+          return !!(await GoogleAuthService.stageExplicitLink({
+            rawToken: rawIntent!,
+            userId: currentAdminUserId,
+            providerAccountId: account.providerAccountId,
+            verifiedEmail: googleProfile.email,
+          }));
+        }
+
+        const staged = await GoogleAuthService.stageLoginIdentity({
+          rawToken: rawIntent!,
+          providerAccountId: account.providerAccountId,
+          verifiedEmail: googleProfile.email,
+          displayName: googleProfile.name ?? user.name,
+        });
+        if (!staged) return false;
+        return staged.state === "EXISTING_ACCOUNT"
+          ? "/auth/google/link-account"
+          : "/auth/google/complete-account";
       }
       return true;
     },
@@ -289,6 +251,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth((request) => ({
             },
           });
           accountId = acc?.id ?? null;
+          if (acc) {
+            const rawIntent = requestCookie(request, GOOGLE_AUTH_INTENT_COOKIE);
+            const intent = await GoogleAuthService.getActiveIntent(rawIntent);
+            if (intent?.kind === "LINK") {
+              await GoogleAuthService.completeExplicitLink(rawIntent!, acc.id);
+            } else if (user.email && !acc.email) {
+              await db.account.update({ where: { id: acc.id }, data: { email: user.email } });
+            }
+          }
         }
 
         const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000);
@@ -324,6 +295,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth((request) => ({
         token.userId = user.id;
         token.loginMethod = loginMethod;
         token.loginAccountId = accountId;
+        token.role = (user as any).role;
         token.mustChangePassword = requiresPasswordChange(
           (user as any).mustChangePassword ?? false,
           loginMethod
@@ -342,6 +314,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth((request) => ({
         (session.user as any).sid = token.sid;
         (session.user as any).loginMethod = token.loginMethod;
         (session.user as any).loginAccountId = token.loginAccountId;
+        (session.user as any).role = token.role;
         (session.user as any).mustChangePassword = token.mustChangePassword;
       }
       return session;
@@ -359,6 +332,7 @@ export interface UserSession {
     loginMethod: string;
     loginAccountId: string | null;
     mustChangePassword: boolean;
+    role: string;
   };
 }
 
@@ -375,6 +349,7 @@ export async function getServerSession(): Promise<UserSession | null> {
       loginMethod: u.loginMethod ?? "LOCAL",
       loginAccountId: u.loginAccountId ?? null,
       mustChangePassword: u.mustChangePassword ?? false,
+      role: u.role ?? "USER",
     },
   };
 }
