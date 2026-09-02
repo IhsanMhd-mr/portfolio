@@ -27,6 +27,7 @@ beforeAll(async () => {
 beforeEach(() => {
   storageMocks.uploadMediaObject.mockReset();
   storageMocks.removeMediaObject.mockReset();
+  storageMocks.removeMediaObject.mockResolvedValue(undefined);
   storageMocks.mediaObjectPathFromPublicUrl.mockReset();
   storageMocks.mediaObjectPathFromPublicUrl.mockReturnValue(null);
 });
