@@ -139,6 +139,21 @@ describe("MediaService Supabase uploads", () => {
       "image/png"
     );
   });
+
+  it("does not create a database record when Storage returns no public URL", async () => {
+    storageMocks.uploadMediaObject.mockResolvedValue({
+      objectPath: "images/2026/missing-url.png",
+      publicUrl: "",
+    });
+    const before = await db.mediaAsset.count();
+    const file = new File([new Uint8Array([137, 80, 78, 71])], "missing-url.png", {
+      type: "image/png",
+    });
+
+    await expect(MediaService.uploadAsset(file, null, ctx)).rejects.toThrow(/public media URL/i);
+    expect(await db.mediaAsset.count()).toBe(before);
+    expect(storageMocks.removeMediaObject).toHaveBeenCalledWith("images/2026/missing-url.png");
+  });
 });
 
 describe("MediaService.listPage", () => {

@@ -185,8 +185,15 @@ export class MediaService {
     const stored = await uploadMediaObject(objectPath, buffer, mimeType);
     const kind = mimeType === "application/pdf" ? "DOCUMENT" : "IMAGE";
 
+    if (!stored.publicUrl?.trim()) {
+      await removeMediaObject(stored.objectPath).catch((cleanupError) => {
+        console.error("Failed to clean up Supabase object without a public URL:", cleanupError);
+      });
+      throw new Error("Supabase upload completed without returning a public media URL.");
+    }
+
     try {
-      return await db.$transaction(async (tx) => {
+      const asset = await db.$transaction(async (tx) => {
         const asset = await tx.mediaAsset.create({
           data: {
             url: stored.publicUrl,
@@ -211,6 +218,7 @@ export class MediaService {
 
         return asset;
       });
+      return asset;
     } catch (error) {
       await removeMediaObject(stored.objectPath).catch((cleanupError) => {
         console.error("Failed to clean up Supabase object after database error:", cleanupError);

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   ImageIcon, Trash2, File,
   Upload, Check, AlertTriangle, RefreshCw, Copy
@@ -27,7 +28,8 @@ interface MediaLibraryClientProps {
 }
 
 export default function MediaLibraryClient({ mediaAssets, total, page, totalPages }: MediaLibraryClientProps) {
-  const [assets] = useState<MediaAsset[]>(mediaAssets);
+  const router = useRouter();
+  const [assets, setAssets] = useState<MediaAsset[]>(mediaAssets);
   const [uploading, setUploading] = useState(false);
   const [replacingId, setReplacingId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -40,18 +42,19 @@ export default function MediaLibraryClient({ mediaAssets, total, page, totalPage
   const [editKind, setEditKind] = useState("IMAGE");
   const [savingId, setSavingId] = useState<string | null>(null);
 
-  const refreshPage = () => {
-    window.location.reload();
-  };
+  useEffect(() => setAssets(mediaAssets), [mediaAssets]);
+
+  const refreshPage = () => router.refresh();
 
   // Upload file handler
   const handleUpload = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    const form = e.currentTarget;
     setErrorMsg(null);
     setSuccessMsg(null);
     setUploading(true);
 
-    const formData = new FormData(e.currentTarget);
+    const formData = new FormData(form);
     const file = formData.get("file") as File;
 
     if (!file || file.size === 0) {
@@ -67,13 +70,18 @@ export default function MediaLibraryClient({ mediaAssets, total, page, totalPage
       });
 
       const result = await res.json();
-      if (!res.ok) {
+      if (!res.ok || result.success !== true) {
         throw new Error(result.error || "Failed to upload file.");
       }
 
+      if (!result.asset?.id || !result.asset?.url || !result.asset?.filename) {
+        throw new Error("Upload completed without a committed media record and image URL.");
+      }
+
+      // The API only returns success after Storage supplied the URL and the
+      // MediaAsset transaction committed. Reset before publishing UI success.
+      form.reset();
       setSuccessMsg(`File '${result.asset.filename}' uploaded successfully!`);
-      // Reset form
-      e.currentTarget.reset();
       refreshPage();
     } catch (err: any) {
       setErrorMsg(err.message || "An unexpected upload error occurred.");
