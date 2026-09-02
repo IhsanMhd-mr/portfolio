@@ -3,7 +3,7 @@
 import { useState } from "react";
 import {
   ImageIcon, Trash2, File,
-  Upload, Check, AlertTriangle, RefreshCw
+  Upload, Check, AlertTriangle, RefreshCw, Copy
 } from "lucide-react";
 import { deleteMediaAction, updateMediaMetadataAction } from "@/app/admin/media/actions";
 import Pagination from "@/components/admin/Pagination";
@@ -127,6 +127,16 @@ export default function MediaLibraryClient({ mediaAssets, total, page, totalPage
     }
   };
 
+  const handleCopyLink = async (url: string) => {
+    setErrorMsg(null);
+    try {
+      await navigator.clipboard.writeText(url);
+      setSuccessMsg("Media link copied to clipboard.");
+    } catch {
+      setErrorMsg("Unable to copy the media link. Open the image and copy its URL instead.");
+    }
+  };
+
   // Metadata update handler
   const handleSaveMetadata = async (id: string) => {
     setErrorMsg(null);
@@ -213,6 +223,15 @@ export default function MediaLibraryClient({ mediaAssets, total, page, totalPage
 
                     {/* Operations Hover Cover */}
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-2.5 transition-opacity">
+                      {/* Copy stored public URL */}
+                      <button
+                        onClick={() => handleCopyLink(asset.url)}
+                        className="p-2 bg-slate-700 hover:bg-slate-600 text-white rounded-full cursor-pointer border-none"
+                        title="Copy public media link"
+                      >
+                        <Copy size={14} />
+                      </button>
+
                       {/* Delete */}
                       <button
                         onClick={() => handleDelete(asset.id)}

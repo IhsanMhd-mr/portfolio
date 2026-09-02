@@ -1,9 +1,16 @@
 import db from "@/lib/database";
 import { recordAudit, type ServiceAuditContext } from "@/lib/audit";
+import {
+  mediaObjectPathFromPublicUrl,
+  removeMediaObject,
+  SUPABASE_MEDIA_MAX_BYTES,
+  uploadMediaObject,
+} from "@/lib/supabase-storage";
+import { randomUUID } from "node:crypto";
 import fs from "fs";
 import path from "path";
 
-const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+const MAX_FILE_SIZE_BYTES = SUPABASE_MEDIA_MAX_BYTES;
 const UPLOADS_DIR = path.join(process.cwd(), "public", "uploads");
 
 const ALLOWED_MIME_TYPES = new Map([
@@ -28,9 +35,6 @@ const MEDIA_KINDS = ["IMAGE", "DOCUMENT", "LOGO"] as const;
 type MediaKindValue = (typeof MEDIA_KINDS)[number];
 
 export class MediaService {
-  /**
-   * Save upload file to local disk and record in DB
-   */
   /**
    * One page for the media picker: searchable, and selecting only the columns
    * the picker renders rather than whole asset rows.
@@ -158,18 +162,14 @@ export class MediaService {
       throw new Error(`File extension '.${origExt}' does not match MIME type '${mimeType}'.`);
     }
 
-    // Ensure uploads directory exists
-    if (!fs.existsSync(UPLOADS_DIR)) {
-      fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-    }
-
-    // Generate unique name
+    // Generate a unique object name. A fresh path also prevents CDN-stale
+    // content when an asset is later replaced.
     const timestamp = Date.now();
     const cleanBasename = path.basename(file.name, `.${origExt}`)
       .toLowerCase()
-      .replace(/[^a-z0-9_-]/g, "");
+      .replace(/[^a-z0-9_-]/g, "") || "asset";
     const filename = `${cleanBasename}-${timestamp}.${origExt}`;
-    const filePath = path.join(UPLOADS_DIR, filename);
+    const objectPath = `images/${new Date().getUTCFullYear()}/${randomUUID()}-${filename}`;
 
     // Read buffer
     const arrayBuffer = await file.arrayBuffer();
@@ -182,37 +182,41 @@ export class MediaService {
       buffer = Buffer.from(cleanSvg, "utf8");
     }
 
-    // Save to disk
-    fs.writeFileSync(filePath, buffer);
-
-    const publicUrl = `/uploads/${filename}`;
+    const stored = await uploadMediaObject(objectPath, buffer, mimeType);
     const kind = mimeType === "application/pdf" ? "DOCUMENT" : "IMAGE";
 
-    return await db.$transaction(async (tx) => {
-      const asset = await tx.mediaAsset.create({
-        data: {
-          url: publicUrl,
-          filename,
-          kind,
-          altText: altText || null,
-          mimeType,
-          sizeBytes: buffer.length,
-          uploadedById: auditContext.actorId,
-        },
-      });
+    try {
+      return await db.$transaction(async (tx) => {
+        const asset = await tx.mediaAsset.create({
+          data: {
+            url: stored.publicUrl,
+            filename,
+            kind,
+            altText: altText?.trim() || null,
+            mimeType,
+            sizeBytes: buffer.length,
+            uploadedById: auditContext.actorId,
+          },
+        });
 
-      await recordAudit({
-        action: "MEDIA_UPLOADED",
-        entityType: "MediaAsset",
-        entityId: asset.id,
-        summary: `Uploaded file: ${filename}`,
-        after: { asset },
-        context: auditContext,
-        tx,
-      });
+        await recordAudit({
+          action: "MEDIA_UPLOADED",
+          entityType: "MediaAsset",
+          entityId: asset.id,
+          summary: `Uploaded file: ${filename}`,
+          after: { asset },
+          context: auditContext,
+          tx,
+        });
 
-      return asset;
-    });
+        return asset;
+      });
+    } catch (error) {
+      await removeMediaObject(stored.objectPath).catch((cleanupError) => {
+        console.error("Failed to clean up Supabase object after database error:", cleanupError);
+      });
+      throw error;
+    }
   }
 
   /**
@@ -329,22 +333,12 @@ export class MediaService {
       throw new Error(`Deletion blocked. Media asset '${asset.filename}' is actively used in:\n- ${usages.join("\n- ")}`);
     }
 
-    return await db.$transaction(async (tx) => {
+    const updated = await db.$transaction(async (tx) => {
       // Soft delete database record
       const updated = await tx.mediaAsset.update({
         where: { id },
         data: { deletedAt: new Date() },
       });
-
-      // Attempt to delete physical file
-      const filePath = path.join(process.cwd(), "public", asset.url);
-      if (fs.existsSync(filePath)) {
-        try {
-          fs.unlinkSync(filePath);
-        } catch (e) {
-          console.error("Failed to delete physical file:", e);
-        }
-      }
 
       await recordAudit({
         action: "MEDIA_DELETED",
@@ -357,6 +351,14 @@ export class MediaService {
 
       return updated;
     });
+
+    await this.deleteStoredFile(asset.url).catch((error) => {
+      // The database record remains soft-deleted and auditable. A failed
+      // external cleanup leaves an orphaned object, not a live broken record.
+      console.error("Failed to delete stored media object:", error);
+    });
+
+    return updated;
   }
 
   /**
@@ -387,7 +389,6 @@ export class MediaService {
       throw new Error(`Replacement type '${mimeType}' is not supported.`);
     }
 
-    const filePath = path.join(process.cwd(), "public", asset.url);
     const arrayBuffer = await file.arrayBuffer();
     let buffer = Buffer.from(arrayBuffer);
 
@@ -398,29 +399,65 @@ export class MediaService {
       buffer = Buffer.from(cleanSvg, "utf8");
     }
 
-    // Write file back to disk, replacing content
-    fs.writeFileSync(filePath, buffer);
+    const origExt = path.extname(file.name).toLowerCase().replace(".", "");
+    if (!allowedExtensions.includes(origExt) && !(origExt === "jpg" && allowedExtensions.includes("jpeg"))) {
+      throw new Error(`File extension '.${origExt}' does not match MIME type '${mimeType}'.`);
+    }
 
-    return await db.$transaction(async (tx) => {
-      const updated = await tx.mediaAsset.update({
-        where: { id },
-        data: {
-          sizeBytes: buffer.length,
-          mimeType,
-        },
+    const safeLabel = path.basename(file.name, `.${origExt}`)
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]/g, "") || "asset";
+    const objectPath = `images/${new Date().getUTCFullYear()}/${randomUUID()}-${safeLabel}.${origExt}`;
+    const stored = await uploadMediaObject(objectPath, buffer, mimeType);
+
+    try {
+      const updated = await db.$transaction(async (tx) => {
+        const updated = await tx.mediaAsset.update({
+          where: { id },
+          data: {
+            url: stored.publicUrl,
+            sizeBytes: buffer.length,
+            mimeType,
+          },
+        });
+
+        await recordAudit({
+          action: "MEDIA_REPLACED",
+          entityType: "MediaAsset",
+          entityId: id,
+          summary: `Replaced physical content for file: ${asset.filename}`,
+          after: { asset: updated },
+          context: auditContext,
+          tx,
+        });
+
+        return updated;
       });
 
-      await recordAudit({
-        action: "MEDIA_REPLACED",
-        entityType: "MediaAsset",
-        entityId: id,
-        summary: `Replaced physical content for file: ${asset.filename}`,
-        after: { asset: updated },
-        context: auditContext,
-        tx,
+      await this.deleteStoredFile(asset.url).catch((error) => {
+        console.error("Failed to clean up replaced media object:", error);
       });
-
       return updated;
-    });
+    } catch (error) {
+      await removeMediaObject(stored.objectPath).catch((cleanupError) => {
+        console.error("Failed to clean up replacement object after database error:", cleanupError);
+      });
+      throw error;
+    }
+  }
+
+  private static async deleteStoredFile(url: string) {
+    const objectPath = mediaObjectPathFromPublicUrl(url);
+    if (objectPath) {
+      await removeMediaObject(objectPath);
+      return;
+    }
+
+    if (!url.startsWith("/uploads/")) return;
+    const filename = path.basename(url);
+    const filePath = path.resolve(UPLOADS_DIR, filename);
+    const uploadsRoot = path.resolve(UPLOADS_DIR) + path.sep;
+    if (!filePath.startsWith(uploadsRoot)) return;
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
   }
 }
