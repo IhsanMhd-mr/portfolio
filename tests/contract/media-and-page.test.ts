@@ -1,4 +1,16 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
+
+const storageMocks = vi.hoisted(() => ({
+  uploadMediaObject: vi.fn(),
+  removeMediaObject: vi.fn(),
+  mediaObjectPathFromPublicUrl: vi.fn(() => null),
+}));
+
+vi.mock("@/lib/supabase-storage", () => ({
+  SUPABASE_MEDIA_MAX_BYTES: 5 * 1024 * 1024,
+  ...storageMocks,
+}));
+
 import db from "@/lib/database";
 import { MediaService } from "@/services/media.service";
 import { PageService, HOME_PAGE_KEY } from "@/services/page.service";
@@ -10,6 +22,14 @@ const CREATED: string[] = [];
 beforeAll(async () => {
   const owner = await db.user.findUniqueOrThrow({ where: { username: FIXTURE.ownerUsername } });
   ctx = { actorId: owner.id, loginMethod: "test", loginAccountId: null };
+});
+
+beforeEach(() => {
+  storageMocks.uploadMediaObject.mockReset();
+  storageMocks.removeMediaObject.mockReset();
+  storageMocks.removeMediaObject.mockResolvedValue(undefined);
+  storageMocks.mediaObjectPathFromPublicUrl.mockReset();
+  storageMocks.mediaObjectPathFromPublicUrl.mockReturnValue(null);
 });
 
 afterAll(async () => {
@@ -93,6 +113,47 @@ describe("MediaService.updateMetadata", () => {
     const before = await db.auditLog.count();
     await MediaService.updateMetadata(asset.id, { filename: "renamed.png" }, ctx);
     expect(await db.auditLog.count()).toBeGreaterThan(before);
+  });
+});
+
+describe("MediaService Supabase uploads", () => {
+  it("stores the returned public URL for use by every related media field", async () => {
+    const publicUrl =
+      "https://project.supabase.co/storage/v1/object/public/portfolio-media/images/2026/test.png";
+    storageMocks.uploadMediaObject.mockResolvedValue({
+      objectPath: "images/2026/test.png",
+      publicUrl,
+    });
+
+    const file = new File([new Uint8Array([137, 80, 78, 71])], "Profile Image.png", {
+      type: "image/png",
+    });
+    const asset = await MediaService.uploadAsset(file, "Profile portrait", ctx);
+    CREATED.push(asset.id);
+
+    expect(asset.url).toBe(publicUrl);
+    expect(asset.altText).toBe("Profile portrait");
+    expect(asset.mimeType).toBe("image/png");
+    expect(storageMocks.uploadMediaObject).toHaveBeenCalledWith(
+      expect.stringMatching(/^images\/\d{4}\/[0-9a-f-]+-profileimage-\d+\.png$/),
+      expect.any(Buffer),
+      "image/png"
+    );
+  });
+
+  it("does not create a database record when Storage returns no public URL", async () => {
+    storageMocks.uploadMediaObject.mockResolvedValue({
+      objectPath: "images/2026/missing-url.png",
+      publicUrl: "",
+    });
+    const before = await db.mediaAsset.count();
+    const file = new File([new Uint8Array([137, 80, 78, 71])], "missing-url.png", {
+      type: "image/png",
+    });
+
+    await expect(MediaService.uploadAsset(file, null, ctx)).rejects.toThrow(/public media URL/i);
+    expect(await db.mediaAsset.count()).toBe(before);
+    expect(storageMocks.removeMediaObject).toHaveBeenCalledWith("images/2026/missing-url.png");
   });
 });
 

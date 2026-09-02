@@ -1,4 +1,5 @@
 import db from "@/lib/database";
+import { isSupabaseStorageConfigured } from "@/lib/supabase-storage";
 import { computePublishDiff } from "./publish-diff.service";
 
 export interface DashboardOverviewData {
@@ -274,7 +275,7 @@ export class DashboardService {
       })),
       systemStatus: {
         database: isDbConnected ? "Connected" : "Disconnected",
-        mediaStorage: "Connected", // Default status indicator
+        mediaStorage: isSupabaseStorageConfigured() ? "Connected" : "Disconnected",
         authentication: "Operational",
         googleLogin: isGoogleConfigured ? "Configured" : "Configuration required",
         contactForm: "Operational",
